@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Cloud, TreePine, Gamepad2, ArrowLeft, Droplet, Download, Compass } from "lucide-react";
+import { Cloud, TreePine, Gamepad2, ArrowLeft, Droplet, Download, Compass, Map } from "lucide-react";
 import Backpack from "../components/Backpack";
+import JourneyMap from "../components/JourneyMap";
 import { useParams } from "react-router-dom";
 import { worldsData } from "../data/worlds";
 import { journeyPhases, homeworkPlans } from "../data/journey";
@@ -20,6 +21,7 @@ export default function TraineeJourney() {
   const [injectedResource, setInjectedResource] = useState<string | null>(null);
   const [activeResourceCard, setActiveResourceCard] = useState<string | null>(null);
   const [resourcePowerUsed, setResourcePowerUsed] = useState(false);
+  const [showMap, setShowMap] = useState(false);
   const injectedResourceRef = useRef<string | null>(null);
   injectedResourceRef.current = injectedResource;
 
@@ -255,7 +257,7 @@ export default function TraineeJourney() {
               <div key={arc.id} className="relative h-[500px] [perspective:1000px]">
                 <motion.div
                   className="w-full h-full relative preserve-3d cursor-pointer"
-                  onClick={() => !isFlipped && setActiveCard(arc.id)}
+                  onClick={() => { if (!isFlipped) { setActiveCard(arc.id); setCurrentPhase(2); } }}
                   animate={{ rotateY: isFlipped ? 180 : 0 }}
                   transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
                   style={{ transformStyle: "preserve-3d" }}
@@ -351,10 +353,19 @@ export default function TraineeJourney() {
       <div className="min-h-screen bg-[#0d0f14] text-white flex flex-col items-center p-6 relative overflow-hidden" dir="rtl">
         <header className="w-full max-w-4xl flex justify-between items-center mt-6 mb-12">
           <span className="text-amber-500 font-bold tracking-widest text-xs uppercase flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-500"></span> שלב {currentPhase} מתוך {journeyPhases.length}
+            <span className="w-2 h-2 rounded-full bg-amber-500"></span> שלב {currentPhase - 2} מתוך {journeyPhases.length}
           </span>
-          <span className="text-neutral-500 text-sm">חקירה עם {chosenArchetype?.name}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-neutral-500 text-sm">חקירה עם {chosenArchetype?.name}</span>
+            <button
+              onClick={() => setShowMap(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-amber-500/10 border border-white/10 hover:border-amber-500/30 rounded-full text-neutral-400 hover:text-amber-500 transition text-xs font-bold"
+            >
+              <Map className="w-3.5 h-3.5" /> מפת המסע
+            </button>
+          </div>
         </header>
+        {showMap && <JourneyMap currentPhase={currentPhase - 2} onClose={() => setShowMap(false)} />}
 
         <main className="flex-1 w-full max-w-3xl flex flex-col items-center">
           <AnimatePresence mode="wait">

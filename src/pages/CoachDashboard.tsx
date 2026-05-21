@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import type { User } from "firebase/auth";
 import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
-import { Plus, User as UserIcon, Calendar, ArrowRight, LogOut, Compass, FolderOpen } from "lucide-react";
+import { Plus, User as UserIcon, Calendar, ArrowRight, LogOut, Compass, FolderOpen, ChevronDown, ChevronUp, CheckCircle2, Clock } from "lucide-react";
 import CoachLiveSession from "./CoachLiveSession";
 
 export default function CoachDashboard({ user }: { user: User }) {
@@ -16,6 +16,7 @@ export default function CoachDashboard({ user }: { user: User }) {
   const [loadingSessions, setLoadingSessions] = useState(false);
   
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
   // Fetch Trainees
   useEffect(() => {
@@ -213,30 +214,73 @@ export default function CoachDashboard({ user }: { user: User }) {
                     <p className="text-neutral-400 mb-4">עדיין לא התחלתם אף מסע יחד.</p>
                   </div>
                 ) : (
-                  traineeSessions.map(session => (
-                    <div key={session.id} className="bg-black/40 border border-white/5 p-5 rounded-xl flex items-center justify-between group hover:border-white/10 transition">
-                      <div>
-                        <div className="flex items-center gap-3 mb-1">
-                          <span className="text-amber-500 font-bold text-lg">
-                            {session.createdAt ? new Date(session.createdAt.toMillis()).toLocaleDateString('he-IL') : 'תאריך חסר'}
-                          </span>
-                          <span className="bg-white/10 px-2 py-0.5 rounded text-xs text-neutral-400">
-                            שלב {session.phase}
-                          </span>
+                  traineeSessions.map(session => {
+                    const isCompleted = session.status === "completed";
+                    const isExpanded = expandedSession === session.id;
+                    const agreement = session.answers?.['step_10_integration'];
+                    const envLabels: Record<string, string> = { clouds: 'ממלכת העננים', forest: 'היער הפנימי', arcade: 'עיר הניאון' };
+
+                    return (
+                      <div key={session.id} className={`border rounded-xl transition-all ${isCompleted ? 'bg-black/40 border-amber-500/20' : 'bg-black/40 border-white/5 hover:border-white/10'}`}>
+                        <div className="p-5 flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="text-amber-500 font-bold">
+                                {session.createdAt ? new Date(session.createdAt.toMillis()).toLocaleDateString('he-IL') : 'תאריך חסר'}
+                              </span>
+                              {isCompleted ? (
+                                <span className="flex items-center gap-1 bg-green-500/10 text-green-400 border border-green-500/20 px-2 py-0.5 rounded-full text-xs font-bold">
+                                  <CheckCircle2 className="w-3 h-3" /> הושלם
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full text-xs font-bold">
+                                  <Clock className="w-3 h-3" /> שלב {session.phase}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-neutral-400 text-sm truncate">
+                              {session.environment ? envLabels[session.environment] || session.environment : 'טרם נבחר עולם'}
+                              {session.archetype && ` · ${session.archetype}`}
+                              {session.trigger && ` · "${session.trigger}"`}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 mr-4">
+                            {(agreement || session.trigger) && (
+                              <button
+                                onClick={() => setExpandedSession(isExpanded ? null : session.id)}
+                                className="p-2 hover:bg-white/5 rounded-lg transition text-neutral-500 hover:text-white"
+                              >
+                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => resumeSession(session.id)}
+                              className="px-4 py-2 bg-white/5 hover:bg-amber-500 hover:text-black rounded-lg transition font-bold text-sm"
+                            >
+                              {isCompleted ? 'צפה בסיכום' : 'המשך מסע'}
+                            </button>
+                          </div>
                         </div>
-                        <p className="text-neutral-400 text-sm">
-                          {session.environment ? `עולם: ${session.environment}` : 'טרם נבחר עולם'} 
-                          {session.archetype && ` | דמות: ${session.archetype}`}
-                        </p>
+
+                        {isExpanded && (
+                          <div className="px-5 pb-5 border-t border-white/5 pt-4 space-y-3">
+                            {session.trigger && (
+                              <div>
+                                <p className="text-xs text-neutral-500 uppercase tracking-widest mb-1">טריגר</p>
+                                <p className="text-neutral-200 text-sm">"{session.trigger}"</p>
+                              </div>
+                            )}
+                            {agreement && (
+                              <div>
+                                <p className="text-xs text-amber-500 uppercase tracking-widest mb-1">ההסכם החדש</p>
+                                <p className="text-white font-bold text-sm">"{agreement}"</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <button 
-                        onClick={() => resumeSession(session.id)}
-                        className="px-5 py-2 bg-white/5 hover:bg-amber-500 hover:text-black rounded-lg transition font-bold"
-                      >
-                        המשך מסע
-                      </button>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </>
