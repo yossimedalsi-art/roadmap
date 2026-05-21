@@ -1,15 +1,32 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Copy, Plus, LayoutDashboard, Compass, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle } from "lucide-react";
+import { Copy, Plus, LayoutDashboard, Compass, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap } from "lucide-react";
 import { worldsData } from "../data/worlds";
 import { journeyPhases, homeworkPlans } from "../data/journey";
 import { db } from "../lib/firebase";
-import { doc, updateDoc, onSnapshot } from "firebase/firestore";
+import { doc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
 export default function CoachLiveSession({ sessionId, onBack }: { sessionId: string, onBack: () => void }) {
   const [sessionState, setSessionState] = useState<any>(null);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
   const magicLink = `${window.location.origin}/journey/${sessionId}`;
+
+  const showResourceAlert =
+    (sessionState?.phase ?? 0) >= 6 && !sessionState?.resourceArchetype;
+
+  const handleEndJourney = async () => {
+    try {
+      await updateDoc(doc(db, "live_sessions", sessionId), {
+        status: "completed",
+        completedAt: serverTimestamp()
+      });
+    } catch (e) {
+      console.error("Error ending journey", e);
+    }
+    setShowEndConfirm(false);
+    onBack();
+  };
   
 
   useEffect(() => {
@@ -39,12 +56,18 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
         <div className="font-bold text-lg flex items-center gap-2 text-amber-500 tracking-wider">
           <Compass className="w-5 h-5" /> HEART COMPASS <span className="text-neutral-500 font-normal text-sm ml-2">| ממשק מאמן</span>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           {sessionState?.phase >= 10 && (
             <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold rounded-lg text-sm hover:bg-amber-500 hover:text-black transition">
               <FileText className="w-4 h-4" /> ייצא סיכום PDF
             </button>
           )}
+          <button
+            onClick={() => setShowEndConfirm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/30 font-bold rounded-lg text-sm hover:bg-red-500 hover:text-white transition"
+          >
+            <XCircle className="w-4 h-4" /> סיים מסע
+          </button>
         </div>
       </header>
 
@@ -239,9 +262,21 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                         </h4>
                         <p className="text-neutral-300 text-base mb-6">שאל איפה בגוף הוא מרגיש את התשובה הזו. חזק את ההכרה.</p>
                         
-                        <button 
+                        {showResourceAlert && (
+                          <div className="mb-3 flex items-center gap-3 bg-amber-500/15 border border-amber-500/50 rounded-xl px-4 py-3 animate-pulse">
+                            <Zap className="w-5 h-5 text-amber-400 shrink-0" />
+                            <p className="text-amber-300 font-bold text-sm">
+                              עכשיו הזמן! המתאמן הגיע לשלב שבו כוח חיצוני יכול לעשות את ההבדל. שלח קלף משאב.
+                            </p>
+                          </div>
+                        )}
+                        <button
                           onClick={() => setIsResourceModalOpen(true)}
-                          className="w-full flex items-center justify-center gap-2 py-3 bg-amber-500/10 text-amber-500 border border-amber-500/30 rounded-xl hover:bg-amber-500 hover:text-black font-bold transition"
+                          className={`w-full flex items-center justify-center gap-2 py-3 border rounded-xl font-bold transition ${
+                            showResourceAlert
+                              ? "bg-amber-500 text-black border-amber-500 hover:bg-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.4)]"
+                              : "bg-amber-500/10 text-amber-500 border-amber-500/30 hover:bg-amber-500 hover:text-black"
+                          }`}
                         >
                           <Plus className="w-4 h-4" /> פתח חפיסת משאבים ושלח למתאמן
                         </button>
@@ -316,6 +351,33 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
         </section>
 
       </main>
+
+      {/* End Journey Confirmation */}
+      {showEndConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="bg-[#11131a] border border-red-500/30 rounded-3xl p-8 max-w-md w-full text-center shadow-[0_0_60px_rgba(239,68,68,0.15)]">
+            <XCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-black text-white mb-3">לסיים את המסע?</h2>
+            <p className="text-neutral-400 mb-8 leading-relaxed">
+              המסע יסומן כ"הושלם" וכבר לא ניתן יהיה להמשיך אותו. המתאמן יועבר למסך סיכום המסע.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowEndConfirm(false)}
+                className="flex-1 py-3 bg-white/5 border border-white/10 text-neutral-300 font-bold rounded-xl hover:bg-white/10 transition"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={handleEndJourney}
+                className="flex-1 py-3 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition shadow-[0_0_20px_rgba(239,68,68,0.3)]"
+              >
+                כן, סיים מסע
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Resource Selection Modal */}
       {isResourceModalOpen && (
