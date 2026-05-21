@@ -15,7 +15,7 @@ export default function Backpack({ resourceArchetype, onUseResource }: BackpackP
       {/* Floating Backpack Button */}
       <button 
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 left-6 z-40 bg-[#11131a] border border-white/10 shadow-2xl p-4 rounded-full text-white hover:bg-[#1a1d27] transition hover:scale-110 group"
+        className="fixed bottom-6 left-6 z-[60] bg-[#11131a] border border-white/10 shadow-2xl p-4 rounded-full text-white hover:bg-[#1a1d27] transition hover:scale-110 group"
       >
         <BackpackIcon className="w-6 h-6 text-amber-500 group-hover:rotate-12 transition" />
         {resourceArchetype && (
@@ -32,7 +32,7 @@ export default function Backpack({ resourceArchetype, onUseResource }: BackpackP
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm"
             />
             
             <motion.div 
@@ -40,7 +40,7 @@ export default function Backpack({ resourceArchetype, onUseResource }: BackpackP
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 bottom-0 w-80 bg-[#11131a] border-r border-white/10 shadow-2xl z-50 p-6 flex flex-col"
+              className="fixed top-0 left-0 bottom-0 w-80 bg-[#11131a] border-r border-white/10 shadow-2xl z-[60] p-6 flex flex-col"
               dir="rtl"
             >
               <div className="flex justify-between items-center mb-8">
