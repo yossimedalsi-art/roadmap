@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --font-family-display: "Heebo", "Inter", sans-serif;
+}
+
+body {
+  background-color: #0a0a0a;
+  color: #ffffff;
+  font-family: var(--font-family-display);
+}
