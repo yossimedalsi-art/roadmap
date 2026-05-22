@@ -14,7 +14,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
   const magicLink = `${window.location.origin}/journey/${sessionId}`;
 
   const showResourceAlert =
-    (sessionState?.phase ?? 0) >= 6 && !sessionState?.resourceArchetype;
+    (sessionState?.phase ?? 0) >= 7 && !sessionState?.resourceArchetype;
 
   const handleEndJourney = async () => {
     try {
@@ -181,7 +181,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       {currentStep.traineeTitle.replace(/\[ארכיטיפ\]/g, `"${chosenArchetype?.name || ''}"`).replace(/\[משאב\]/g, `"${sessionState?.resourceArchetype ? worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype)?.name : 'הכוח החדש'}"`)}
                     </h3>
                     <div className="flex items-center gap-2 text-xs font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full">
-                      <span className="w-2 h-2 rounded-full bg-blue-500"></span> שלב {currentStep.order}
+                      <span className="w-2 h-2 rounded-full bg-blue-500"></span> שלב {(sessionState?.phase ?? 0) - 2} מתוך 10
                     </div>
                   </div>
 
