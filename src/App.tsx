@@ -7,6 +7,7 @@ import TraineeJourney from "./pages/TraineeJourney";
 import CoachDashboard from "./pages/CoachDashboard";
 import Home from "./pages/Home";
 import AuthPage from "./pages/AuthPage";
+import ToSGate from "./components/ToS";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -29,22 +30,24 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/journey/:sessionId" element={<TraineeJourney />} />
-        
-        {/* Protected Coach Route */}
-        <Route 
-          path="/coach" 
-          element={user ? <CoachDashboard user={user} /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/login" 
-          element={user ? <Navigate to="/coach" /> : <AuthPage onLogin={setUser} />} 
-        />
-      </Routes>
-    </BrowserRouter>
+    <ToSGate>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/journey/:sessionId" element={<TraineeJourney />} />
+
+          {/* Protected Coach Route */}
+          <Route
+            path="/coach"
+            element={user ? <CoachDashboard user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/login"
+            element={user ? <Navigate to="/coach" /> : <AuthPage onLogin={setUser} />}
+          />
+        </Routes>
+      </BrowserRouter>
+    </ToSGate>
   );
 }
 
