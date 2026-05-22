@@ -87,13 +87,19 @@ export default function CoachDashboard({ user }: { user: User }) {
 
   const startNewSession = async () => {
     if (!selectedTrainee) return;
+    const completedSessions = traineeSessions.filter(s => s.status === "completed");
+    const lastSession = completedSessions[0]; // sorted newest first
     const randomId = Math.random().toString(36).substring(2, 8);
     try {
       await setDoc(doc(db, "live_sessions", randomId), {
         coachId: user.uid,
         traineeId: selectedTrainee.id,
         phase: 0,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        sessionNumber: traineeSessions.length + 1,
+        previousAgreement: lastSession?.answers?.['step_10_integration'] || null,
+        previousArchetype: lastSession?.archetype || null,
+        previousEnvironment: lastSession?.environment || null,
       });
       setActiveSessionId(randomId);
     } catch(e) {
@@ -202,6 +208,24 @@ export default function CoachDashboard({ user }: { user: User }) {
                   <Plus className="w-5 h-5" /> פתח מסע חדש
                 </button>
               </div>
+
+              {/* Last session quick summary — shown only when ≥1 completed session */}
+              {traineeSessions.find(s => s.status === "completed") && (() => {
+                const last = traineeSessions.find(s => s.status === "completed")!;
+                const agreement = last.answers?.['step_10_integration'];
+                const envLabels: Record<string, string> = { clouds: 'ממלכת העננים', forest: 'היער הפנימי', arcade: 'עיר הניאון' };
+                return (
+                  <div className="mb-5 p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl text-right">
+                    <p className="text-amber-500 text-xs font-bold tracking-widest uppercase mb-2">סיכום מסע אחרון</p>
+                    <p className="text-neutral-400 text-xs mb-1">
+                      {last.createdAt ? new Date(last.createdAt.toMillis()).toLocaleDateString('he-IL') : ''} · {envLabels[last.environment] || last.environment}
+                    </p>
+                    {agreement && (
+                      <p className="text-white text-sm font-bold">"{agreement}"</p>
+                    )}
+                  </div>
+                );
+              })()}
 
               <h3 className="font-bold text-neutral-300 mb-4 flex items-center gap-2">
                 <Calendar className="w-4 h-4" /> היסטוריית מסעות

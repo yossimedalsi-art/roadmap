@@ -75,6 +75,8 @@ export default function TraineeJourney() {
   const [activeResourceCard, setActiveResourceCard] = useState<string | null>(null);
   const [resourcePowerUsed, setResourcePowerUsed] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const [previousAgreement, setPreviousAgreement] = useState<string | null>(null);
+  const [sessionNumber, setSessionNumber] = useState<number>(1);
   const injectedResourceRef = useRef<string | null>(null);
   injectedResourceRef.current = injectedResource;
 
@@ -101,6 +103,10 @@ export default function TraineeJourney() {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists() && currentPhase === 0) {
           const parsed = docSnap.data();
+          // Always load continuation fields
+          if (parsed.previousAgreement) setPreviousAgreement(parsed.previousAgreement);
+          if (parsed.sessionNumber) setSessionNumber(parsed.sessionNumber);
+          // Restore in-progress session
           if (parsed.phase > 0) {
             setCurrentPhase(parsed.phase);
             setSelectedEnv(parsed.environment);
@@ -122,13 +128,15 @@ export default function TraineeJourney() {
       const saveState = async () => {
         try {
           const docRef = doc(db, "live_sessions", sessionId);
+          const isJourneyComplete = currentPhase > journeyPhases.length;
           await setDoc(docRef, {
             phase: currentPhase,
             environment: selectedEnv,
             archetype: activeCard,
             resourceArchetype: activeResourceCard,
             trigger: selectedTrigger,
-            answers: structuredAnswers
+            answers: structuredAnswers,
+            ...(isJourneyComplete && { status: "completed" })
           }, { merge: true });
         } catch (e) {
           console.error("Error saving state:", e);
@@ -264,6 +272,15 @@ export default function TraineeJourney() {
     return (
       <div className="min-h-screen bg-[#0d0f14] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden" dir="rtl">
         <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.07) 0%, transparent 65%)" }} />
+        {/* Previous agreement bubble */}
+        {previousAgreement && sessionNumber > 1 && (
+          <div className="w-full max-w-lg mb-10 bg-amber-500/8 border border-amber-500/25 rounded-2xl p-5 text-right">
+            <p className="text-amber-500 text-xs font-bold tracking-widest uppercase mb-2">ההסכם מהמסע הקודם</p>
+            <p className="text-white text-base font-bold leading-relaxed">"{previousAgreement}"</p>
+            <p className="text-neutral-500 text-sm mt-2">לפני שנתחיל — רגע של נשימה עם ההתחייבות הזו</p>
+          </div>
+        )}
+
         <h1 className="text-5xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-l from-amber-200 to-amber-500">
           לאן נכנסים היום?
         </h1>
@@ -644,7 +661,16 @@ export default function TraineeJourney() {
 
           <div className="w-full text-right bg-[#11131a] border border-white/5 rounded-2xl p-6 mb-8 print:border-neutral-200 print:bg-transparent">
             <h3 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-6 border-b border-white/5 pb-2">תכנית עבודה: שיעורי בית</h3>
-            
+
+            {/* Continuation bridge — shown from session 2+ */}
+            {previousAgreement && sessionNumber > 1 && (
+              <div className="mb-6 p-4 bg-white/5 border border-white/10 rounded-xl">
+                <p className="text-neutral-500 text-xs uppercase tracking-widest mb-1">ההסכם מהמסע הקודם</p>
+                <p className="text-neutral-300 text-sm font-bold">"{previousAgreement}"</p>
+                <p className="text-neutral-500 text-xs mt-2">בנוסף לתרגילים למטה — המשך לחזק את ההתחייבות הזו</p>
+              </div>
+            )}
+
             <div className="mb-6">
               <h4 className="text-neutral-400 font-bold text-sm mb-3">72 השעות הקרובות:</h4>
               <ul className="space-y-3 pr-4 border-r-2 border-amber-500/20 list-none">
