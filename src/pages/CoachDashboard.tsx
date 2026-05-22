@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import type { User } from "firebase/auth";
 import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
-import { Plus, User as UserIcon, Calendar, ArrowRight, LogOut, Compass, FolderOpen, ChevronDown, ChevronUp, CheckCircle2, Clock } from "lucide-react";
+import { Plus, User as UserIcon, Calendar, ArrowRight, LogOut, FolderOpen, ChevronDown, ChevronUp, CheckCircle2, Clock } from "lucide-react";
 import CoachLiveSession from "./CoachLiveSession";
+import HeartCompassLogo from "../components/HeartCompassLogo";
 
 export default function CoachDashboard({ user }: { user: User }) {
   const [trainees, setTrainees] = useState<any[]>([]);
@@ -115,12 +116,12 @@ export default function CoachDashboard({ user }: { user: User }) {
       {/* Header */}
       <header className="flex justify-between items-center mb-10 border-b border-white/10 pb-6">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/20">
-            <Compass className="w-6 h-6 text-amber-500" />
+          <div className="text-amber-500">
+            <HeartCompassLogo size={44} />
           </div>
           <div>
             <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-l from-amber-200 to-amber-500">
-              קליניקת Heart Compass
+              יוסי מדלסי — מצפן הלב
             </h1>
             <p className="text-sm text-neutral-400">שלום, {user.displayName || "מאמן"}</p>
           </div>
@@ -288,6 +289,12 @@ export default function CoachDashboard({ user }: { user: User }) {
         </div>
 
       </div>
+
+      <footer className="mt-8 pb-6 text-center">
+        <span className="text-neutral-700 text-xs tracking-wide">
+          © {new Date().getFullYear()} יוסי מדלסי — מצפן הלב | כל הזכויות שמורות
+        </span>
+      </footer>
     </div>
   );
 }

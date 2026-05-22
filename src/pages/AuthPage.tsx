@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Compass } from 'lucide-react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import HeartCompassLogo from '../components/HeartCompassLogo';
 
 export default function AuthPage({ onLogin }: { onLogin: (user: any) => void }) {
   const [error, setError] = useState<string | null>(null);
@@ -34,14 +34,12 @@ export default function AuthPage({ onLogin }: { onLogin: (user: any) => void }) 
         transition={{ duration: 0.8 }}
         className="z-10 w-full max-w-md bg-[#171a23]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-10 shadow-2xl text-center"
       >
-        <div className="flex justify-center mb-6">
-          <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/20">
-            <Compass className="w-10 h-10 text-amber-500" />
-          </div>
+        <div className="flex justify-center mb-6 text-amber-500">
+          <HeartCompassLogo size={64} showText={false} />
         </div>
-        
+
         <h1 className="text-3xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-l from-amber-200 to-amber-500">
-          Heart Compass
+          מצפן הלב
         </h1>
         <p className="text-neutral-400 mb-10">כניסת מאמנים - ניהול קליניקה</p>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Copy, Plus, LayoutDashboard, Compass, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap } from "lucide-react";
+import { Copy, Plus, LayoutDashboard, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap } from "lucide-react";
+import HeartCompassLogo from "../components/HeartCompassLogo";
 import { worldsData } from "../data/worlds";
 import { journeyPhases, homeworkPlans } from "../data/journey";
 import { db } from "../lib/firebase";
@@ -53,8 +54,10 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
     <div className="min-h-screen bg-[#0a0b10] text-neutral-100 flex flex-col font-sans" dir="rtl">
       {/* Header */}
       <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-[#11131a] print:hidden">
-        <div className="font-bold text-lg flex items-center gap-2 text-amber-500 tracking-wider">
-          <Compass className="w-5 h-5" /> HEART COMPASS <span className="text-neutral-500 font-normal text-sm ml-2">| ממשק מאמן</span>
+        <div className="flex items-center gap-2 text-amber-500">
+          <HeartCompassLogo size={30} />
+          <span className="font-bold text-base tracking-wide">מצפן הלב</span>
+          <span className="text-neutral-500 font-normal text-sm">| ממשק מאמן</span>
         </div>
         <div className="flex gap-3">
           {sessionState?.phase >= 10 && (
@@ -352,6 +355,12 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
 
       </main>
 
+      <footer className="h-9 border-t border-white/5 flex items-center justify-center print:hidden">
+        <span className="text-neutral-700 text-xs tracking-wide">
+          © {new Date().getFullYear()} יוסי מדלסי — מצפן הלב | כל הזכויות שמורות
+        </span>
+      </footer>
+
       {/* End Journey Confirmation */}
       {showEndConfirm && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
@@ -431,6 +440,16 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
           .bg-black\\/30 { background: #f9fafb !important; }
           .bg-amber-500\\/10 { background: #fffbeb !important; }
           * { direction: rtl !important; }
+          body::after {
+            content: "© יוסי מדלסי — מצפן הלב | כל הזכויות שמורות";
+            display: block;
+            text-align: center;
+            font-size: 10px;
+            color: #9ca3af;
+            margin-top: 24px;
+            padding-top: 12px;
+            border-top: 1px solid #e5e7eb;
+          }
         }
       `}</style>
     </div>

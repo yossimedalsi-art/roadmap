@@ -9,6 +9,59 @@ import { journeyPhases, homeworkPlans } from "../data/journey";
 import { db } from "../lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
 
+const worldThemes: Record<string, {
+  bg: string;
+  radial1: string;
+  radial2: string;
+  accentText: string;
+  accentBorder: string;
+  accentBg: string;
+  glowColor: string;
+  patternBg: string;
+}> = {
+  clouds: {
+    bg: "bg-[#06091a]",
+    radial1: "radial-gradient(ellipse at 20% 0%, rgba(99,102,241,0.18) 0%, transparent 60%)",
+    radial2: "radial-gradient(ellipse at 80% 100%, rgba(139,92,246,0.12) 0%, transparent 60%)",
+    accentText: "text-indigo-400",
+    accentBorder: "border-indigo-500/40",
+    accentBg: "bg-indigo-500/10",
+    glowColor: "rgba(99,102,241,0.25)",
+    patternBg: "repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(99,102,241,0.03) 40px,rgba(99,102,241,0.03) 41px),repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(99,102,241,0.03) 40px,rgba(99,102,241,0.03) 41px)",
+  },
+  forest: {
+    bg: "bg-[#030d07]",
+    radial1: "radial-gradient(ellipse at 15% 10%, rgba(34,197,94,0.14) 0%, transparent 55%)",
+    radial2: "radial-gradient(ellipse at 85% 90%, rgba(16,185,129,0.10) 0%, transparent 55%)",
+    accentText: "text-emerald-400",
+    accentBorder: "border-emerald-500/40",
+    accentBg: "bg-emerald-500/10",
+    glowColor: "rgba(34,197,94,0.22)",
+    patternBg: "repeating-linear-gradient(60deg,transparent,transparent 40px,rgba(34,197,94,0.025) 40px,rgba(34,197,94,0.025) 41px),repeating-linear-gradient(-60deg,transparent,transparent 40px,rgba(34,197,94,0.025) 40px,rgba(34,197,94,0.025) 41px)",
+  },
+  arcade: {
+    bg: "bg-[#0a0214]",
+    radial1: "radial-gradient(ellipse at 50% 0%, rgba(217,70,239,0.18) 0%, transparent 55%)",
+    radial2: "radial-gradient(ellipse at 10% 90%, rgba(168,85,247,0.12) 0%, transparent 55%)",
+    accentText: "text-fuchsia-400",
+    accentBorder: "border-fuchsia-500/40",
+    accentBg: "bg-fuchsia-500/10",
+    glowColor: "rgba(217,70,239,0.25)",
+    patternBg: "repeating-linear-gradient(90deg,transparent,transparent 60px,rgba(217,70,239,0.03) 60px,rgba(217,70,239,0.03) 61px),repeating-linear-gradient(0deg,transparent,transparent 60px,rgba(217,70,239,0.03) 60px,rgba(217,70,239,0.03) 61px)",
+  },
+};
+
+const defaultTheme = {
+  bg: "bg-[#0d0f14]",
+  radial1: "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.08) 0%, transparent 60%)",
+  radial2: "",
+  accentText: "text-amber-500",
+  accentBorder: "border-amber-500/40",
+  accentBg: "bg-amber-500/10",
+  glowColor: "rgba(245,158,11,0.2)",
+  patternBg: "",
+};
+
 export default function TraineeJourney() {
   const { sessionId } = useParams();
   
@@ -24,6 +77,8 @@ export default function TraineeJourney() {
   const [showMap, setShowMap] = useState(false);
   const injectedResourceRef = useRef<string | null>(null);
   injectedResourceRef.current = injectedResource;
+
+  const theme = selectedEnv ? (worldThemes[selectedEnv] ?? defaultTheme) : defaultTheme;
 
   const activeWorld = worldsData.find(w => w.id === selectedEnv);
   const chosenArchetype = activeWorld?.archetypes.find(a => a.id === activeCard);
@@ -199,24 +254,38 @@ export default function TraineeJourney() {
     );
   };
 
+  const worldSelectThemes: Record<string, { hover: string; iconBg: string; glow: string; textColor: string }> = {
+    clouds: { hover: "hover:border-indigo-500/60 hover:bg-indigo-500/5 hover:shadow-[0_0_40px_rgba(99,102,241,0.2)]", iconBg: "bg-indigo-500/10", glow: "group-hover:text-indigo-400", textColor: "text-indigo-400" },
+    forest: { hover: "hover:border-emerald-500/60 hover:bg-emerald-500/5 hover:shadow-[0_0_40px_rgba(34,197,94,0.2)]", iconBg: "bg-emerald-500/10", glow: "group-hover:text-emerald-400", textColor: "text-emerald-400" },
+    arcade: { hover: "hover:border-fuchsia-500/60 hover:bg-fuchsia-500/5 hover:shadow-[0_0_40px_rgba(217,70,239,0.2)]", iconBg: "bg-fuchsia-500/10", glow: "group-hover:text-fuchsia-400", textColor: "text-fuchsia-400" },
+  };
+
   if (currentPhase === 0) {
     return (
-      <div className="min-h-screen bg-[#0d0f14] text-white flex flex-col items-center justify-center p-6 relative" dir="rtl">
-        <h1 className="text-5xl font-black mb-12 text-transparent bg-clip-text bg-gradient-to-l from-amber-200 to-amber-500">
+      <div className="min-h-screen bg-[#0d0f14] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden" dir="rtl">
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.07) 0%, transparent 65%)" }} />
+        <h1 className="text-5xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-l from-amber-200 to-amber-500">
           לאן נכנסים היום?
         </h1>
+        <p className="text-neutral-500 mb-12 text-lg">בחר את העולם שמתאים לך הכי טוב עכשיו</p>
         <div className="grid md:grid-cols-3 gap-6 w-full max-w-4xl">
-          {environments.map(env => (
-            <motion.button 
-              key={env.id} 
-              onClick={() => { setSelectedEnv(env.id); setCurrentPhase(1); }} 
-              whileHover={{ y: -5 }} 
-              className="p-10 rounded-3xl border border-white/5 bg-[#171a23] shadow-xl hover:border-amber-500/50 transition-all flex flex-col items-center"
-            >
-              <env.icon className={`w-16 h-16 mb-6 ${env.color}`} />
-              <h2 className="text-2xl font-bold">{env.title}</h2>
-            </motion.button>
-          ))}
+          {environments.map(env => {
+            const wt = worldSelectThemes[env.id];
+            return (
+              <motion.button
+                key={env.id}
+                onClick={() => { setSelectedEnv(env.id); setCurrentPhase(1); }}
+                whileHover={{ y: -6, scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`group p-10 rounded-3xl border border-white/5 bg-[#171a23] shadow-xl transition-all duration-300 flex flex-col items-center ${wt.hover}`}
+              >
+                <div className={`w-20 h-20 rounded-full ${wt.iconBg} flex items-center justify-center mb-6 transition-all group-hover:scale-110`}>
+                  <env.icon className={`w-10 h-10 ${env.color}`} />
+                </div>
+                <h2 className="text-2xl font-bold">{env.title}</h2>
+              </motion.button>
+            );
+          })}
         </div>
         {renderInjectedModal()}
         <Backpack resourceArchetype={resourceArchetype} onUseResource={handleUseResource} />
@@ -227,8 +296,11 @@ export default function TraineeJourney() {
 
   if (currentPhase === 1 || currentPhase === 2) {
     return (
-      <div className="min-h-screen bg-[#0d0f14] text-white p-6 relative overflow-x-hidden" dir="rtl">
-        
+      <div className={`min-h-screen ${theme.bg} text-white p-6 relative overflow-x-hidden`} dir="rtl">
+        {/* World-themed gradient overlay */}
+        <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
+        <div className="fixed inset-0 pointer-events-none z-0 opacity-60" style={{ background: theme.patternBg }} />
+
         {/* BACK TO WORLDS BUTTON */}
         <div className="absolute top-6 right-6 z-10">
           <button 
@@ -350,16 +422,20 @@ export default function TraineeJourney() {
     const isAnswered = !!answer;
 
     return (
-      <div className="min-h-screen bg-[#0d0f14] text-white flex flex-col items-center p-6 relative overflow-hidden" dir="rtl">
-        <header className="w-full max-w-4xl flex justify-between items-center mt-6 mb-12">
-          <span className="text-amber-500 font-bold tracking-widest text-xs uppercase flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-500"></span> שלב {currentPhase - 2} מתוך {journeyPhases.length}
+      <div className={`min-h-screen ${theme.bg} text-white flex flex-col items-center p-6 relative overflow-hidden`} dir="rtl">
+        {/* World-themed gradient overlay */}
+        <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
+        <div className="fixed inset-0 pointer-events-none z-0 opacity-50" style={{ background: theme.patternBg }} />
+
+        <header className="w-full max-w-4xl flex justify-between items-center mt-6 mb-12 relative z-10">
+          <span className={`${theme.accentText} font-bold tracking-widest text-xs uppercase flex items-center gap-2`}>
+            <span className={`w-2 h-2 rounded-full ${theme.accentText.replace('text-', 'bg-')}`}></span> שלב {currentPhase - 2} מתוך {journeyPhases.length}
           </span>
           <div className="flex items-center gap-3">
             <span className="text-neutral-500 text-sm">חקירה עם {chosenArchetype?.name}</span>
             <button
               onClick={() => setShowMap(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-amber-500/10 border border-white/10 hover:border-amber-500/30 rounded-full text-neutral-400 hover:text-amber-500 transition text-xs font-bold"
+              className={`flex items-center gap-1.5 px-3 py-1.5 bg-white/5 ${theme.accentBg} border border-white/10 ${theme.accentBorder} rounded-full text-neutral-400 ${theme.accentText} transition text-xs font-bold hover:opacity-90`}
             >
               <Map className="w-3.5 h-3.5" /> מפת המסע
             </button>
@@ -367,9 +443,9 @@ export default function TraineeJourney() {
         </header>
         {showMap && <JourneyMap currentPhase={currentPhase - 2} onClose={() => setShowMap(false)} />}
 
-        <main className="flex-1 w-full max-w-3xl flex flex-col items-center">
+        <main className="flex-1 w-full max-w-3xl flex flex-col items-center relative z-10">
           <AnimatePresence mode="wait">
-            <motion.div key={currentPhase} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full bg-[#171a23] rounded-3xl border border-white/5 shadow-2xl p-8 md:p-12 relative">
+            <motion.div key={currentPhase} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full bg-[#171a23]/90 backdrop-blur-sm rounded-3xl border border-white/5 shadow-2xl p-8 md:p-12 relative">
               
               {/* Card display */}
               <div className="flex justify-center gap-6 mb-8 mt-2">
@@ -475,10 +551,10 @@ export default function TraineeJourney() {
                     animate={{ opacity: 1, height: 'auto', marginTop: 24 }} 
                     className="overflow-hidden"
                   >
-                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-6 flex gap-4 text-blue-100">
-                      <Droplet className="w-6 h-6 text-blue-400 shrink-0 mt-1" />
+                    <div className={`${theme.accentBg} border ${theme.accentBorder} rounded-2xl p-6 flex gap-4 text-neutral-100`}>
+                      <Droplet className={`w-6 h-6 ${theme.accentText} shrink-0 mt-1`} />
                       <div>
-                        <h4 className="text-blue-400 font-bold text-sm tracking-widest mb-2 uppercase">דפוס שנחשף</h4>
+                        <h4 className={`${theme.accentText} font-bold text-sm tracking-widest mb-2 uppercase`}>דפוס שנחשף</h4>
                         <p className="text-lg">
                           {(() => {
                             const optionsArray = currentStep.options?.[selectedEnv as keyof typeof currentStep.options] || [];
@@ -501,14 +577,14 @@ export default function TraineeJourney() {
           </AnimatePresence>
 
           {/* Footer Controls */}
-          <div className="w-full max-w-3xl mt-8 flex justify-between items-center">
-            <span className="text-neutral-500 text-sm tracking-widest uppercase">HEART COMPASS</span>
+          <div className="w-full max-w-3xl mt-8 flex justify-between items-center relative z-10">
+            <span className="text-neutral-500 text-sm tracking-widest">© מצפן הלב | יוסי מדלסי</span>
             <AnimatePresence>
               {isAnswered && (
-                <motion.button 
+                <motion.button
                   initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
                   onClick={() => {
-                    setCustomInput(""); // clear custom input for next screen
+                    setCustomInput("");
                     setCurrentPhase(prev => prev + 1);
                   }}
                   className="flex items-center gap-3 px-8 py-4 bg-amber-500 hover:bg-amber-400 text-black font-black rounded-full transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)]"
@@ -528,15 +604,16 @@ export default function TraineeJourney() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0f14] text-white flex flex-col items-center justify-center p-6 text-center relative" dir="rtl">
+    <div className={`min-h-screen ${theme.bg} text-white flex flex-col items-center justify-center p-6 text-center relative overflow-hidden`} dir="rtl">
+      <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
 
-      <div className="absolute top-6 right-6 print:hidden">
+      <div className="absolute top-6 right-6 print:hidden z-10">
         <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-500 border border-amber-500/30 rounded-full hover:bg-amber-500 hover:text-black font-bold transition text-sm">
           <Download className="w-4 h-4" /> הורד סיכום מסע (PDF)
         </button>
       </div>
 
-      <div className="w-full max-w-2xl bg-[#171a23] border border-white/5 shadow-2xl rounded-3xl p-10 mt-12 relative overflow-hidden">
+      <div className="w-full max-w-2xl bg-[#171a23]/90 backdrop-blur-sm border border-white/5 shadow-2xl rounded-3xl p-10 mt-12 relative overflow-hidden z-10">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] pointer-events-none"></div>
 
         <div className="relative z-10 flex flex-col items-center">
@@ -596,6 +673,10 @@ export default function TraineeJourney() {
             מומלץ להוריד עותק של הסיכום ולשמור לעצמך.
           </p>
 
+          <p className="text-neutral-700 text-xs mt-6 print:text-neutral-400">
+            © 2025 יוסי מדלסי — מצפן הלב. כל הזכויות שמורות. אין להעתיק, לשכפל או להפיץ ללא רשות.
+          </p>
+
           <div className="mt-10 mb-4 print:hidden">
             <button 
               onClick={() => {
@@ -626,6 +707,17 @@ export default function TraineeJourney() {
           .bg-amber-500\\/10 { background: #fffbeb !important; }
           .text-amber-500 { color: #d97706 !important; }
           * { direction: rtl !important; }
+          .print\\:text-neutral-400 { color: #9ca3af !important; font-size: 11px !important; }
+          body::after {
+            content: "© יוסי מדלסי — מצפן הלב";
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #aaa;
+            letter-spacing: 0.1em;
+          }
         }
       `}</style>
     </div>
