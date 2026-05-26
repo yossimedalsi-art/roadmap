@@ -89,10 +89,15 @@ export default function TraineeJourney() {
   // Find resource archetype from ALL worlds
   let resourceArchetype: any = null;
   if (activeResourceCard) {
-    worldsData.forEach(w => {
-      const found = w.archetypes.find(a => a.id === activeResourceCard);
-      if (found) resourceArchetype = found;
-    });
+    const foundPower = goodPowersData.find(p => p.id === activeResourceCard || p.name === activeResourceCard);
+    if (foundPower) {
+      resourceArchetype = foundPower;
+    } else {
+      worldsData.forEach(w => {
+        const found = w.archetypes.find(a => a.id === activeResourceCard);
+        if (found) resourceArchetype = found;
+      });
+    }
   }
 
   const activePhases = journeyStage === 3 ? stage3Phases : journeyStage === 2 ? stage2Phases : journeyPhases;
@@ -191,10 +196,15 @@ export default function TraineeJourney() {
   // Find the injected resource archetype if it exists
   let injectedArchetype: any = null;
   if (injectedResource) {
-    worldsData.forEach(w => {
-      const found = w.archetypes.find(a => a.id === injectedResource);
-      if (found) injectedArchetype = found;
-    });
+    const foundPower = goodPowersData.find(p => p.id === injectedResource);
+    if (foundPower) {
+      injectedArchetype = foundPower;
+    } else {
+      worldsData.forEach(w => {
+        const found = w.archetypes.find(a => a.id === injectedResource);
+        if (found) injectedArchetype = found;
+      });
+    }
   }
 
   const handleUseResource = () => {

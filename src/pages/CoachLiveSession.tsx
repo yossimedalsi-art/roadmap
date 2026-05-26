@@ -156,8 +156,8 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     </div>
                   )}
 
-                  {sessionState?.resourceArchetype && worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype) && (() => {
-                    const resCard = worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype);
+                  {sessionState?.resourceArchetype && (goodPowersData.find(p => p.id === sessionState.resourceArchetype) || worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype)) && (() => {
+                    const resCard = goodPowersData.find(p => p.id === sessionState.resourceArchetype) || worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype);
                     return (
                       <div className="bg-[#11131a] rounded-2xl border border-blue-500/20 shadow-[0_0_40px_rgba(59,130,246,0.1)] overflow-hidden flex flex-col items-center p-8 w-full md:w-72 relative">
                         <div className="absolute top-4 left-4 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest">משאב פעיל</div>
