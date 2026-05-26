@@ -200,3 +200,71 @@ export const worldsData: World[] = [
     ]
   }
 ];
+
+export const goodPowersData: Archetype[] = [
+  {
+    id: "power_hug",
+    name: "חיבוק עוטף",
+    role: "נחמה",
+    description: "חיבוק שמזכיר שאתה לא לבד ויש מי ששומר עליך.",
+    coachPrompt: "מציע ביטחון פיזי ורגשי",
+    triggers: [],
+    imageUrl: "/images/whale.png" // placeholder
+  },
+  {
+    id: "power_word",
+    name: "מילה טובה",
+    role: "עידוד",
+    description: "להזכיר לעצמך שאתה עושה הכי טוב שאתה יכול, וזה מספיק.",
+    coachPrompt: "מציע קול פנימי חומל",
+    triggers: []
+  },
+  {
+    id: "power_breath",
+    name: "נשימה עמוקה",
+    role: "השהייה",
+    description: "כלי שעוזר להכניס חמצן ולהרגיע את הלחץ בגוף.",
+    coachPrompt: "מציע חזרה לקרקע דרך הגוף",
+    triggers: []
+  },
+  {
+    id: "power_listen",
+    name: "הקשבה",
+    role: "הכלה",
+    description: "פשוט להיות שם, בלי לנסות לתקן או לשנות שום דבר.",
+    coachPrompt: "מציע נראות ותיקוף",
+    triggers: []
+  },
+  {
+    id: "power_grounding",
+    name: "קרקוע",
+    role: "יציבות",
+    description: "להרגיש את הרגליים על הקרקע ולחזור לכאן ועכשיו.",
+    coachPrompt: "מציע יציבות כשהכל מרגיש סוער",
+    triggers: []
+  },
+  {
+    id: "power_pause",
+    name: "פסק זמן",
+    role: "מנוחה",
+    description: "רשות לקחת הפסקה מהכל בלי להרגיש אשמה.",
+    coachPrompt: "מציע שחרור מעומס ודרישות",
+    triggers: []
+  },
+  {
+    id: "power_compassion",
+    name: "חמלה עצמית",
+    role: "סליחה",
+    description: "לחבק גם את הטעויות, ולהיות חבר של עצמך.",
+    coachPrompt: "מציע החלפת קול הביקורת בקול רך",
+    triggers: []
+  },
+  {
+    id: "power_action",
+    name: "תנועה / יצירה",
+    role: "שחרור",
+    description: "להוציא את האנרגיה החוצה דרך הגוף, צבעים או כתיבה.",
+    coachPrompt: "מציע פריקת מתח באופן פעיל",
+    triggers: []
+  }
+];

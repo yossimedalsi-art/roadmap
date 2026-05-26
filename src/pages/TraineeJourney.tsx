@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Cloud, TreePine, Gamepad2, ArrowLeft, Droplet, Download, Compass, Map } from "lucide-react";
+import { Compass, Sparkles, Navigation, Droplet, TreePine, Cloud, Gamepad2, Play, Pause, Music, ArrowLeft, Download, Map } from "lucide-react";
 import Backpack from "../components/Backpack";
 import JourneyMap from "../components/JourneyMap";
 import { useParams } from "react-router-dom";
-import { worldsData } from "../data/worlds";
-import { journeyPhases, homeworkPlans } from "../data/journey";
+import { worldsData, goodPowersData } from "../data/worlds";
+import { journeyPhases, stage2Phases, stage3Phases, homeworkPlans } from "../data/journey";
 import { db } from "../lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
 
@@ -77,6 +77,9 @@ export default function TraineeJourney() {
   const [showMap, setShowMap] = useState(false);
   const [previousAgreement, setPreviousAgreement] = useState<string | null>(null);
   const [sessionNumber, setSessionNumber] = useState<number>(1);
+  const [journeyStage, setJourneyStage] = useState<number>(1);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const injectedResourceRef = useRef<string | null>(null);
   injectedResourceRef.current = injectedResource;
 
@@ -94,6 +97,8 @@ export default function TraineeJourney() {
     });
   }
 
+  const activePhases = journeyStage === 3 ? stage3Phases : journeyStage === 2 ? stage2Phases : journeyPhases;
+
   // Persistence
   useEffect(() => {
     if (!sessionId) return;
@@ -106,6 +111,7 @@ export default function TraineeJourney() {
           // Always load continuation fields
           if (parsed.previousAgreement) setPreviousAgreement(parsed.previousAgreement);
           if (parsed.sessionNumber) setSessionNumber(parsed.sessionNumber);
+          if (parsed.journeyStage) setJourneyStage(parsed.journeyStage);
           // Restore in-progress session
           if (parsed.phase > 0) {
             setCurrentPhase(parsed.phase);
@@ -128,7 +134,7 @@ export default function TraineeJourney() {
       const saveState = async () => {
         try {
           const docRef = doc(db, "live_sessions", sessionId);
-          const isJourneyComplete = currentPhase > journeyPhases.length;
+          const isJourneyComplete = currentPhase > activePhases.length;
           await setDoc(docRef, {
             phase: currentPhase,
             environment: selectedEnv,
@@ -192,6 +198,17 @@ export default function TraineeJourney() {
   const handleUseResource = () => {
     setResourcePowerUsed(true);
     setTimeout(() => setResourcePowerUsed(false), 2500);
+  };
+
+  const toggleAudio = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
   };
 
   const renderResourcePowerFlash = () => (
@@ -262,6 +279,31 @@ export default function TraineeJourney() {
     );
   };
 
+  const renderAudioPlayer = () => {
+    if (journeyStage !== 3) return null;
+    return (
+      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-[#11131a] border border-fuchsia-500/30 p-3 rounded-full shadow-[0_0_20px_rgba(217,70,239,0.15)]">
+        <audio 
+          ref={audioRef} 
+          src="/528hz.mp3" 
+          loop 
+          autoPlay={false}
+        />
+        <button 
+          onClick={toggleAudio}
+          className="w-12 h-12 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30 rounded-full flex items-center justify-center transition-all shadow-[0_0_15px_rgba(217,70,239,0.3)]"
+        >
+          {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-1" />}
+        </button>
+        <div className="flex flex-col ml-2 pl-2 border-l border-white/10 text-right">
+          <span className="text-fuchsia-400 font-bold text-xs tracking-widest uppercase">תדר ריפוי</span>
+          <span className="text-neutral-400 text-[10px]">528Hz Love Frequency</span>
+        </div>
+        <Music className="w-5 h-5 text-fuchsia-500/50 mr-2" />
+      </div>
+    );
+  };
+
   const worldSelectThemes: Record<string, { hover: string; iconBg: string; glow: string; textColor: string }> = {
     clouds: { hover: "hover:border-indigo-500/60 hover:bg-indigo-500/5 hover:shadow-[0_0_40px_rgba(99,102,241,0.2)]", iconBg: "bg-indigo-500/10", glow: "group-hover:text-indigo-400", textColor: "text-indigo-400" },
     forest: { hover: "hover:border-emerald-500/60 hover:bg-emerald-500/5 hover:shadow-[0_0_40px_rgba(34,197,94,0.2)]", iconBg: "bg-emerald-500/10", glow: "group-hover:text-emerald-400", textColor: "text-emerald-400" },
@@ -305,6 +347,7 @@ export default function TraineeJourney() {
           })}
         </div>
         {renderInjectedModal()}
+        {renderAudioPlayer()}
         <Backpack resourceArchetype={resourceArchetype} onUseResource={handleUseResource} />
         {renderResourcePowerFlash()}
       </div>
@@ -426,6 +469,7 @@ export default function TraineeJourney() {
           })}
         </div>
         {renderInjectedModal()}
+        {renderAudioPlayer()}
         <Backpack resourceArchetype={resourceArchetype} onUseResource={handleUseResource} />
         {renderResourcePowerFlash()}
       </div>
@@ -433,8 +477,8 @@ export default function TraineeJourney() {
   }
 
   // Phases 3 to 8
-  if (currentPhase >= 3 && currentPhase <= journeyPhases.length) {
-    const currentStep = journeyPhases[currentPhase - 1];
+  if (currentPhase >= 3 && currentPhase <= activePhases.length) {
+    const currentStep = activePhases[currentPhase - 1];
     const answer = structuredAnswers[currentStep.id];
     const isAnswered = !!answer;
 
@@ -443,10 +487,12 @@ export default function TraineeJourney() {
         {/* World-themed gradient overlay */}
         <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
         <div className="fixed inset-0 pointer-events-none z-0 opacity-50" style={{ background: theme.patternBg }} />
+        {renderInjectedModal()}
+        {renderAudioPlayer()}
 
         <header className="w-full max-w-4xl flex justify-between items-center mt-6 mb-12 relative z-10">
           <span className={`${theme.accentText} font-bold tracking-widest text-xs uppercase flex items-center gap-2`}>
-            <span className={`w-2 h-2 rounded-full ${theme.accentText.replace('text-', 'bg-')}`}></span> שלב {currentPhase - 2} מתוך {journeyPhases.length}
+            <span className={`w-2 h-2 rounded-full ${theme.accentText.replace('text-', 'bg-')}`}></span> שלב {currentPhase - 2} מתוך {activePhases.length}
           </span>
           <div className="flex items-center gap-3">
             <span className="text-neutral-500 text-sm">חקירה עם {chosenArchetype?.name}</span>
@@ -560,6 +606,65 @@ export default function TraineeJourney() {
                 </div>
               )}
 
+              {/* Text Input Block */}
+              {currentStep.uiType === "text-input" && (
+                <div className="mb-8 w-full">
+                  <div className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col ${
+                    answer && answer.trim().length > 0
+                    ? 'bg-amber-500/10 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.1)]' 
+                    : 'bg-black/30 border-white/5'
+                  }`}>
+                    <div className="text-xs text-neutral-500 mb-2 flex items-center gap-2">✎ תשובה חופשית</div>
+                    <div className="flex gap-3 items-center">
+                      <input 
+                        type="text" 
+                        placeholder="הקלד את התשובה שלך כאן..." 
+                        value={customInput}
+                        onChange={(e) => setCustomInput(e.target.value)}
+                        className="bg-transparent flex-1 outline-none text-sm text-white placeholder-neutral-600"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && customInput.trim()) {
+                            handleDialogueSelect(currentStep.id, customInput);
+                          }
+                        }}
+                      />
+                      <button 
+                        onClick={() => { 
+                          if (customInput.trim()) handleDialogueSelect(currentStep.id, customInput); 
+                        }}
+                        className="bg-amber-500/20 text-amber-500 px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-500 hover:text-black transition"
+                      >
+                        שמור
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Good Powers Block */}
+              {currentStep.uiType === "good-powers" && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                  {goodPowersData.map((power) => {
+                    const isSelected = answer === power.name;
+                    return (
+                      <motion.button
+                        key={power.id}
+                        onClick={() => handleDialogueSelect(currentStep.id, power.name)}
+                        className={`p-4 rounded-2xl border text-center transition-all duration-300 flex flex-col items-center justify-center gap-3 ${
+                          isSelected 
+                          ? 'bg-amber-500/20 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)]' 
+                          : 'bg-[#11131a] border-white/10 hover:border-amber-500/50 hover:bg-black/40'
+                        }`}
+                      >
+                        <div className="text-3xl">{power.icon}</div>
+                        <span className={`font-bold ${isSelected ? 'text-amber-400' : 'text-neutral-300'}`}>{power.name}</span>
+                        <span className="text-xs text-neutral-500">{power.description}</span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Pattern Revealed Block (Only shows after answering) */}
               <AnimatePresence>
                 {isAnswered && currentStep.patternRevealed && selectedEnv && (
@@ -614,6 +719,7 @@ export default function TraineeJourney() {
           </div>
         </main>
         {renderInjectedModal()}
+        {renderAudioPlayer()}
         <Backpack resourceArchetype={resourceArchetype} onUseResource={handleUseResource} />
         {renderResourcePowerFlash()}
       </div>
@@ -655,7 +761,7 @@ export default function TraineeJourney() {
               ההסכם החדש שלנו <span className="w-2 h-2 rounded-full bg-amber-500"></span>
             </h3>
             <p className="text-xl font-bold text-white leading-relaxed">
-              "{structuredAnswers['step_10_integration'] || 'אקח נשימה במקום להגיב מיד'}"
+              "{structuredAnswers[journeyStage === 3 ? 's3_step_9_new_contract' : journeyStage === 2 ? 's2_step_10_agreement' : 'step_10_integration'] || 'אקח נשימה במקום להגיב מיד'}"
             </p>
           </div>
 

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Copy, Plus, LayoutDashboard, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap, RotateCcw } from "lucide-react";
 import HeartCompassLogo from "../components/HeartCompassLogo";
 import { worldsData } from "../data/worlds";
-import { journeyPhases, homeworkPlans } from "../data/journey";
+import { journeyPhases, stage2Phases, stage3Phases, homeworkPlans } from "../data/journey";
 import { db } from "../lib/firebase";
 import { doc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
@@ -44,7 +44,9 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
 
   const activeWorld = worldsData.find(w => w.id === sessionState?.environment);
   const chosenArchetype = activeWorld?.archetypes.find(a => a.id === sessionState?.archetype);
-  const currentStep = sessionState?.phase > 0 ? journeyPhases[Math.min(sessionState.phase - 1, journeyPhases.length - 1)] : null;
+  const journeyStage = sessionState?.journeyStage || 1;
+  const activePhases = journeyStage === 3 ? stage3Phases : journeyStage === 2 ? stage2Phases : journeyPhases;
+  const currentStep = sessionState?.phase > 0 ? activePhases[Math.min(sessionState.phase - 1, activePhases.length - 1)] : null;
 
   const handlePrint = () => {
     window.print();

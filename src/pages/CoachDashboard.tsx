@@ -90,14 +90,20 @@ export default function CoachDashboard({ user }: { user: User }) {
     const completedSessions = traineeSessions.filter(s => s.status === "completed");
     const lastSession = completedSessions[0]; // sorted newest first
     const randomId = Math.random().toString(36).substring(2, 8);
+    
+    let nextStage = 1;
+    if (completedSessions.length === 1) nextStage = 2;
+    if (completedSessions.length >= 2) nextStage = 3;
+
     try {
       await setDoc(doc(db, "live_sessions", randomId), {
         coachId: user.uid,
         traineeId: selectedTrainee.id,
         phase: 0,
+        journeyStage: nextStage,
         createdAt: serverTimestamp(),
         sessionNumber: traineeSessions.length + 1,
-        previousAgreement: lastSession?.answers?.['step_10_integration'] || null,
+        previousAgreement: lastSession?.answers?.['step_10_integration'] || lastSession?.answers?.['s2_step_10_agreement'] || lastSession?.answers?.['s3_step_9_new_contract'] || null,
         previousArchetype: lastSession?.archetype || null,
         previousEnvironment: lastSession?.environment || null,
       });
