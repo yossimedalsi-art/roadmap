@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Compass, Sparkles, Navigation, Droplet, TreePine, Cloud, Gamepad2, Play, Pause, Music, ArrowLeft, Download, Map } from "lucide-react";
+import { Compass, Droplet, TreePine, Cloud, Gamepad2, Play, Pause, Music, ArrowLeft, Download, Map } from "lucide-react";
 import Backpack from "../components/Backpack";
 import JourneyMap from "../components/JourneyMap";
 import { useParams } from "react-router-dom";

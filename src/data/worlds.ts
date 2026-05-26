@@ -1,7 +1,8 @@
 export type Archetype = {
   id: string;
   name: string;
-  role: string; 
+  role: string;
+  icon?: string;
   description: string;
   coachPrompt: string;
   triggers: string[];
@@ -206,6 +207,7 @@ export const goodPowersData: Archetype[] = [
     id: "power_hug",
     name: "חיבוק עוטף",
     role: "נחמה",
+    icon: "🫂",
     description: "חיבוק שמזכיר שאתה לא לבד ויש מי ששומר עליך.",
     coachPrompt: "מציע ביטחון פיזי ורגשי",
     triggers: [],
@@ -215,6 +217,7 @@ export const goodPowersData: Archetype[] = [
     id: "power_word",
     name: "מילה טובה",
     role: "עידוד",
+    icon: "💬",
     description: "להזכיר לעצמך שאתה עושה הכי טוב שאתה יכול, וזה מספיק.",
     coachPrompt: "מציע קול פנימי חומל",
     triggers: []
@@ -223,6 +226,7 @@ export const goodPowersData: Archetype[] = [
     id: "power_breath",
     name: "נשימה עמוקה",
     role: "השהייה",
+    icon: "🌬️",
     description: "כלי שעוזר להכניס חמצן ולהרגיע את הלחץ בגוף.",
     coachPrompt: "מציע חזרה לקרקע דרך הגוף",
     triggers: []
@@ -231,6 +235,7 @@ export const goodPowersData: Archetype[] = [
     id: "power_listen",
     name: "הקשבה",
     role: "הכלה",
+    icon: "👂",
     description: "פשוט להיות שם, בלי לנסות לתקן או לשנות שום דבר.",
     coachPrompt: "מציע נראות ותיקוף",
     triggers: []
@@ -239,6 +244,7 @@ export const goodPowersData: Archetype[] = [
     id: "power_grounding",
     name: "קרקוע",
     role: "יציבות",
+    icon: "🌳",
     description: "להרגיש את הרגליים על הקרקע ולחזור לכאן ועכשיו.",
     coachPrompt: "מציע יציבות כשהכל מרגיש סוער",
     triggers: []
@@ -247,24 +253,27 @@ export const goodPowersData: Archetype[] = [
     id: "power_pause",
     name: "פסק זמן",
     role: "מנוחה",
+    icon: "⏸️",
     description: "רשות לקחת הפסקה מהכל בלי להרגיש אשמה.",
-    coachPrompt: "מציע שחרור מעומס ודרישות",
+    coachPrompt: "מציע שבירת לופ דרך התנתקות זמנית",
     triggers: []
   },
   {
     id: "power_compassion",
     name: "חמלה עצמית",
-    role: "סליחה",
-    description: "לחבק גם את הטעויות, ולהיות חבר של עצמך.",
-    coachPrompt: "מציע החלפת קול הביקורת בקול רך",
+    role: "קבלה",
+    icon: "❤️",
+    description: "להיות החבר הכי טוב של עצמך, במיוחד כשטועים.",
+    coachPrompt: "מציע מנוגד ישיר לביקורת פנימית",
     triggers: []
   },
   {
     id: "power_action",
-    name: "תנועה / יצירה",
+    name: "תנועה או יצירה",
     role: "שחרור",
-    description: "להוציא את האנרגיה החוצה דרך הגוף, צבעים או כתיבה.",
-    coachPrompt: "מציע פריקת מתח באופן פעיל",
+    icon: "🎨",
+    description: "להזיז את הגוף או ליצור משהו כדי לפרוק אנרגיה תקועה.",
+    coachPrompt: "מציע המרת אנרגיה (סובלימציה)",
     triggers: []
   }
 ];

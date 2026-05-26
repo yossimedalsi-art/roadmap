@@ -2,7 +2,7 @@ export type JourneyStep = {
   id: string;
   order: number;
   traineeTitle: string;
-  uiType: "text-input" | "archetype-selector" | "structured-dialogue" | "reward";
+  uiType: "text-input" | "archetype-selector" | "structured-dialogue" | "reward" | "good-powers";
   options?: {
     clouds: string[];
     forest: string[];
@@ -307,8 +307,17 @@ export const journeyPhases: JourneyStep[] = [
 
 export const stage2Phases: JourneyStep[] = [
   {
-    id: "s2_step_1_trigger",
+    id: "s2_step_1_encounter",
     order: 1,
+    traineeTitle: "בחירת מנגנון הגנה",
+    uiType: "archetype-selector",
+    coachFraming: "מודל אפר\"ת: בחירת הארכיטיפ השומר.",
+    coachDeepeningQuestions: ["איך הדמות הזו מנסה לעזור לך באותו רגע?"],
+    coachWarning: "זהו השלב הראשון במודל אפר\"ת - זיהוי החלק האוטומטי שנדלק."
+  },
+  {
+    id: "s2_step_2_trigger",
+    order: 2,
     traineeTitle: "מה הטריגר שהפעיל את [ארכיטיפ]?",
     uiType: "text-input",
     coachFraming: "מודל אפר\"ת: שלב 1 - אירוע. זיהוי הטריגר האובייקטיבי.",
@@ -455,6 +464,22 @@ export const stage2Phases: JourneyStep[] = [
 ];
 
 export const stage3Phases: JourneyStep[] = [
+  {
+    id: "s3_step_0_encounter",
+    order: 1,
+    traineeTitle: "בחירת מנגנון הגנה",
+    uiType: "archetype-selector",
+    coachFraming: "מסע 3: פירוק הביינד והילד הפנימי. כאן אנחנו פוגשים שוב את השומר (המגננה).",
+    coachWarning: "אל תנסה להזיז את השומר בכוח. תן לו קרדיט על ההגנה."
+  },
+  {
+    id: "s3_step_0_trigger",
+    order: 2,
+    traineeTitle: "מה עורר את השומר הפעם?",
+    uiType: "text-input",
+    coachFraming: "זיהוי האירוע שעורר את המגננה.",
+    coachWarning: "רגע לפני שמקלפים את השכבה."
+  },
   {
     id: "s3_step_1_relax",
     order: 1,
