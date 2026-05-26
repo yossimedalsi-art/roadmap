@@ -2,7 +2,7 @@ export type JourneyStep = {
   id: string;
   order: number;
   traineeTitle: string;
-  uiType: "text-input" | "archetype-selector" | "structured-dialogue" | "reward" | "good-powers";
+  uiType: "text-input" | "archetype-selector" | "structured-dialogue" | "reward" | "good-powers" | "meditation";
   options?: {
     clouds: string[];
     forest: string[];
@@ -408,122 +408,106 @@ export const stage3Phases: JourneyStep[] = [
   {
     id: "s3_step_0_encounter",
     order: 1,
-    traineeTitle: "בחירת מנגנון הגנה",
+    traineeTitle: "העלאת הדפוס",
     uiType: "archetype-selector",
-    coachFraming: "מסע 3: פירוק הביינד והילד הפנימי. כאן אנחנו פוגשים שוב את השומר (המגננה).",
-    coachWarning: "אל תנסה להזיז את השומר בכוח. תן לו קרדיט על ההגנה."
+    coachFraming: "תן לעלות סיטואציה אחת שבה הרגשת שאתה צריך משהו/מישהו (תלות, צורך להוכיח, ריצוי, דריכות). בלי להיכנס לדרמה.",
+    coachWarning: "אל תנסה לשכנע את המתאמן או להתווכח, רק תן לדפוס ולצורך לעלות."
   },
   {
-    id: "s3_step_0_trigger",
+    id: "s3_step_1_secondary_gain",
     order: 2,
-    traineeTitle: "מה עורר את השומר הפעם?",
-    uiType: "text-input",
-    coachFraming: "זיהוי האירוע שעורר את המגננה.",
-    coachWarning: "רגע לפני שמקלפים את השכבה."
+    traineeTitle: "מה באמת הרווחת מזה עד היום?",
+    uiType: "structured-dialogue",
+    options: {
+      clouds: ["זה נתן לי תחושת ודאות", "זה גרם לאנשים לשים לב אליי", "זה עזר לי לא להרגיש לבד", "זה הגן עליי מכאב גדול יותר"],
+      forest: ["זה שמר עליי מלהיפגע", "זה נתן לי תחושת שייכות (אפילו מזויפת)", "זה מנע קונפליקט שהייתי מפסיד בו", "זה נתן לי הרגשה שאני 'ילד טוב'"],
+      arcade: ["זה נתן לי תחושת כוח ושליטה", "זה עזר לי לא להרגיש תלוי באף אחד", "זה גרם להם להעריך אותי", "זה עזר לי לברוח מהריקנות"]
+    },
+    coachFraming: "זיהוי הרווח המשני - למה הדפוס הזה נשאר? מה המטרה ה'טובה' שהוא שירת?",
+    coachDeepeningQuestions: ["האם הרווח הזה עדיין שווה את המחיר שאתה משלם?", "ממה זה שמר עליך בעבר?"]
   },
   {
-    id: "s3_step_1_relax",
-    order: 1,
-    traineeTitle: "ניקח רגע לנשום. נעצום עיניים ונקשיב לתדר ההרפיה...",
-    uiType: "text-input",
-    coachFraming: "שלב ההכנה לדמיון. ודא שהמתאמן נינוח, מנגן תדר 528.",
-    coachDeepeningQuestions: ["תן לנשימה להאט.", "תרגיש את כפות הרגליים על הקרקע."]
-  },
-  {
-    id: "s3_step_2_meet_part",
-    order: 2,
-    traineeTitle: "תפנה בקול פנימי למקום הזה בתוכך. איך החלק שמרגיש את הקושי נראה?",
-    uiType: "text-input",
-    coachFraming: "מפגש ראשוני עם הילד/החלק הפנימי. נביעה ולא הובלה.",
-    coachDeepeningQuestions: ["איך הוא נראה?", "בן כמה הוא?", "איפה הוא נמצא?"]
-  },
-  {
-    id: "s3_step_3_since_when",
+    id: "s3_step_2_need",
     order: 3,
-    traineeTitle: "ממתי הוא איתך?",
-    uiType: "structured-dialogue",
-    options: {
-      clouds: ["מאז שאני ממש קטן", "מהשנים האחרונות (תחילת החטיבה)", "מאז טראומה או פרידה מסוימת", "לא זוכר תקופה שהוא לא היה שם"],
-      forest: ["מאז שאני ממש קטן", "מהשנים האחרונות (תחילת החטיבה)", "מאז טראומה או פרידה מסוימת", "לא זוכר תקופה שהוא לא היה שם"],
-      arcade: ["מאז שאני ממש קטן", "מהשנים האחרונות (תחילת החטיבה)", "מאז טראומה או פרידה מסוימת", "לא זוכר תקופה שהוא לא היה שם"]
-    },
-    coachFraming: "בדיקת העוגן ההיסטורי של הביינד.",
-    coachDeepeningQuestions: ["מה קרה שם שהזמין אותו אליך?"]
+    traineeTitle: "מה היית צריך אז ולא קיבלת?",
+    uiType: "text-input",
+    coachFraming: "חשיפת הצורך האמיתי שמסתתר מאחורי הביינד. לאט ובעדינות.",
+    coachDeepeningQuestions: ["איזה צורך לא קיבל מענה? ביטחון? אהבה? הכרה? הנראות שלך?"]
   },
   {
-    id: "s3_step_4_guarding",
+    id: "s3_step_3_meditation_prep",
     order: 4,
-    traineeTitle: "על מה הוא שומר כל כך חזק?",
-    uiType: "structured-dialogue",
-    options: {
-      clouds: ["שלא אשאר לבד", "שלא יראו כמה אני פגיע", "על הכבוד שלי", "על הביטחון הבסיסי שלי"],
-      forest: ["שלא אשאר לבד", "שלא יראו כמה אני פגיע", "על הכבוד שלי", "על הביטחון הבסיסי שלי"],
-      arcade: ["שלא אשאר לבד", "שלא יראו כמה אני פגיע", "על הכבוד שלי", "על הביטחון הבסיסי שלי"]
-    },
-    coachFraming: "בירור מטרת העל של הילד הפנימי.",
-    coachDeepeningQuestions: ["האם הוא יודע שאתה היום כבר יותר גדול ויכול להגן עליו?"]
+    traineeTitle: "התקרקעות וחיבור לגוף",
+    uiType: "text-input",
+    coachFraming: "הכנה למדיטציה - לא להיכנס לטראנס אלא להוריד דריכות.",
+    coachDeepeningQuestions: ["שים לב לכפות הרגליים. לתמיכה של הרצפה. אתה מוחזק.", "בוא ניקח 5 סבבים של נשימה: שאיפה ל-4, החזקה ל-2, נשיפה ל-6."]
   },
   {
-    id: "s3_step_5_challenge",
+    id: "s3_step_4_meditation_start",
     order: 5,
-    traineeTitle: "מה יקרה אם הוא ילך?",
-    uiType: "structured-dialogue",
-    options: {
-      clouds: ["ארגיש חשוף לגמרי", "הכל יתפרק", "לא אדע מי אני", "אפגע שוב"],
-      forest: ["ארגיש חשוף לגמרי", "הכל יתפרק", "לא אדע מי אני", "אפגע שוב"],
-      arcade: ["ארגיש חשוף לגמרי", "הכל יתפרק", "לא אדע מי אני", "אפגע שוב"]
-    },
-    coachFraming: "שאלות הרחקה וערעור הביינד.",
-    coachWarning: "צפה להתנגדות כאן. זה טבעי שהנפש פוחדת לשחרר את ההגנה."
+    traineeTitle: "דמיון נובע - זיהוי החסם בגוף",
+    uiType: "meditation",
+    coachFraming: "הנחיית מדיטציה חיה (דמיון נובע). בקש מהמתאמן לעצום עיניים. תדר 528 פועל ברקע.",
+    coachDeepeningQuestions: [
+      "איפה התלות/החסם מורגשת בגוף?",
+      "אם זו הייתה צורה – איזו צורה?",
+      "אם היה לה צבע – איזה צבע?"
+    ]
   },
   {
-    id: "s3_step_6_without_it",
+    id: "s3_step_5_meditation_child",
     order: 6,
-    traineeTitle: "מי תהיה בלעדיו?",
-    uiType: "text-input",
-    coachFraming: "חקירת הזהות העתידית המשוחררת מהדפוס.",
-    coachDeepeningQuestions: ["איך ייראו החיים שלך אם תסכים לשחרר קצת את האחיזה?"]
+    traineeTitle: "חיבור לילד הפנימי ופירוק הביינד",
+    uiType: "meditation",
+    coachFraming: "הקשבה בלבד. אין לשכנע, רק להרגיש. פנייה לחלק הפנימי (הילד).",
+    coachDeepeningQuestions: [
+      "בן כמה החלק הזה מרגיש? ממה הוא מפחד שיקרה אם יהיה לבד/אם לא יוכיח?",
+      "מה אתה מנסה למנוע? מה היה קורה אז בעבר?",
+      "האם זה עדיין קורה עכשיו?"
+    ],
+    coachWarning: "תן לגוף להגיב, אל תאיץ בו."
   },
   {
-    id: "s3_step_7_message",
+    id: "s3_step_6_meditation_release",
     order: 7,
-    traineeTitle: "מה היית רוצה להגיד לילד הזה עכשיו?",
-    uiType: "structured-dialogue",
-    options: {
-      clouds: ["שזה בסדר, אני כאן עכשיו", "שהוא עשה עבודה טובה אבל עכשיו תורי", "שמותר לו לנוח", "שאני סולח לו"],
-      forest: ["שזה בסדר, אני כאן עכשיו", "שהוא עשה עבודה טובה אבל עכשיו תורי", "שמותר לו לנוח", "שאני סולח לו"],
-      arcade: ["שזה בסדר, אני כאן עכשיו", "שהוא עשה עבודה טובה אבל עכשיו תורי", "שמותר לו לנוח", "שאני סולח לו"]
-    },
-    coachFraming: "רגע החמלה והאינטגרציה. העברת השרביט.",
-    coachDeepeningQuestions: ["איך הוא מגיב כשאתה אומר לו את זה?"]
+    traineeTitle: "שחרור וניקוי",
+    uiType: "meditation",
+    coachFraming: "שחרור סומטי סמלי. פרידה מהשומר הישן.",
+    coachDeepeningQuestions: [
+      "תגיד לו: תודה שניסית לשמור עליי. אני כאן עכשיו.",
+      "דמיין נשיפה שמוציאה את הצבע/הצורה מהגוף.",
+      "תן לגוף להתנקות מעצמו, בלי מאמץ."
+    ]
   },
   {
-    id: "s3_step_8_hug",
+    id: "s3_step_7_meditation_integration",
     order: 8,
-    traineeTitle: "מה הילד צריך כדי להרגיש בטוח עכשיו?",
-    uiType: "text-input",
-    coachFraming: "חיבוק וסיום העבודה בתוך השדה הפנימי.",
-    coachDeepeningQuestions: ["האם אתה יכול לדמיין שאתה מחבק אותו?"]
+    traineeTitle: "הטמעה ויציאה",
+    uiType: "meditation",
+    coachFraming: "מילוי החלל שנוצר באיכות חדשה, והחזרה הדרגתית לכאן ועכשיו.",
+    coachDeepeningQuestions: [
+      "מה האיכות שאתה רוצה שתהיה זמינה במקום (למשל יציבות, נוכחות, שקט)?",
+      "שים לב לתחושה הזו בגוף עכשיו.",
+      "קח נשימה עמוקה. נוכחות. כאן. עכשיו."
+    ]
+  },
+  {
+    id: "s3_step_8_resource_help",
+    order: 9,
+    traineeTitle: "קח כוח שילווה אותך בהמשך",
+    uiType: "good-powers",
+    coachFraming: "הזמנת כוח תומך לאחר שחרור החסם. עיגון האיכות החדשה.",
+    coachDeepeningQuestions: ["איזה משאב אתה צריך לקחת איתך כדי להזכיר לעצמך שאתה בטוח עכשיו?"],
+    coachWarning: "וודא שקלף הכוח באמת תואם את האיכות החדשה שהוא ביקש בהטמעה."
   },
   {
     id: "s3_step_9_new_contract",
-    order: 9,
-    traineeTitle: "איך נרגיע את החלק השומר הזה השבוע במציאות?",
-    uiType: "text-input",
-    coachFraming: "תרגום החוויה הפנימית להסכם מציאותי לשבוע הקרוב.",
-    coachDeepeningQuestions: ["מה תעשה כדי להזכיר לילד הפנימי שאתה מגן עליו?"]
-  },
-  {
-    id: "s3_step_10_end",
     order: 10,
-    traineeTitle: "רגע של הוקרה תודה.",
-    uiType: "structured-dialogue",
-    options: {
-      clouds: ["הייתי רוצה לפגוש אותו שוב בעתיד", "אני מרגיש הקלה גדולה", "אני צריך קצת זמן לעכל", "אני גאה בעצמי"],
-      forest: ["הייתי רוצה לפגוש אותו שוב בעתיד", "אני מרגיש הקלה גדולה", "אני צריך קצת זמן לעכל", "אני גאה בעצמי"],
-      arcade: ["הייתי רוצה לפגוש אותו שוב בעתיד", "אני מרגיש הקלה גדולה", "אני צריך קצת זמן לעכל", "אני גאה בעצמי"]
-    },
-    coachFraming: "סגירת מעגל והתקרקעות חזרה לחדר."
+    traineeTitle: "הסכם קטן עם עצמי",
+    uiType: "text-input",
+    coachFraming: "תרגום החוויה הפנימית להתחייבות מעשית.",
+    coachDeepeningQuestions: ["איך תדע במהלך השבוע שההסכם מתקיים? מה תעשה בפועל?"],
+    coachWarning: "ההסכם צריך להיות מדיד ומעשי."
   }
 ];
 

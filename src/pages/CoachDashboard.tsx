@@ -18,6 +18,9 @@ export default function CoachDashboard({ user }: { user: User }) {
   
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  
+  const [showStageModal, setShowStageModal] = useState(false);
+  const [selectedStage, setSelectedStage] = useState(1);
 
   // Fetch Trainees
   useEffect(() => {
@@ -85,28 +88,37 @@ export default function CoachDashboard({ user }: { user: User }) {
     }
   };
 
+  const openStartSessionModal = () => {
+    if (!selectedTrainee) return;
+    const completedSessions = traineeSessions.filter(s => s.status === "completed");
+    
+    let nextStage = 1;
+    if (completedSessions.length === 1) nextStage = 2;
+    if (completedSessions.length >= 2) nextStage = 3;
+    
+    setSelectedStage(nextStage);
+    setShowStageModal(true);
+  };
+
   const startNewSession = async () => {
     if (!selectedTrainee) return;
     const completedSessions = traineeSessions.filter(s => s.status === "completed");
     const lastSession = completedSessions[0]; // sorted newest first
     const randomId = Math.random().toString(36).substring(2, 8);
     
-    let nextStage = 1;
-    if (completedSessions.length === 1) nextStage = 2;
-    if (completedSessions.length >= 2) nextStage = 3;
-
     try {
       await setDoc(doc(db, "live_sessions", randomId), {
         coachId: user.uid,
         traineeId: selectedTrainee.id,
         phase: 0,
-        journeyStage: nextStage,
+        journeyStage: selectedStage,
         createdAt: serverTimestamp(),
         sessionNumber: traineeSessions.length + 1,
         previousAgreement: lastSession?.answers?.['step_10_integration'] || lastSession?.answers?.['s2_step_10_agreement'] || lastSession?.answers?.['s3_step_9_new_contract'] || null,
         previousArchetype: lastSession?.archetype || null,
         previousEnvironment: lastSession?.environment || null,
       });
+      setShowStageModal(false);
       setActiveSessionId(randomId);
     } catch(e) {
       console.error("Error creating session", e);
@@ -208,7 +220,7 @@ export default function CoachDashboard({ user }: { user: User }) {
                   </p>
                 </div>
                 <button 
-                  onClick={startNewSession}
+                  onClick={openStartSessionModal}
                   className="flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl transition shadow-[0_0_15px_rgba(245,158,11,0.3)]"
                 >
                   <Plus className="w-5 h-5" /> פתח מסע חדש
@@ -319,6 +331,40 @@ export default function CoachDashboard({ user }: { user: User }) {
         </div>
 
       </div>
+
+      {showStageModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="bg-[#11131a] border border-white/10 rounded-3xl p-8 max-w-md w-full relative">
+            <button onClick={() => setShowStageModal(false)} className="absolute top-6 right-6 text-neutral-500 hover:text-white">✕ סגור</button>
+            <h2 className="text-2xl font-bold text-amber-500 mb-4">בחר את סוג המסע</h2>
+            <p className="text-neutral-400 mb-6 text-sm">המערכת המליצה על מסע {selectedStage} בהתאם להיסטוריה של המתאמן, אבל אתה יכול לשנות זאת בהתאם לצורך שלו כעת.</p>
+            
+            <div className="space-y-3 mb-8">
+              {[1, 2, 3].map(stageNum => (
+                <button
+                  key={stageNum}
+                  onClick={() => setSelectedStage(stageNum)}
+                  className={`w-full p-4 rounded-xl border text-right transition-all flex items-center justify-between ${
+                    selectedStage === stageNum
+                      ? 'bg-amber-500/10 border-amber-500 text-amber-400'
+                      : 'bg-black/30 border-white/5 text-neutral-300 hover:border-white/20 hover:bg-white/5'
+                  }`}
+                >
+                  <span className="font-bold">מסע עומק שלב {stageNum}</span>
+                  {selectedStage === stageNum && <CheckCircle2 className="w-5 h-5" />}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={startNewSession}
+              className="w-full py-4 bg-amber-500 text-black font-bold text-lg rounded-xl hover:bg-amber-400 transition shadow-[0_0_20px_rgba(245,158,11,0.4)]"
+            >
+              התחל מסע עכשיו
+            </button>
+          </div>
+        </div>
+      )}
 
       <footer className="mt-8 pb-6 text-center">
         <span className="text-neutral-700 text-xs tracking-wide">

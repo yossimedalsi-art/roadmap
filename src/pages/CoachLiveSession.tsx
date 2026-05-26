@@ -441,7 +441,11 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     }}
                   >
                     <div className="w-20 h-20 rounded-full bg-[#171a23] mb-3 overflow-hidden border border-white/10 flex items-center justify-center text-4xl">
-                      {power.icon}
+                      {power.imageUrl ? (
+                        <img src={power.imageUrl} alt={power.name} className="w-full h-full object-cover" />
+                      ) : (
+                        power.icon
+                      )}
                     </div>
                     <span className="text-white font-bold block">{power.name}</span>
                     <span className="text-neutral-500 text-xs mt-1 block">{power.role}</span>

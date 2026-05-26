@@ -656,12 +656,48 @@ export default function TraineeJourney() {
                           : 'bg-[#11131a] border-white/10 hover:border-amber-500/50 hover:bg-black/40'
                         }`}
                       >
-                        <div className="text-3xl">{power.icon}</div>
+                        <div className="w-16 h-16 rounded-full bg-[#171a23] overflow-hidden border border-white/10 flex items-center justify-center text-3xl">
+                          {power.imageUrl ? (
+                            <img src={power.imageUrl} alt={power.name} className="w-full h-full object-cover" />
+                          ) : (
+                            power.icon
+                          )}
+                        </div>
                         <span className={`font-bold ${isSelected ? 'text-amber-400' : 'text-neutral-300'}`}>{power.name}</span>
                         <span className="text-xs text-neutral-500">{power.description}</span>
                       </motion.button>
                     );
                   })}
+                </div>
+              )}
+
+              {/* Meditation Block */}
+              {currentStep.uiType === "meditation" && (
+                <div className="mb-8 w-full">
+                  <div className={`p-8 rounded-2xl border ${
+                    answer ? 'bg-amber-500/10 border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.15)]' : 'bg-blue-500/10 border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.15)]'
+                  } flex flex-col items-center justify-center text-center transition-all`}>
+                    <div className={`w-20 h-20 rounded-full ${answer ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'} flex items-center justify-center mb-6`}>
+                      <Music className="w-10 h-10" />
+                    </div>
+                    <h3 className={`text-2xl font-black ${answer ? 'text-amber-400' : 'text-blue-400'} mb-3`}>זמן האזנה למאמן</h3>
+                    <p className="text-neutral-300 text-lg mb-8 leading-relaxed max-w-md">
+                      אין צורך להקליד כלום עכשיו.<br/>פשוט לעצום עיניים, לנשום עמוק, ולהקשיב לקול של המאמן שלך.
+                    </p>
+                    
+                    {!answer ? (
+                      <button 
+                          onClick={() => handleDialogueSelect(currentStep.id, "הקשבתי")}
+                          className="bg-blue-500 text-black px-8 py-4 rounded-xl font-bold hover:bg-blue-400 hover:scale-105 transition-all text-lg shadow-[0_0_20px_rgba(59,130,246,0.4)]"
+                        >
+                          מוכן להמשיך
+                      </button>
+                    ) : (
+                      <div className="text-amber-400 font-bold flex items-center gap-2">
+                        <span>סיימנו! אפשר לעבור לשלב הבא</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
