@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Compass, Droplet, TreePine, Cloud, Gamepad2, Play, Pause, Music, ArrowLeft, Download, Map } from "lucide-react";
+import { Compass, TreePine, Cloud, Gamepad2, Music, ArrowLeft, Download, Map } from "lucide-react";
 import Backpack from "../components/Backpack";
 import JourneyMap from "../components/JourneyMap";
 import { useParams } from "react-router-dom";
@@ -78,8 +78,6 @@ export default function TraineeJourney() {
   const [previousAgreement, setPreviousAgreement] = useState<string | null>(null);
   const [sessionNumber, setSessionNumber] = useState<number>(1);
   const [journeyStage, setJourneyStage] = useState<number>(1);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const injectedResourceRef = useRef<string | null>(null);
   injectedResourceRef.current = injectedResource;
 
@@ -200,16 +198,6 @@ export default function TraineeJourney() {
     setTimeout(() => setResourcePowerUsed(false), 2500);
   };
 
-  const toggleAudio = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
 
   const renderResourcePowerFlash = () => (
     <AnimatePresence>
@@ -282,24 +270,18 @@ export default function TraineeJourney() {
   const renderAudioPlayer = () => {
     if (journeyStage !== 3) return null;
     return (
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-[#11131a] border border-fuchsia-500/30 p-3 rounded-full shadow-[0_0_20px_rgba(217,70,239,0.15)]">
-        <audio 
-          ref={audioRef} 
-          src="/528hz.mp3" 
-          loop 
-          autoPlay={false}
-        />
-        <button 
-          onClick={toggleAudio}
-          className="w-12 h-12 bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30 rounded-full flex items-center justify-center transition-all shadow-[0_0_15px_rgba(217,70,239,0.3)]"
-        >
-          {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-1" />}
-        </button>
-        <div className="flex flex-col ml-2 pl-2 border-l border-white/10 text-right">
-          <span className="text-fuchsia-400 font-bold text-xs tracking-widest uppercase">תדר ריפוי</span>
-          <span className="text-neutral-400 text-[10px]">528Hz Love Frequency</span>
-        </div>
-        <Music className="w-5 h-5 text-fuchsia-500/50 mr-2" />
+      <div className="fixed bottom-6 right-6 z-50 flex items-center bg-[#11131a] rounded-xl shadow-[0_0_20px_rgba(217,70,239,0.15)] overflow-hidden" style={{ width: '320px', height: '80px' }}>
+        <iframe 
+          data-testid="embed-iframe" 
+          style={{ borderRadius: '12px' }}
+          src="https://open.spotify.com/embed/track/78Imm5D2GkYuemN2DFx0Z5?utm_source=generator" 
+          width="100%" 
+          height="80" 
+          frameBorder="0" 
+          allowFullScreen={false} 
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+          loading="lazy"
+        ></iframe>
       </div>
     );
   };
@@ -649,7 +631,10 @@ export default function TraineeJourney() {
                     return (
                       <motion.button
                         key={power.id}
-                        onClick={() => handleDialogueSelect(currentStep.id, power.name)}
+                        onClick={() => {
+                          handleDialogueSelect(currentStep.id, power.name);
+                          setActiveResourceCard(power.id);
+                        }}
                         className={`p-4 rounded-2xl border text-center transition-all duration-300 flex flex-col items-center justify-center gap-3 ${
                           isSelected 
                           ? 'bg-amber-500/20 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)]' 
@@ -701,35 +686,7 @@ export default function TraineeJourney() {
                 </div>
               )}
 
-              {/* Pattern Revealed Block (Only shows after answering) */}
-              <AnimatePresence>
-                {isAnswered && currentStep.patternRevealed && selectedEnv && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0, marginTop: 0 }} 
-                    animate={{ opacity: 1, height: 'auto', marginTop: 24 }} 
-                    className="overflow-hidden"
-                  >
-                    <div className={`${theme.accentBg} border ${theme.accentBorder} rounded-2xl p-6 flex gap-4 text-neutral-100`}>
-                      <Droplet className={`w-6 h-6 ${theme.accentText} shrink-0 mt-1`} />
-                      <div>
-                        <h4 className={`${theme.accentText} font-bold text-sm tracking-widest mb-2 uppercase`}>דפוס שנחשף</h4>
-                        <p className="text-lg">
-                          {(() => {
-                            const optionsArray = currentStep.options?.[selectedEnv as keyof typeof currentStep.options] || [];
-                            const answerIdx = optionsArray.indexOf(answer);
-                            if (answerIdx !== -1) {
-                              const patterns = currentStep.patternRevealed?.[selectedEnv as keyof typeof currentStep.patternRevealed];
-                              return patterns ? patterns[answerIdx] : "";
-                            }
-                            // Custom input fallback
-                            return "מדהים שהצלחת לנסח את זה בעצמך. הדפוס מנסה להגן עליך, אבל עכשיו אתה מתחיל לראות אותו מבחוץ.";
-                          })()}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* Pattern Revealed Block removed as requested, only visible to Coach */}
 
             </motion.div>
           </AnimatePresence>
@@ -816,7 +773,7 @@ export default function TraineeJourney() {
             <div className="mb-6">
               <h4 className="text-neutral-400 font-bold text-sm mb-3">72 השעות הקרובות:</h4>
               <ul className="space-y-3 pr-4 border-r-2 border-amber-500/20 list-none">
-                {selectedEnv && homeworkPlans[selectedEnv as keyof typeof homeworkPlans]?.next72.map((item, idx) => (
+                {selectedEnv && homeworkPlans[journeyStage || 1]?.[selectedEnv as "clouds"|"forest"|"arcade"]?.next72.map((item: string, idx: number) => (
                   <li key={idx} className="text-neutral-300 text-base relative before:content-[''] before:absolute before:right-[-22px] before:top-2 before:w-1.5 before:h-1.5 before:bg-amber-500 before:rounded-full">
                     {item}
                   </li>
@@ -827,7 +784,7 @@ export default function TraineeJourney() {
             <div>
               <h4 className="text-neutral-400 font-bold text-sm mb-3">השבוע הקרוב:</h4>
               <ul className="space-y-3 pr-4 border-r-2 border-amber-500/20 list-none">
-                {selectedEnv && homeworkPlans[selectedEnv as keyof typeof homeworkPlans]?.nextWeek.map((item, idx) => (
+                {selectedEnv && homeworkPlans[journeyStage || 1]?.[selectedEnv as "clouds"|"forest"|"arcade"]?.nextWeek.map((item: string, idx: number) => (
                   <li key={idx} className="text-neutral-300 text-base relative before:content-[''] before:absolute before:right-[-22px] before:top-2 before:w-1.5 before:h-1.5 before:bg-amber-500 before:rounded-full">
                     {item}
                   </li>

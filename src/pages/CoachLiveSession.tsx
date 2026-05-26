@@ -338,7 +338,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                         <CalendarDays className="w-4 h-4" /> 72 השעות הקרובות
                       </h4>
                       <ul className="space-y-4 pr-6 border-r-2 border-amber-500/20">
-                        {homeworkPlans[sessionState?.environment as keyof typeof homeworkPlans]?.next72.map((item, idx) => (
+                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"]?.next72.map((item: string, idx: number) => (
                           <li key={idx} className="flex items-start gap-3 text-white text-lg">
                             <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0"></span> {item}
                           </li>
@@ -352,7 +352,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                         <CalendarDays className="w-4 h-4" /> השבוע הקרוב
                       </h4>
                       <ul className="space-y-4 pr-6 border-r-2 border-amber-500/20">
-                        {homeworkPlans[sessionState?.environment as keyof typeof homeworkPlans]?.nextWeek.map((item, idx) => (
+                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"]?.nextWeek.map((item: string, idx: number) => (
                           <li key={idx} className="flex items-start gap-3 text-white text-lg">
                             <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0"></span> {item}
                           </li>
@@ -366,7 +366,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                         <CalendarDays className="w-4 h-4" /> 30 הימים הקרובים (מעקב קליני)
                       </h4>
                       <ul className="space-y-4 pr-6 border-r-2 border-amber-500/20">
-                        {homeworkPlans[sessionState?.environment as keyof typeof homeworkPlans]?.next30.map((item, idx) => (
+                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"]?.next30.map((item: string, idx: number) => (
                           <li key={idx} className="flex items-start gap-3 text-white text-lg">
                             <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0"></span> {item}
                           </li>
