@@ -163,6 +163,10 @@ export default function TraineeJourney() {
         if (parsed.coachInjectedResource && parsed.coachInjectedResource !== injectedResourceRef.current) {
           setInjectedResource(parsed.coachInjectedResource);
         }
+        // Listen for Coach advancing the phase (mainly used during meditation steps)
+        if (parsed.phase && parsed.phase > currentPhase) {
+          setCurrentPhase(parsed.phase);
+        }
       }
     });
     return () => unsubscribe();
@@ -267,24 +271,6 @@ export default function TraineeJourney() {
     );
   };
 
-  const renderAudioPlayer = () => {
-    if (journeyStage !== 3) return null;
-    return (
-      <div className="fixed bottom-6 right-6 z-50 flex items-center bg-[#11131a] rounded-xl shadow-[0_0_20px_rgba(217,70,239,0.15)] overflow-hidden" style={{ width: '320px', height: '80px' }}>
-        <iframe 
-          data-testid="embed-iframe" 
-          style={{ borderRadius: '12px' }}
-          src="https://open.spotify.com/embed/track/78Imm5D2GkYuemN2DFx0Z5?utm_source=generator" 
-          width="100%" 
-          height="80" 
-          frameBorder="0" 
-          allowFullScreen={false} 
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-          loading="lazy"
-        ></iframe>
-      </div>
-    );
-  };
 
   const worldSelectThemes: Record<string, { hover: string; iconBg: string; glow: string; textColor: string }> = {
     clouds: { hover: "hover:border-indigo-500/60 hover:bg-indigo-500/5 hover:shadow-[0_0_40px_rgba(99,102,241,0.2)]", iconBg: "bg-indigo-500/10", glow: "group-hover:text-indigo-400", textColor: "text-indigo-400" },
@@ -329,7 +315,6 @@ export default function TraineeJourney() {
           })}
         </div>
         {renderInjectedModal()}
-        {renderAudioPlayer()}
         <Backpack resourceArchetype={resourceArchetype} onUseResource={handleUseResource} />
         {renderResourcePowerFlash()}
       </div>
@@ -451,7 +436,6 @@ export default function TraineeJourney() {
           })}
         </div>
         {renderInjectedModal()}
-        {renderAudioPlayer()}
         <Backpack resourceArchetype={resourceArchetype} onUseResource={handleUseResource} />
         {renderResourcePowerFlash()}
       </div>
@@ -470,7 +454,6 @@ export default function TraineeJourney() {
         <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
         <div className="fixed inset-0 pointer-events-none z-0 opacity-50" style={{ background: theme.patternBg }} />
         {renderInjectedModal()}
-        {renderAudioPlayer()}
 
         <header className="w-full max-w-4xl flex justify-between items-center mt-6 mb-12 relative z-10">
           <span className={`${theme.accentText} font-bold tracking-widest text-xs uppercase flex items-center gap-2`}>
@@ -670,18 +653,9 @@ export default function TraineeJourney() {
                       אין צורך להקליד כלום עכשיו.<br/>פשוט לעצום עיניים, לנשום עמוק, ולהקשיב לקול של המאמן שלך.
                     </p>
                     
-                    {!answer ? (
-                      <button 
-                          onClick={() => handleDialogueSelect(currentStep.id, "הקשבתי")}
-                          className="bg-blue-500 text-black px-8 py-4 rounded-xl font-bold hover:bg-blue-400 hover:scale-105 transition-all text-lg shadow-[0_0_20px_rgba(59,130,246,0.4)]"
-                        >
-                          מוכן להמשיך
-                      </button>
-                    ) : (
-                      <div className="text-amber-400 font-bold flex items-center gap-2">
-                        <span>סיימנו! אפשר לעבור לשלב הבא</span>
-                      </div>
-                    )}
+                    <div className="mt-8 text-amber-500/80 text-sm font-bold animate-pulse">
+                      המאמן מנחה את השלב הזה. אנא המתן...
+                    </div>
                   </div>
                 </div>
               )}
@@ -712,7 +686,6 @@ export default function TraineeJourney() {
           </div>
         </main>
         {renderInjectedModal()}
-        {renderAudioPlayer()}
         <Backpack resourceArchetype={resourceArchetype} onUseResource={handleUseResource} />
         {renderResourcePowerFlash()}
       </div>

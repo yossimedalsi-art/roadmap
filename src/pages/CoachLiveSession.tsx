@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Copy, Plus, LayoutDashboard, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap, RotateCcw } from "lucide-react";
+import { Copy, Plus, LayoutDashboard, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap, RotateCcw, Music } from "lucide-react";
 import HeartCompassLogo from "../components/HeartCompassLogo";
 import { worldsData, goodPowersData } from "../data/worlds";
 import { journeyPhases, stage2Phases, stage3Phases, homeworkPlans } from "../data/journey";
@@ -220,7 +220,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       <div className="col-span-1 md:col-span-2 mt-2 p-5 rounded-2xl border bg-blue-500/10 border-blue-500/20 flex items-start gap-4">
                         <span className="w-8 h-8 shrink-0 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg">💧</span>
                         <div>
-                          <h4 className="text-blue-400 font-bold text-sm tracking-widest uppercase mb-1">דפוס שנחשף (המתאמן קורא כעת)</h4>
+                          <h4 className="text-blue-400 font-bold text-sm tracking-widest uppercase mb-1">תובנה קלינית על התשובה (לשימוש המאמן)</h4>
                           <p className="text-blue-100 font-medium text-lg">
                             {(() => {
                               const answer = sessionState.answers[currentStep.id];
@@ -314,6 +314,49 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Coach Controls for Meditation & Audio */}
+                  {currentStep.uiType === "meditation" && (
+                    <div className="mt-8 border-t border-white/10 pt-6">
+                      <h4 className="flex items-center gap-2 text-fuchsia-400 font-bold text-sm mb-4 uppercase tracking-widest">
+                        <Music className="w-4 h-4" /> שליטת מאמן: נגן מוזיקה ומעבר מסכים
+                      </h4>
+                      
+                      <div className="flex flex-col gap-4">
+                        <div className="bg-[#11131a] rounded-xl overflow-hidden w-full">
+                          <iframe 
+                            data-testid="embed-iframe" 
+                            style={{ borderRadius: '12px' }}
+                            src="https://open.spotify.com/embed/track/78Imm5D2GkYuemN2DFx0Z5?utm_source=generator&theme=0" 
+                            width="100%" 
+                            height="152" 
+                            frameBorder="0" 
+                            allowFullScreen={false} 
+                            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                            loading="lazy"
+                          ></iframe>
+                        </div>
+
+                        <button 
+                          onClick={async () => {
+                            if (sessionId) {
+                              try {
+                                await updateDoc(doc(db, "live_sessions", sessionId), {
+                                  phase: sessionState.phase + 1
+                                });
+                              } catch (e) {
+                                console.error("Error advancing phase", e);
+                              }
+                            }
+                          }}
+                          className="w-full py-4 bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold text-lg rounded-xl transition shadow-[0_0_20px_rgba(217,70,239,0.3)] flex items-center justify-center gap-2"
+                        >
+                          העבר מתאמן למסך הבא (שליטת מאמן)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
                 </div>
               )}
               </div>
