@@ -211,7 +211,7 @@ export const goodPowersData: Archetype[] = [
     description: "חיבוק שמזכיר שאתה לא לבד ויש מי ששומר עליך.",
     coachPrompt: "מציע ביטחון פיזי ורגשי",
     triggers: [],
-    imageUrl: "/images/whale.png" // placeholder
+    imageUrl: "/images/powers/power_hug.png"
   },
   {
     id: "power_word",
@@ -220,7 +220,8 @@ export const goodPowersData: Archetype[] = [
     icon: "💬",
     description: "להזכיר לעצמך שאתה עושה הכי טוב שאתה יכול, וזה מספיק.",
     coachPrompt: "מציע קול פנימי חומל",
-    triggers: []
+    triggers: [],
+    imageUrl: "/images/powers/power_word.png"
   },
   {
     id: "power_breath",
@@ -229,16 +230,18 @@ export const goodPowersData: Archetype[] = [
     icon: "🌬️",
     description: "כלי שעוזר להכניס חמצן ולהרגיע את הלחץ בגוף.",
     coachPrompt: "מציע חזרה לקרקע דרך הגוף",
-    triggers: []
+    triggers: [],
+    imageUrl: "/images/powers/power_breathe.png"
   },
   {
     id: "power_listen",
-    name: "הקשבה",
+    name: "נראות ותיקוף",
     role: "הכלה",
-    icon: "👂",
-    description: "פשוט להיות שם, בלי לנסות לתקן או לשנות שום דבר.",
+    icon: "👁️",
+    description: "פשוט להרגיש שרואים אותך כמו שאתה.",
     coachPrompt: "מציע נראות ותיקוף",
-    triggers: []
+    triggers: [],
+    imageUrl: "/images/powers/power_validation.png"
   },
   {
     id: "power_grounding",
@@ -247,7 +250,8 @@ export const goodPowersData: Archetype[] = [
     icon: "🌳",
     description: "להרגיש את הרגליים על הקרקע ולחזור לכאן ועכשיו.",
     coachPrompt: "מציע יציבות כשהכל מרגיש סוער",
-    triggers: []
+    triggers: [],
+    imageUrl: "/images/powers/power_grounding.png"
   },
   {
     id: "power_pause",
@@ -256,7 +260,8 @@ export const goodPowersData: Archetype[] = [
     icon: "⏸️",
     description: "רשות לקחת הפסקה מהכל בלי להרגיש אשמה.",
     coachPrompt: "מציע שבירת לופ דרך התנתקות זמנית",
-    triggers: []
+    triggers: [],
+    imageUrl: "/images/powers/power_pause.png"
   },
   {
     id: "power_compassion",
@@ -265,7 +270,8 @@ export const goodPowersData: Archetype[] = [
     icon: "❤️",
     description: "להיות החבר הכי טוב של עצמך, במיוחד כשטועים.",
     coachPrompt: "מציע מנוגד ישיר לביקורת פנימית",
-    triggers: []
+    triggers: [],
+    imageUrl: "/images/powers/power_compassion.png"
   },
   {
     id: "power_action",
@@ -274,6 +280,7 @@ export const goodPowersData: Archetype[] = [
     icon: "🎨",
     description: "להזיז את הגוף או ליצור משהו כדי לפרוק אנרגיה תקועה.",
     coachPrompt: "מציע המרת אנרגיה (סובלימציה)",
-    triggers: []
+    triggers: [],
+    imageUrl: "/images/powers/power_action.png"
   }
 ];

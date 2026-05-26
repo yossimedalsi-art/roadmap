@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Copy, Plus, LayoutDashboard, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap, RotateCcw } from "lucide-react";
 import HeartCompassLogo from "../components/HeartCompassLogo";
-import { worldsData } from "../data/worlds";
+import { worldsData, goodPowersData } from "../data/worlds";
 import { journeyPhases, stage2Phases, stage3Phases, homeworkPlans } from "../data/journey";
 import { db } from "../lib/firebase";
 import { doc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
@@ -425,14 +425,13 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
             <p className="text-neutral-400 mb-6">בחר דמות מתוך החפיסה. הקלף יקפוץ מיד במסך של המתאמן ויציע לו עזרה ותמיכה.</p>
             
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
-              {worldsData.map(world => (
-                world.archetypes.map(arc => (
-                  <div key={arc.id} className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col items-center text-center hover:border-amber-500/50 cursor-pointer transition"
+              {goodPowersData.map(power => (
+                  <div key={power.id} className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col items-center text-center hover:border-amber-500/50 cursor-pointer transition"
                     onClick={async () => {
                       if (sessionId) {
                         try {
                           await updateDoc(doc(db, "live_sessions", sessionId), {
-                            coachInjectedResource: arc.id
+                            coachInjectedResource: power.id
                           });
                         } catch (e) {
                           console.error("Error injecting resource", e);
@@ -441,18 +440,13 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       setIsResourceModalOpen(false);
                     }}
                   >
-                    <div className="w-20 h-20 rounded-full bg-[#171a23] mb-3 overflow-hidden border border-white/10">
-                      {arc.imageUrl ? (
-                        <img src={arc.imageUrl} alt={arc.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-2xl">✨</div>
-                      )}
+                    <div className="w-20 h-20 rounded-full bg-[#171a23] mb-3 overflow-hidden border border-white/10 flex items-center justify-center text-4xl">
+                      {power.icon}
                     </div>
-                    <h4 className="text-white font-bold mb-1">{arc.name}</h4>
-                    <span className="text-xs text-neutral-500">{world.title}</span>
+                    <span className="text-white font-bold block">{power.name}</span>
+                    <span className="text-neutral-500 text-xs mt-1 block">{power.role}</span>
                   </div>
-                ))
-              ))}
+                ))}
             </div>
           </div>
         </div>
