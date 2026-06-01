@@ -379,6 +379,14 @@ export default function TraineeJourney() {
         <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
         <div className="fixed inset-0 pointer-events-none z-0 opacity-60" style={{ background: theme.patternBg }} />
 
+        {/* STEP COUNTER */}
+        <div className="absolute top-6 left-6 z-10">
+          <span className={`${theme.accentText} font-bold tracking-widest text-xs uppercase flex items-center gap-2`}>
+            <span className={`w-2 h-2 rounded-full ${theme.accentText.replace('text-', 'bg-')}`}></span>
+            שלב {currentPhase} מתוך {activePhases.length}
+          </span>
+        </div>
+
         {/* BACK TO WORLDS BUTTON */}
         <div className="absolute top-6 right-6 z-10">
           <button
@@ -529,7 +537,7 @@ export default function TraineeJourney() {
 
         <header className="w-full max-w-4xl flex justify-between items-center mt-6 mb-12 relative z-10">
           <span className={`${theme.accentText} font-bold tracking-widest text-xs uppercase flex items-center gap-2`}>
-            <span className={`w-2 h-2 rounded-full ${theme.accentText.replace('text-', 'bg-')}`}></span> שלב {currentPhase - 2} מתוך {activePhases.length}
+            <span className={`w-2 h-2 rounded-full ${theme.accentText.replace('text-', 'bg-')}`}></span> שלב {currentPhase} מתוך {activePhases.length}
           </span>
           <div className="flex items-center gap-3">
             <span className="text-neutral-500 text-sm">חקירה עם {chosenArchetype?.name}</span>
@@ -541,7 +549,7 @@ export default function TraineeJourney() {
             </button>
           </div>
         </header>
-        {showMap && <JourneyMap currentPhase={currentPhase - 2} onClose={() => setShowMap(false)} />}
+        {showMap && <JourneyMap currentPhase={currentPhase} onClose={() => setShowMap(false)} />}
 
         <main className="flex-1 w-full max-w-3xl flex flex-col items-center relative z-10">
           <AnimatePresence mode="wait">
@@ -800,13 +808,44 @@ export default function TraineeJourney() {
 
           <div className="w-full text-right bg-black/40 border border-white/10 rounded-2xl p-6 mb-6">
             <h3 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-4 border-b border-white/5 pb-2">מה גילינו היום</h3>
-            <p className="text-neutral-300 leading-relaxed mb-4 text-lg">
-              התחלנו את המסע במצב של סערה, ופגשנו את השומר שהתעורר כדי להגן עליך: <strong className="text-white text-xl ml-1">{chosenArchetype?.name}</strong>.
-            </p>
-            <p className="text-neutral-300 leading-relaxed text-lg">
-              הבנו שהתפקיד האמיתי שלו הוא לא לפגוע בך, אלא לשמור עליך מתוך פחד עמוק.
-              הבאנו אליו את המשאב הפנימי שלך, והגענו להסכם חשוב לקראת השבוע הקרוב:
-            </p>
+            {journeyStage === 4 ? (
+              <>
+                <p className="text-neutral-300 leading-relaxed mb-4 text-lg">
+                  היום מיפינו את המטרה שלך לעומק. זיהינו את הרצון, את הכוחות הקיימים בך, ואת מה שמעכב — עם <strong className="text-white text-xl ml-1">{chosenArchetype?.name}</strong> כשומר הדרך.
+                </p>
+                <p className="text-neutral-300 leading-relaxed text-lg">
+                  גיבשנו יחד צעד מעשי ראשון לקראת המטרה. הנה ההסכם שיוביל אותך קדימה:
+                </p>
+              </>
+            ) : journeyStage === 3 ? (
+              <>
+                <p className="text-neutral-300 leading-relaxed mb-4 text-lg">
+                  היום חשפנו את הרווח הנסתר שהחסם מניב, ואת הצורך האמיתי שמסתתר מאחוריו — <strong className="text-white text-xl ml-1">{chosenArchetype?.name}</strong> שומר על משהו יקר.
+                </p>
+                <p className="text-neutral-300 leading-relaxed text-lg">
+                  כשהבנו מה הצורך האמיתי, יכולנו ליצור הסכם חדש — כזה שמכבד את הצורך מבלי לשלם את המחיר הישן:
+                </p>
+              </>
+            ) : journeyStage === 2 ? (
+              <>
+                <p className="text-neutral-300 leading-relaxed mb-4 text-lg">
+                  המשכנו לחקור את הדפוס שמניע את <strong className="text-white text-xl ml-1">{chosenArchetype?.name}</strong>. זיהינו את הנקודה הרגישה מאחוריו ואת המחיר שהוא גובה מחייך.
+                </p>
+                <p className="text-neutral-300 leading-relaxed text-lg">
+                  הדפוס פועל לפי לוגיקה פנימית — הגנה. עכשיו כשראינו אותו בעיניים פקוחות, מצאנו ביחד פעולה חדשה:
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-neutral-300 leading-relaxed mb-4 text-lg">
+                  התחלנו את המסע במצב של סערה, ופגשנו את השומר שהתעורר כדי להגן עליך: <strong className="text-white text-xl ml-1">{chosenArchetype?.name}</strong>.
+                </p>
+                <p className="text-neutral-300 leading-relaxed text-lg">
+                  הבנו שהתפקיד האמיתי שלו הוא לא לפגוע בך, אלא לשמור עליך מתוך פחד עמוק.
+                  הבאנו אליו את המשאב הפנימי שלך, והגענו להסכם חשוב לקראת השבוע הקרוב:
+                </p>
+              </>
+            )}
           </div>
 
           <div className="w-full text-right bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 mb-8">
@@ -814,7 +853,7 @@ export default function TraineeJourney() {
               ההסכם החדש שלנו <span className="w-2 h-2 rounded-full bg-amber-500"></span>
             </h3>
             <p className="text-xl font-bold text-white leading-relaxed">
-              "{structuredAnswers[journeyStage === 4 ? 's4_step_6_action' : journeyStage === 3 ? 's3_step_9_new_contract' : journeyStage === 2 ? 's2_step_10_agreement' : 'step_10_integration'] || 'אקח נשימה במקום להגיב מיד'}"
+              "{structuredAnswers[journeyStage === 4 ? 's4_step_6_action' : journeyStage === 3 ? 's3_step_9_new_contract' : journeyStage === 2 ? 's2_step_10_closure' : 'step_10_integration'] || 'אקח נשימה במקום להגיב מיד'}"
             </p>
           </div>
 

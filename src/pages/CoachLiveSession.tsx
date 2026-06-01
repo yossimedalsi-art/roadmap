@@ -62,7 +62,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
           <span className="text-neutral-500 font-normal text-sm">| ממשק מאמן</span>
         </div>
         <div className="flex gap-3">
-          {sessionState?.phase >= 10 && (
+          {sessionState?.phase > activePhases.length && (
             <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold rounded-lg text-sm hover:bg-amber-500 hover:text-black transition">
               <FileText className="w-4 h-4" /> ייצא סיכום PDF
             </button>
@@ -210,7 +210,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       {currentStep.traineeTitle.replace(/\[ארכיטיפ\]/g, `"${chosenArchetype?.name || ''}"`).replace(/\[משאב\]/g, `"${sessionState?.resourceArchetype ? worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype)?.name : 'הכוח החדש'}"`)}
                     </h3>
                     <div className="flex items-center gap-2 text-xs font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full">
-                      <span className="w-2 h-2 rounded-full bg-blue-500"></span> {(sessionState?.phase ?? 0) <= 2 ? "שלב התחלתי" : `שלב ${(sessionState?.phase ?? 0) - 2} מתוך ${activePhases.length - 2}`}
+                      <span className="w-2 h-2 rounded-full bg-blue-500"></span> {`שלב ${sessionState?.phase ?? 0} מתוך ${activePhases.length}`}
                     </div>
                   </div>
 
@@ -350,18 +350,18 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       </h4>
 
                       <div className="flex flex-col gap-4">
-                        <div className="bg-[#11131a] rounded-xl overflow-hidden w-full">
-                          <iframe
-                            data-testid="embed-iframe"
-                            style={{ borderRadius: '12px' }}
-                            src="https://open.spotify.com/embed/track/78Imm5D2GkYuemN2DFx0Z5?utm_source=generator&theme=0"
-                            width="100%"
-                            height="152"
-                            frameBorder="0"
-                            allowFullScreen={false}
-                            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                            loading="lazy"
-                          ></iframe>
+                        <div className="bg-[#11131a] rounded-xl overflow-hidden w-full p-4">
+                          <p className="text-fuchsia-300 text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <Music className="w-3.5 h-3.5" /> 528 Hz — תדר ריפוי (לופ)
+                          </p>
+                          <audio
+                            controls
+                            loop
+                            className="w-full"
+                            src="/audio/528hz.mp3"
+                          >
+                            הדפדפן אינו תומך בהפעלת שמע.
+                          </audio>
                         </div>
 
                         <button
@@ -389,7 +389,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
               </div>
 
               {/* End of Journey Plan (Visible at the very end) */}
-              {sessionState?.phase >= 10 && (
+              {sessionState?.phase > activePhases.length && (
                 <div className="bg-[#11131a] rounded-2xl border border-amber-500/50 shadow-[0_0_40px_rgba(245,158,11,0.1)] p-8 mt-12">
                   <div className="flex items-center mb-6">
                     <h3 className="text-xl font-bold text-amber-500 flex items-center gap-2">
@@ -408,7 +408,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                         <CalendarDays className="w-4 h-4" /> 72 השעות הקרובות
                       </h4>
                       <ul className="space-y-4 pr-6 border-r-2 border-amber-500/20">
-                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"]?.next72.map((item: string, idx: number) => (
+                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"|"fairies"]?.next72.map((item: string, idx: number) => (
                           <li key={idx} className="flex items-start gap-3 text-white text-lg">
                             <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0"></span> {item}
                           </li>
@@ -422,7 +422,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                         <CalendarDays className="w-4 h-4" /> השבוע הקרוב
                       </h4>
                       <ul className="space-y-4 pr-6 border-r-2 border-amber-500/20">
-                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"]?.nextWeek.map((item: string, idx: number) => (
+                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"|"fairies"]?.nextWeek.map((item: string, idx: number) => (
                           <li key={idx} className="flex items-start gap-3 text-white text-lg">
                             <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0"></span> {item}
                           </li>
@@ -436,7 +436,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                         <CalendarDays className="w-4 h-4" /> 30 הימים הקרובים (מעקב קליני)
                       </h4>
                       <ul className="space-y-4 pr-6 border-r-2 border-amber-500/20">
-                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"]?.next30.map((item: string, idx: number) => (
+                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"|"fairies"]?.next30.map((item: string, idx: number) => (
                           <li key={idx} className="flex items-start gap-3 text-white text-lg">
                             <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0"></span> {item}
                           </li>
