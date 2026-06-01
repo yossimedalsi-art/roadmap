@@ -11,18 +11,17 @@ export default function CoachDashboard({ user }: { user: User }) {
   const [loading, setLoading] = useState(true);
   const [newTraineeName, setNewTraineeName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  
+
   const [selectedTrainee, setSelectedTrainee] = useState<any | null>(null);
   const [traineeSessions, setTraineeSessions] = useState<any[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
-  
+
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
-  
+
   const [showStageModal, setShowStageModal] = useState(false);
   const [selectedStage, setSelectedStage] = useState(1);
 
-  // Fetch Trainees
   useEffect(() => {
     fetchTrainees();
   }, [user.uid]);
@@ -57,7 +56,7 @@ export default function CoachDashboard({ user }: { user: User }) {
         createdAt: serverTimestamp()
       });
       setNewTraineeName("");
-      fetchTrainees(); // Refresh list
+      fetchTrainees();
     } catch (e) {
       console.error("Error creating trainee", e);
     } finally {
@@ -70,7 +69,7 @@ export default function CoachDashboard({ user }: { user: User }) {
     setLoadingSessions(true);
     try {
       const q = query(
-        collection(db, "live_sessions"), 
+        collection(db, "live_sessions"),
         where("coachId", "==", user.uid),
         where("traineeId", "==", trainee.id)
       );
@@ -91,11 +90,12 @@ export default function CoachDashboard({ user }: { user: User }) {
   const openStartSessionModal = () => {
     if (!selectedTrainee) return;
     const completedSessions = traineeSessions.filter(s => s.status === "completed");
-    
+
     let nextStage = 1;
     if (completedSessions.length === 1) nextStage = 2;
-    if (completedSessions.length >= 2) nextStage = 3;
-    
+    if (completedSessions.length === 2) nextStage = 3;
+    if (completedSessions.length >= 3) nextStage = 4;
+
     setSelectedStage(nextStage);
     setShowStageModal(true);
   };
@@ -103,9 +103,9 @@ export default function CoachDashboard({ user }: { user: User }) {
   const startNewSession = async () => {
     if (!selectedTrainee) return;
     const completedSessions = traineeSessions.filter(s => s.status === "completed");
-    const lastSession = completedSessions[0]; // sorted newest first
+    const lastSession = completedSessions[0];
     const randomId = Math.random().toString(36).substring(2, 8);
-    
+
     try {
       await setDoc(doc(db, "live_sessions", randomId), {
         coachId: user.uid,
@@ -114,7 +114,7 @@ export default function CoachDashboard({ user }: { user: User }) {
         journeyStage: selectedStage,
         createdAt: serverTimestamp(),
         sessionNumber: traineeSessions.length + 1,
-        previousAgreement: lastSession?.answers?.['step_10_integration'] || lastSession?.answers?.['s2_step_10_agreement'] || lastSession?.answers?.['s3_step_9_new_contract'] || null,
+        previousAgreement: lastSession?.answers?.['step_10_integration'] || lastSession?.answers?.['s2_step_10_agreement'] || lastSession?.answers?.['s3_step_9_new_contract'] || lastSession?.answers?.['s4_step_6_action'] || null,
         previousArchetype: lastSession?.archetype || null,
         previousEnvironment: lastSession?.environment || null,
       });
@@ -129,14 +129,27 @@ export default function CoachDashboard({ user }: { user: User }) {
     setActiveSessionId(sessionId);
   };
 
-  // If a live session is active, render the CoachLiveSession component!
   if (activeSessionId) {
     return <CoachLiveSession sessionId={activeSessionId} onBack={() => setActiveSessionId(null)} />;
   }
 
+  const stageLabels: Record<number, string> = {
+    1: "מסע עומק שלב 1",
+    2: "מסע עומק שלב 2",
+    3: "מסע עומק שלב 3",
+    4: "מסע עומק שלב 4 — מטרות וצמיחה",
+  };
+
+  const envLabels: Record<string, string> = {
+    clouds: 'ממלכת העננים',
+    forest: 'היער הפנימי',
+    arcade: 'עיר הניאון',
+    fairies: 'יער הפיות והשדונים',
+  };
+
   return (
     <div className="min-h-screen bg-[#0d0f14] text-white p-6 relative" dir="rtl">
-      
+
       {/* Header */}
       <header className="flex justify-between items-center mb-10 border-b border-white/10 pb-6">
         <div className="flex items-center gap-3">
@@ -150,7 +163,7 @@ export default function CoachDashboard({ user }: { user: User }) {
             <p className="text-sm text-neutral-400">שלום, {user.displayName || "מאמן"}</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={() => auth.signOut()}
           className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-neutral-300 rounded-lg transition"
         >
@@ -159,22 +172,22 @@ export default function CoachDashboard({ user }: { user: User }) {
       </header>
 
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-8">
-        
+
         {/* Left Sidebar: Trainees List */}
         <div className="w-full md:w-1/3 bg-[#171a23] rounded-2xl border border-white/5 p-6 h-[80vh] flex flex-col">
           <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
             <UserIcon className="w-5 h-5 text-amber-500" /> המתאמנים שלי
           </h2>
-          
+
           <form onSubmit={handleCreateTrainee} className="flex gap-2 mb-6">
-            <input 
-              type="text" 
-              placeholder="שם מתאמן חדש..." 
+            <input
+              type="text"
+              placeholder="שם מתאמן חדש..."
               value={newTraineeName}
               onChange={(e) => setNewTraineeName(e.target.value)}
               className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:border-amber-500 outline-none"
             />
-            <button 
+            <button
               disabled={isCreating || !newTraineeName.trim()}
               className="bg-amber-500 text-black p-2 rounded-lg hover:bg-amber-400 disabled:opacity-50 transition"
             >
@@ -189,7 +202,7 @@ export default function CoachDashboard({ user }: { user: User }) {
               <p className="text-center text-neutral-500 mt-10">אין לך עדיין מתאמנים.<br/>צור את המתאמן הראשון שלך!</p>
             ) : (
               trainees.map(t => (
-                <button 
+                <button
                   key={t.id}
                   onClick={() => handleSelectTrainee(t)}
                   className={`w-full flex items-center justify-between p-4 rounded-xl transition border text-right ${selectedTrainee?.id === t.id ? 'bg-amber-500/10 border-amber-500/50 text-amber-400' : 'bg-black/20 border-white/5 hover:border-white/20 hover:bg-white/5 text-neutral-300'}`}
@@ -219,7 +232,7 @@ export default function CoachDashboard({ user }: { user: User }) {
                     הצטרף בתאריך {selectedTrainee.createdAt ? new Date(selectedTrainee.createdAt.toMillis()).toLocaleDateString('he-IL') : 'לא ידוע'}
                   </p>
                 </div>
-                <button 
+                <button
                   onClick={openStartSessionModal}
                   className="flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl transition shadow-[0_0_15px_rgba(245,158,11,0.3)]"
                 >
@@ -227,11 +240,9 @@ export default function CoachDashboard({ user }: { user: User }) {
                 </button>
               </div>
 
-              {/* Last session quick summary — shown only when ≥1 completed session */}
               {traineeSessions.find(s => s.status === "completed") && (() => {
                 const last = traineeSessions.find(s => s.status === "completed")!;
                 const agreement = last.answers?.['step_10_integration'];
-                const envLabels: Record<string, string> = { clouds: 'ממלכת העננים', forest: 'היער הפנימי', arcade: 'עיר הניאון' };
                 return (
                   <div className="mb-5 p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl text-right">
                     <p className="text-amber-500 text-xs font-bold tracking-widest uppercase mb-2">סיכום מסע אחרון</p>
@@ -248,7 +259,7 @@ export default function CoachDashboard({ user }: { user: User }) {
               <h3 className="font-bold text-neutral-300 mb-4 flex items-center gap-2">
                 <Calendar className="w-4 h-4" /> היסטוריית מסעות
               </h3>
-              
+
               <div className="flex-1 overflow-y-auto space-y-3">
                 {loadingSessions ? (
                   <p className="text-center text-neutral-500 mt-10">טוען מסעות...</p>
@@ -261,7 +272,6 @@ export default function CoachDashboard({ user }: { user: User }) {
                     const isCompleted = session.status === "completed";
                     const isExpanded = expandedSession === session.id;
                     const agreement = session.answers?.['step_10_integration'];
-                    const envLabels: Record<string, string> = { clouds: 'ממלכת העננים', forest: 'היער הפנימי', arcade: 'עיר הניאון' };
 
                     return (
                       <div key={session.id} className={`border rounded-xl transition-all ${isCompleted ? 'bg-black/40 border-amber-500/20' : 'bg-black/40 border-white/5 hover:border-white/10'}`}>
@@ -338,9 +348,9 @@ export default function CoachDashboard({ user }: { user: User }) {
             <button onClick={() => setShowStageModal(false)} className="absolute top-6 right-6 text-neutral-500 hover:text-white">✕ סגור</button>
             <h2 className="text-2xl font-bold text-amber-500 mb-4">בחר את סוג המסע</h2>
             <p className="text-neutral-400 mb-6 text-sm">המערכת המליצה על מסע {selectedStage} בהתאם להיסטוריה של המתאמן, אבל אתה יכול לשנות זאת בהתאם לצורך שלו כעת.</p>
-            
+
             <div className="space-y-3 mb-8">
-              {[1, 2, 3].map(stageNum => (
+              {[1, 2, 3, 4].map(stageNum => (
                 <button
                   key={stageNum}
                   onClick={() => setSelectedStage(stageNum)}
@@ -350,7 +360,7 @@ export default function CoachDashboard({ user }: { user: User }) {
                       : 'bg-black/30 border-white/5 text-neutral-300 hover:border-white/20 hover:bg-white/5'
                   }`}
                 >
-                  <span className="font-bold">מסע עומק שלב {stageNum}</span>
+                  <span className="font-bold">{stageLabels[stageNum]}</span>
                   {selectedStage === stageNum && <CheckCircle2 className="w-5 h-5" />}
                 </button>
               ))}

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Copy, Plus, LayoutDashboard, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap, RotateCcw, Music } from "lucide-react";
 import HeartCompassLogo from "../components/HeartCompassLogo";
 import { worldsData, goodPowersData } from "../data/worlds";
-import { journeyPhases, stage2Phases, stage3Phases, homeworkPlans } from "../data/journey";
+import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans } from "../data/journey";
 import { db } from "../lib/firebase";
 import { doc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
@@ -28,7 +28,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
     setShowEndConfirm(false);
     onBack();
   };
-  
+
 
   useEffect(() => {
     if (!sessionId) return;
@@ -45,7 +45,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
   const activeWorld = worldsData.find(w => w.id === sessionState?.environment);
   const chosenArchetype = activeWorld?.archetypes.find(a => a.id === sessionState?.archetype);
   const journeyStage = sessionState?.journeyStage || 1;
-  const activePhases = journeyStage === 3 ? stage3Phases : journeyStage === 2 ? stage2Phases : journeyPhases;
+  const activePhases = journeyStage === 4 ? stage4Phases : journeyStage === 3 ? stage3Phases : journeyStage === 2 ? stage2Phases : journeyPhases;
   const currentStep = sessionState?.phase > 0 ? activePhases[Math.min(sessionState.phase - 1, activePhases.length - 1)] : null;
 
   const handlePrint = () => {
@@ -77,10 +77,37 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
       </header>
 
       <main className="flex-1 flex p-6 gap-6 h-[calc(100vh-64px)] overflow-hidden print:h-auto print:overflow-visible max-w-7xl mx-auto w-full">
-        
+
+        {/* Right Panel: Answers Map */}
+        <section className="hidden lg:flex w-80 flex-col gap-4 overflow-y-auto custom-scrollbar print:hidden">
+          <div className="bg-[#11131a] rounded-2xl border border-white/5 shadow-2xl p-6">
+            <h3 className="text-amber-500 font-bold mb-4 flex items-center gap-2">
+              מפת תשובות עד כה
+            </h3>
+            <div className="space-y-4">
+              {Object.keys(sessionState?.answers || {}).length === 0 ? (
+                <p className="text-neutral-500 text-sm">המתאמן טרם ענה על שאלות בשלב זה.</p>
+              ) : (
+                Object.entries(sessionState?.answers || {}).map(([key, value]) => {
+                  const phase = activePhases.find((p: any) => p.id === key);
+                  if (!phase) return null;
+                  return (
+                    <div key={key} className="text-sm border-b border-white/5 pb-3">
+                      <span className="text-neutral-500 block mb-1 text-xs">
+                        {phase.traineeTitle.replace(/\[ארכיטיפ\]/g, 'הדמות').replace(/\[משאב\]/g, 'המשאב')}
+                      </span>
+                      <span className="text-white font-medium break-words whitespace-pre-wrap">{value as string}</span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </section>
+
         {/* Center Panel: Live Flow */}
         <section className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar print:overflow-visible">
-          
+
           <div className="bg-[#11131a] rounded-2xl p-6 border border-white/5 shadow-2xl flex items-center justify-between print:hidden">
             <div>
               <h2 className="text-xl font-bold mb-1 text-white">שליטה וסנכרון סשן חי</h2>
@@ -137,7 +164,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                   </div>
                 </div>
               )}
-              
+
               <div className="print:hidden flex flex-col gap-8">
                 {/* Archetype Card Display */}
                 <div className="flex flex-col md:flex-row justify-center gap-6">
@@ -194,7 +221,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       const traineeAnswer = sessionState?.answers?.[currentStep.id];
                       const isSelected = traineeAnswer === option;
                       const letter = String.fromCharCode(65 + idx);
-                      
+
                       return (
                         <div key={idx} className={`p-5 rounded-2xl border transition-all flex items-center gap-4 ${
                           isSelected ? 'bg-amber-500/10 border-amber-500' : 'bg-black/30 border-white/5 opacity-50'
@@ -205,7 +232,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                         </div>
                       );
                     })}
-                    
+
                     {/* Handle Custom Text in Mirror */}
                     {sessionState?.answers?.[currentStep.id] && !currentStep.options?.[sessionState?.environment as keyof typeof currentStep.options]?.includes(sessionState.answers[currentStep.id]) && (
                       <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border bg-amber-500/10 border-amber-500 flex items-center gap-4">
@@ -292,7 +319,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                           <HeartPulse className="w-4 h-4" /> עוגן גופני
                         </h4>
                         <p className="text-neutral-300 text-base mb-6">שאל איפה בגוף הוא מרגיש את התשובה הזו. חזק את ההכרה.</p>
-                        
+
                         {showResourceAlert && (
                           <div className="mb-3 flex items-center gap-3 bg-amber-500/15 border border-amber-500/50 rounded-xl px-4 py-3 animate-pulse">
                             <Zap className="w-5 h-5 text-amber-400 shrink-0" />
@@ -314,30 +341,30 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Coach Controls for Meditation & Audio */}
                   {currentStep.uiType === "meditation" && (
                     <div className="mt-8 border-t border-white/10 pt-6">
                       <h4 className="flex items-center gap-2 text-fuchsia-400 font-bold text-sm mb-4 uppercase tracking-widest">
                         <Music className="w-4 h-4" /> שליטת מאמן: נגן מוזיקה ומעבר מסכים
                       </h4>
-                      
+
                       <div className="flex flex-col gap-4">
                         <div className="bg-[#11131a] rounded-xl overflow-hidden w-full">
-                          <iframe 
-                            data-testid="embed-iframe" 
+                          <iframe
+                            data-testid="embed-iframe"
                             style={{ borderRadius: '12px' }}
-                            src="https://open.spotify.com/embed/track/78Imm5D2GkYuemN2DFx0Z5?utm_source=generator&theme=0" 
-                            width="100%" 
-                            height="152" 
-                            frameBorder="0" 
-                            allowFullScreen={false} 
-                            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                            src="https://open.spotify.com/embed/track/78Imm5D2GkYuemN2DFx0Z5?utm_source=generator&theme=0"
+                            width="100%"
+                            height="152"
+                            frameBorder="0"
+                            allowFullScreen={false}
+                            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                             loading="lazy"
                           ></iframe>
                         </div>
 
-                        <button 
+                        <button
                           onClick={async () => {
                             if (sessionId) {
                               try {
@@ -356,7 +383,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       </div>
                     </div>
                   )}
-                  
+
                 </div>
               )}
               </div>
@@ -369,7 +396,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       <Target className="w-6 h-6" /> תכנית עבודה להמשך
                     </h3>
                   </div>
-                  
+
                   <p className="text-xl text-white font-medium mb-10 pb-6 border-b border-white/10">
                     התמה המרכזית של הסשן היא זיהוי החלק השומר ({chosenArchetype?.name}) וחיבורו למשאבים. תכנית העבודה תעגן את מה שכבר נמצא.
                   </p>
@@ -466,7 +493,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
             <button onClick={() => setIsResourceModalOpen(false)} className="absolute top-6 right-6 text-neutral-500 hover:text-white">✕ סגור</button>
             <h2 className="text-2xl font-bold text-amber-500 mb-2">שלח קלף משאב / דמות חכמה</h2>
             <p className="text-neutral-400 mb-6">בחר דמות מתוך החפיסה. הקלף יקפוץ מיד במסך של המתאמן ויציע לו עזרה ותמיכה.</p>
-            
+
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-6">
               {goodPowersData.map(power => (
                   <div key={power.id} className="bg-black/30 border border-white/5 rounded-2xl p-4 flex flex-col items-center text-center hover:border-amber-500/50 cursor-pointer transition"
