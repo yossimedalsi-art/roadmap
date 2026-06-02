@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Copy, Plus, LayoutDashboard, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap, RotateCcw, Music } from "lucide-react";
+import { Copy, Plus, LayoutDashboard, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap, RotateCcw } from "lucide-react";
 import HeartCompassLogo from "../components/HeartCompassLogo";
 import { worldsData, goodPowersData } from "../data/worlds";
 import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans } from "../data/journey";
@@ -103,6 +103,41 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
               )}
             </div>
           </div>
+
+          {/* Blocker / Goal Map — live sidebar */}
+          <div className="bg-[#11131a] rounded-2xl border border-white/5 shadow-2xl p-6">
+            <h3 className="text-amber-500 font-bold mb-4 text-sm tracking-widest uppercase flex items-center gap-2">
+              {journeyStage === 4 ? '🎯 מפת המטרה' : '🔄 מעגל החסם'}
+            </h3>
+            <div className="flex flex-col gap-2">
+              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
+                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'המטרה' : 'מחשבה (פרשנות)'}</span>
+                <span className="text-white text-sm font-medium break-words">
+                  {journeyStage === 4
+                    ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
+                    : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')}
+                </span>
+              </div>
+              <div className="text-amber-500 text-center text-lg">↓</div>
+              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
+                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'כוחות' : 'רגש / נקודה רגישה'}</span>
+                <span className="text-white text-sm font-medium break-words">
+                  {journeyStage === 4
+                    ? (sessionState?.answers?.['s4_step_2_capability'] || '—')
+                    : (sessionState?.answers?.['step_3_feeling'] || sessionState?.answers?.['s2_step_4_sensitive_spot'] || sessionState?.answers?.['s3_step_3_need'] || '—')}
+                </span>
+              </div>
+              <div className="text-amber-500 text-center text-lg">↓</div>
+              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
+                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'חסם' : 'תגובה אוטומטית'}</span>
+                <span className="text-white text-sm font-medium break-words">
+                  {journeyStage === 4
+                    ? (sessionState?.answers?.['s4_step_4_secondary_gain'] || '—')
+                    : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')}
+                </span>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Center Panel: Live Flow */}
@@ -202,8 +237,8 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                   })()}
                 </div>
 
-              {/* The Active Question (Mirrors Trainee UI) */}
-              {currentStep && (
+              {/* The Active Question (Mirrors Trainee UI) — hidden when journey is complete */}
+              {currentStep && sessionState?.phase <= activePhases.length && (
                 <div className="bg-[#11131a] rounded-2xl border border-blue-500/20 shadow-lg p-8">
                   <div className="flex justify-between items-center mb-8">
                     <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight">
@@ -269,7 +304,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
               )}
 
               {/* Coach Clinical Deep Dive (Only visible if step is active) */}
-              {currentStep && (
+              {currentStep && sessionState?.phase <= activePhases.length && (
                 <div className="bg-[#11131a] rounded-2xl border border-amber-500/20 shadow-lg p-8">
                   <div className="flex items-center mb-6 border-b border-white/5 pb-4">
                      <span className="text-xs font-bold text-amber-500 bg-amber-500/10 px-3 py-1 rounded-full flex items-center gap-2">
@@ -350,20 +385,6 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       </h4>
 
                       <div className="flex flex-col gap-4">
-                        <div className="bg-[#11131a] rounded-xl overflow-hidden w-full p-4">
-                          <p className="text-fuchsia-300 text-xs font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <Music className="w-3.5 h-3.5" /> 528 Hz — תדר ריפוי (לופ)
-                          </p>
-                          <audio
-                            controls
-                            loop
-                            className="w-full"
-                            src="/audio/528hz.mp3"
-                          >
-                            הדפדפן אינו תומך בהפעלת שמע.
-                          </audio>
-                        </div>
-
                         <button
                           onClick={async () => {
                             if (sessionId) {
@@ -397,9 +418,46 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     </h3>
                   </div>
 
-                  <p className="text-xl text-white font-medium mb-10 pb-6 border-b border-white/10">
-                    התמה המרכזית של הסשן היא זיהוי החלק השומר ({chosenArchetype?.name}) וחיבורו למשאבים. תכנית העבודה תעגן את מה שכבר נמצא.
+                  <p className="text-xl text-white font-medium mb-6 pb-6 border-b border-white/10">
+                    {journeyStage === 4
+                      ? `התמה המרכזית: מיפוי המטרה וצעד מעשי. ${chosenArchetype?.name} מלווה את המסע.`
+                      : `התמה המרכזית: זיהוי החלק השומר (${chosenArchetype?.name}) וחיבורו למשאבים.`}
                   </p>
+
+                  {/* Blocker/Goal Map in Summary */}
+                  <div className="bg-black/40 border border-white/10 rounded-2xl p-6 mb-8">
+                    <h4 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-4">
+                      {journeyStage === 4 ? 'מפת המטרה שסוכמה' : 'מעגל החסם שזוהה'}
+                    </h4>
+                    <div className="flex flex-col md:flex-row items-center justify-center gap-3">
+                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'המטרה' : 'מחשבה (פרשנות)'}</span>
+                        <span className="text-white font-bold text-sm">
+                          {journeyStage === 4
+                            ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
+                            : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')}
+                        </span>
+                      </div>
+                      <div className="text-amber-500 font-bold">→</div>
+                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'כוחות' : 'רגש / נקודה רגישה'}</span>
+                        <span className="text-white font-bold text-sm">
+                          {journeyStage === 4
+                            ? (sessionState?.answers?.['s4_step_2_capability'] || '—')
+                            : (sessionState?.answers?.['step_3_feeling'] || sessionState?.answers?.['s2_step_4_sensitive_spot'] || sessionState?.answers?.['s3_step_3_need'] || '—')}
+                        </span>
+                      </div>
+                      <div className="text-amber-500 font-bold">→</div>
+                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'חסם' : 'תגובה אוטומטית'}</span>
+                        <span className="text-white font-bold text-sm">
+                          {journeyStage === 4
+                            ? (sessionState?.answers?.['s4_step_4_secondary_gain'] || '—')
+                            : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
 
                   <div className="space-y-10">
                     {/* 72 Hours */}

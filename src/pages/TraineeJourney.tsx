@@ -891,7 +891,7 @@ export default function TraineeJourney() {
                 <span className="text-white font-bold">
                   {journeyStage === 4
                     ? (structuredAnswers['s4_step_4_secondary_gain'] || 'לא צוין')
-                    : (structuredAnswers['step_5_urge'] || structuredAnswers['s2_step_5_reaction'] || structuredAnswers['s3_step_1_trigger'] || 'הפעולה שהחסם מייצר')}
+                    : (structuredAnswers['step_5_urge'] || structuredAnswers['s2_step_5_reaction'] || structuredAnswers['s3_step_1_trigger'] || selectedTrigger || 'הפעולה שהחסם מייצר')}
                 </span>
               </div>
             </div>
@@ -936,6 +936,23 @@ export default function TraineeJourney() {
                 ))}
               </ul>
             </div>
+          </div>
+
+          {/* 528Hz Audio Player — for trainee at end of session */}
+          <div className="w-full bg-[#11131a] border border-fuchsia-500/20 rounded-2xl p-6 mb-4 print:hidden">
+            <h3 className="text-fuchsia-400 font-bold text-sm tracking-widest uppercase mb-4 flex items-center gap-2">
+              <Music className="w-4 h-4" /> 528 Hz — תדר ריפוי לסיום המסע
+            </h3>
+            <audio controls loop className="w-full mb-4" src="/audio/528hz.mp3">
+              הדפדפן אינו תומך בהפעלת שמע.
+            </audio>
+            <a
+              href="/audio/528hz.mp3"
+              download="528hz-healing.mp3"
+              className="flex items-center justify-center gap-2 w-full py-3 bg-fuchsia-500/10 border border-fuchsia-500/30 text-fuchsia-400 font-bold rounded-xl hover:bg-fuchsia-500 hover:text-white transition text-sm"
+            >
+              <Download className="w-4 h-4" /> הורד את תדר הריפוי (528Hz)
+            </a>
           </div>
 
           <p className="text-neutral-500 text-sm max-w-sm mx-auto">
