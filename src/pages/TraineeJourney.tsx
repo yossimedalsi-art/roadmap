@@ -744,11 +744,21 @@ export default function TraineeJourney() {
                       <Music className="w-10 h-10" />
                     </div>
                     <h3 className={`text-2xl font-black ${answer ? 'text-amber-400' : 'text-blue-400'} mb-3`}>זמן האזנה למאמן</h3>
-                    <p className="text-neutral-300 text-lg mb-8 leading-relaxed max-w-md">
+                    <p className="text-neutral-300 text-lg mb-6 leading-relaxed max-w-md">
                       אין צורך להקליד כלום עכשיו.<br/>פשוט לעצום עיניים, לנשום עמוק, ולהקשיב לקול של המאמן שלך.
                     </p>
 
-                    <div className="mt-8 text-amber-500/80 text-sm font-bold animate-pulse">
+                    {/* 528Hz player during meditation */}
+                    <div className="w-full max-w-md mb-6">
+                      <p className="text-blue-300 text-xs font-bold uppercase tracking-widest mb-2 flex items-center justify-center gap-2">
+                        <Music className="w-3.5 h-3.5" /> 528 Hz — תדר ריפוי (הפעל עם המדיטציה)
+                      </p>
+                      <audio controls loop className="w-full" src="/audio/528hz.mp3">
+                        הדפדפן אינו תומך בהפעלת שמע.
+                      </audio>
+                    </div>
+
+                    <div className="text-amber-500/80 text-sm font-bold animate-pulse">
                       המאמן מנחה את השלב הזה. אנא המתן...
                     </div>
                   </div>
