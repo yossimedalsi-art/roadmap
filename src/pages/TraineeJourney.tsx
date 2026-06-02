@@ -114,6 +114,9 @@ export default function TraineeJourney() {
   const [journeyStage, setJourneyStage] = useState<number>(1);
   const injectedResourceRef = useRef<string | null>(null);
   injectedResourceRef.current = injectedResource;
+  // Prevents saveState from writing null/empty values to Firestore during the
+  // window between mount and when fetchSession or onSnapshot restore the session data.
+  const dataInitializedRef = useRef(false);
 
   const theme = selectedEnv ? (worldThemes[selectedEnv] ?? defaultTheme) : defaultTheme;
 
@@ -161,13 +164,15 @@ export default function TraineeJourney() {
         }
       } catch (e) {
         console.error("Error loading session:", e);
+      } finally {
+        dataInitializedRef.current = true;
       }
     };
     fetchSession();
   }, [sessionId, currentPhase]);
 
   useEffect(() => {
-    if (currentPhase > 0 && sessionId) {
+    if (currentPhase > 0 && sessionId && dataInitializedRef.current) {
       const saveState = async () => {
         try {
           const docRef = doc(db, "live_sessions", sessionId);
@@ -202,9 +207,33 @@ export default function TraineeJourney() {
         if (parsed.coachInjectedResource && parsed.coachInjectedResource !== injectedResourceRef.current) {
           setInjectedResource(parsed.coachInjectedResource);
         }
-        // Listen for Coach advancing the phase (mainly used during meditation steps)
-        if (parsed.phase && parsed.phase > currentPhase) {
-          setCurrentPhase(parsed.phase);
+        // Restore full session state from the first snapshot, before fetchSession's
+        // async getDoc resolves — prevents saveState from writing nulls to Firestore.
+        if (!dataInitializedRef.current && parsed.environment) {
+          if (parsed.environment) setSelectedEnv(parsed.environment);
+          if (parsed.journeyStage) setJourneyStage(parsed.journeyStage);
+          if (parsed.answers && Object.keys(parsed.answers).length > 0) setStructuredAnswers(parsed.answers);
+          if (parsed.archetype) setActiveCard(parsed.archetype);
+          if (parsed.trigger) setSelectedTrigger(parsed.trigger);
+          if (parsed.resourceArchetype) setActiveResourceCard(parsed.resourceArchetype);
+          if (parsed.previousAgreement) setPreviousAgreement(parsed.previousAgreement);
+          if (parsed.sessionNumber) setSessionNumber(parsed.sessionNumber);
+        }
+        // Listen for Coach advancing the phase.
+        // During meditation sub-steps, keep the trainee on the first meditation screen
+        // so the audio player keeps playing — only advance when moving to a non-meditation step.
+        if (parsed.phase && parsed.phase > 0) {
+          const jStage = parsed.journeyStage || 1;
+          const phases = jStage === 4 ? stage4Phases : jStage === 3 ? stage3Phases : jStage === 2 ? stage2Phases : journeyPhases;
+          const newStep = phases[parsed.phase - 1];
+          setCurrentPhase(prev => {
+            if (parsed.phase <= prev) return prev;
+            const currStep = phases[prev - 1];
+            if (newStep?.uiType === "meditation" && currStep?.uiType === "meditation") {
+              return prev; // stay on current meditation screen
+            }
+            return parsed.phase;
+          });
         }
       }
     });
@@ -879,7 +908,7 @@ export default function TraineeJourney() {
                 <span className="text-white font-bold">
                   {journeyStage === 4
                     ? (structuredAnswers['s4_step_1_what_i_want'] || 'לא צוין')
-                    : (structuredAnswers['step_6_thought'] || structuredAnswers['s2_step_3_interpretation'] || structuredAnswers['s3_step_2_secondary_gain'] || 'לא צוין')}
+                    : (structuredAnswers['step_5_urge'] || structuredAnswers['s2_step_5_reaction'] || structuredAnswers['s3_step_1_trigger'] || selectedTrigger || 'לא צוין')}
                 </span>
               </div>
               <div className="text-amber-500">→</div>
@@ -901,7 +930,7 @@ export default function TraineeJourney() {
                 <span className="text-white font-bold">
                   {journeyStage === 4
                     ? (structuredAnswers['s4_step_4_secondary_gain'] || 'לא צוין')
-                    : (structuredAnswers['step_5_urge'] || structuredAnswers['s2_step_5_reaction'] || structuredAnswers['s3_step_1_trigger'] || selectedTrigger || 'הפעולה שהחסם מייצר')}
+                    : (structuredAnswers['step_6_thought'] || structuredAnswers['s2_step_3_interpretation'] || structuredAnswers['s3_step_2_secondary_gain'] || 'לא צוין')}
                 </span>
               </div>
             </div>
