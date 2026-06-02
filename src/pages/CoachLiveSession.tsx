@@ -115,7 +115,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                 <span className="text-white text-sm font-medium break-words">
                   {journeyStage === 4
                     ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
-                    : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')}
+                    : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')}
                 </span>
               </div>
               <div className="text-amber-500 text-center text-lg">↓</div>
@@ -133,7 +133,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                 <span className="text-white text-sm font-medium break-words">
                   {journeyStage === 4
                     ? (sessionState?.answers?.['s4_step_4_secondary_gain'] || '—')
-                    : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')}
+                    : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')}
                 </span>
               </div>
             </div>
@@ -200,6 +200,102 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                 </div>
               )}
 
+              {!sessionState ? (
+              /* ── LOADING: snapshot not yet received ── */
+              <div className="flex-1 flex flex-col items-center justify-center py-24 opacity-50">
+                <div className="w-10 h-10 rounded-full border-2 border-amber-500/40 border-t-amber-500 animate-spin mb-4" />
+                <p className="text-neutral-400 text-sm">טוען נתוני סשן...</p>
+              </div>
+              ) : sessionState?.phase > activePhases.length ? (
+              /* ── JOURNEY COMPLETE: show summary only ── */
+              <div className="bg-[#11131a] rounded-2xl border border-amber-500/50 shadow-[0_0_40px_rgba(245,158,11,0.1)] p-8">
+                  <div className="flex items-center mb-6">
+                    <h3 className="text-xl font-bold text-amber-500 flex items-center gap-2">
+                      <Target className="w-6 h-6" /> תכנית עבודה להמשך
+                    </h3>
+                  </div>
+
+                  <p className="text-xl text-white font-medium mb-6 pb-6 border-b border-white/10">
+                    {journeyStage === 4
+                      ? `התמה המרכזית: מיפוי המטרה וצעד מעשי. ${chosenArchetype?.name} מלווה את המסע.`
+                      : `התמה המרכזית: זיהוי החלק השומר (${chosenArchetype?.name}) וחיבורו למשאבים.`}
+                  </p>
+
+                  {/* Blocker/Goal Map in Summary */}
+                  <div className="bg-black/40 border border-white/10 rounded-2xl p-6 mb-8">
+                    <h4 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-4">
+                      {journeyStage === 4 ? 'מפת המטרה שסוכמה' : 'מעגל החסם שזוהה'}
+                    </h4>
+                    <div className="flex flex-col md:flex-row items-center justify-center gap-3">
+                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'המטרה' : 'מחשבה (פרשנות)'}</span>
+                        <span className="text-white font-bold text-sm">
+                          {journeyStage === 4
+                            ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
+                            : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')}
+                        </span>
+                      </div>
+                      <div className="text-amber-500 font-bold">→</div>
+                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'כוחות' : 'רגש / נקודה רגישה'}</span>
+                        <span className="text-white font-bold text-sm">
+                          {journeyStage === 4
+                            ? (sessionState?.answers?.['s4_step_2_capability'] || '—')
+                            : (sessionState?.answers?.['step_3_feeling'] || sessionState?.answers?.['s2_step_4_sensitive_spot'] || sessionState?.answers?.['s3_step_3_need'] || '—')}
+                        </span>
+                      </div>
+                      <div className="text-amber-500 font-bold">→</div>
+                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'חסם' : 'תגובה אוטומטית'}</span>
+                        <span className="text-white font-bold text-sm">
+                          {journeyStage === 4
+                            ? (sessionState?.answers?.['s4_step_4_secondary_gain'] || '—')
+                            : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-10">
+                    <div>
+                      <h4 className="flex items-center gap-2 text-neutral-400 font-bold text-sm mb-4 tracking-widest">
+                        <CalendarDays className="w-4 h-4" /> 72 השעות הקרובות
+                      </h4>
+                      <ul className="space-y-4 pr-6 border-r-2 border-amber-500/20">
+                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"|"fairies"]?.next72?.map((item: string, idx: number) => (
+                          <li key={idx} className="flex items-start gap-3 text-white text-lg">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0"></span> {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="flex items-center gap-2 text-neutral-400 font-bold text-sm mb-4 tracking-widest">
+                        <CalendarDays className="w-4 h-4" /> השבוע הקרוב
+                      </h4>
+                      <ul className="space-y-4 pr-6 border-r-2 border-amber-500/20">
+                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"|"fairies"]?.nextWeek?.map((item: string, idx: number) => (
+                          <li key={idx} className="flex items-start gap-3 text-white text-lg">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0"></span> {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="flex items-center gap-2 text-neutral-400 font-bold text-sm mb-4 tracking-widest">
+                        <CalendarDays className="w-4 h-4" /> 30 הימים הקרובים (מעקב קליני)
+                      </h4>
+                      <ul className="space-y-4 pr-6 border-r-2 border-amber-500/20">
+                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"|"fairies"]?.next30?.map((item: string, idx: number) => (
+                          <li key={idx} className="flex items-start gap-3 text-white text-lg">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0"></span> {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              ) : (
               <div className="print:hidden flex flex-col gap-8">
                 {/* Archetype Card Display */}
                 <div className="flex flex-col md:flex-row justify-center gap-6">
@@ -408,101 +504,6 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                 </div>
               )}
               </div>
-
-              {/* End of Journey Plan (Visible at the very end) */}
-              {sessionState?.phase > activePhases.length && (
-                <div className="bg-[#11131a] rounded-2xl border border-amber-500/50 shadow-[0_0_40px_rgba(245,158,11,0.1)] p-8 mt-12">
-                  <div className="flex items-center mb-6">
-                    <h3 className="text-xl font-bold text-amber-500 flex items-center gap-2">
-                      <Target className="w-6 h-6" /> תכנית עבודה להמשך
-                    </h3>
-                  </div>
-
-                  <p className="text-xl text-white font-medium mb-6 pb-6 border-b border-white/10">
-                    {journeyStage === 4
-                      ? `התמה המרכזית: מיפוי המטרה וצעד מעשי. ${chosenArchetype?.name} מלווה את המסע.`
-                      : `התמה המרכזית: זיהוי החלק השומר (${chosenArchetype?.name}) וחיבורו למשאבים.`}
-                  </p>
-
-                  {/* Blocker/Goal Map in Summary */}
-                  <div className="bg-black/40 border border-white/10 rounded-2xl p-6 mb-8">
-                    <h4 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-4">
-                      {journeyStage === 4 ? 'מפת המטרה שסוכמה' : 'מעגל החסם שזוהה'}
-                    </h4>
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-3">
-                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'המטרה' : 'מחשבה (פרשנות)'}</span>
-                        <span className="text-white font-bold text-sm">
-                          {journeyStage === 4
-                            ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
-                            : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')}
-                        </span>
-                      </div>
-                      <div className="text-amber-500 font-bold">→</div>
-                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'כוחות' : 'רגש / נקודה רגישה'}</span>
-                        <span className="text-white font-bold text-sm">
-                          {journeyStage === 4
-                            ? (sessionState?.answers?.['s4_step_2_capability'] || '—')
-                            : (sessionState?.answers?.['step_3_feeling'] || sessionState?.answers?.['s2_step_4_sensitive_spot'] || sessionState?.answers?.['s3_step_3_need'] || '—')}
-                        </span>
-                      </div>
-                      <div className="text-amber-500 font-bold">→</div>
-                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'חסם' : 'תגובה אוטומטית'}</span>
-                        <span className="text-white font-bold text-sm">
-                          {journeyStage === 4
-                            ? (sessionState?.answers?.['s4_step_4_secondary_gain'] || '—')
-                            : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-10">
-                    {/* 72 Hours */}
-                    <div>
-                      <h4 className="flex items-center gap-2 text-neutral-400 font-bold text-sm mb-4 tracking-widest">
-                        <CalendarDays className="w-4 h-4" /> 72 השעות הקרובות
-                      </h4>
-                      <ul className="space-y-4 pr-6 border-r-2 border-amber-500/20">
-                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"|"fairies"]?.next72.map((item: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-3 text-white text-lg">
-                            <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0"></span> {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {/* Next Week */}
-                    <div>
-                      <h4 className="flex items-center gap-2 text-neutral-400 font-bold text-sm mb-4 tracking-widest">
-                        <CalendarDays className="w-4 h-4" /> השבוע הקרוב
-                      </h4>
-                      <ul className="space-y-4 pr-6 border-r-2 border-amber-500/20">
-                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"|"fairies"]?.nextWeek.map((item: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-3 text-white text-lg">
-                            <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0"></span> {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {/* Next 30 Days (Coach Only) */}
-                    <div>
-                      <h4 className="flex items-center gap-2 text-neutral-400 font-bold text-sm mb-4 tracking-widest">
-                        <CalendarDays className="w-4 h-4" /> 30 הימים הקרובים (מעקב קליני)
-                      </h4>
-                      <ul className="space-y-4 pr-6 border-r-2 border-amber-500/20">
-                        {homeworkPlans[sessionState?.journeyStage || 1]?.[sessionState?.environment as "clouds"|"forest"|"arcade"|"fairies"]?.next30.map((item: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-3 text-white text-lg">
-                            <span className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0"></span> {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
               )}
 
             </div>
