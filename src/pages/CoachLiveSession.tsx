@@ -111,29 +111,35 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
             </h3>
             <div className="flex flex-col gap-2">
               <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'המטרה' : 'מחשבה (פרשנות)'}</span>
+                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'המטרה' : journeyStage === 3 ? 'הטריגר שהעיר את ההגנה' : 'מחשבה (פרשנות)'}</span>
                 <span className="text-white text-sm font-medium break-words">
                   {journeyStage === 4
                     ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
-                    : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')}
+                    : journeyStage === 3
+                    ? (sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')
+                    : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.trigger || '—')}
                 </span>
               </div>
               <div className="text-amber-500 text-center text-lg">↓</div>
               <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'כוחות' : 'רגש / נקודה רגישה'}</span>
+                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'כוחות' : journeyStage === 3 ? 'מה ניסתה ההגנה להשיג' : 'רגש / נקודה רגישה'}</span>
                 <span className="text-white text-sm font-medium break-words">
                   {journeyStage === 4
                     ? (sessionState?.answers?.['s4_step_2_capability'] || '—')
-                    : (sessionState?.answers?.['step_3_feeling'] || sessionState?.answers?.['s2_step_4_sensitive_spot'] || sessionState?.answers?.['s3_step_3_need'] || '—')}
+                    : journeyStage === 3
+                    ? (sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')
+                    : (sessionState?.answers?.['step_3_feeling'] || sessionState?.answers?.['s2_step_4_sensitive_spot'] || '—')}
                 </span>
               </div>
               <div className="text-amber-500 text-center text-lg">↓</div>
               <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'חסם' : 'תגובה אוטומטית'}</span>
+                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'חסם' : journeyStage === 3 ? 'הצורך האמיתי שהוחמץ' : 'תגובה אוטומטית'}</span>
                 <span className="text-white text-sm font-medium break-words">
                   {journeyStage === 4
                     ? (sessionState?.answers?.['s4_step_4_secondary_gain'] || '—')
-                    : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')}
+                    : journeyStage === 3
+                    ? (sessionState?.answers?.['s3_step_3_need'] || '—')
+                    : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || '—')}
                 </span>
               </div>
             </div>
@@ -228,29 +234,35 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     </h4>
                     <div className="flex flex-col md:flex-row items-center justify-center gap-3">
                       <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'המטרה' : 'מחשבה (פרשנות)'}</span>
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'המטרה' : journeyStage === 3 ? 'הטריגר שהעיר את ההגנה' : 'מחשבה (פרשנות)'}</span>
                         <span className="text-white font-bold text-sm">
                           {journeyStage === 4
                             ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
-                            : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')}
+                            : journeyStage === 3
+                            ? (sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')
+                            : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.trigger || '—')}
                         </span>
                       </div>
                       <div className="text-amber-500 font-bold">→</div>
                       <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'כוחות' : 'רגש / נקודה רגישה'}</span>
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'כוחות' : journeyStage === 3 ? 'מה ניסתה ההגנה להשיג' : 'רגש / נקודה רגישה'}</span>
                         <span className="text-white font-bold text-sm">
                           {journeyStage === 4
                             ? (sessionState?.answers?.['s4_step_2_capability'] || '—')
-                            : (sessionState?.answers?.['step_3_feeling'] || sessionState?.answers?.['s2_step_4_sensitive_spot'] || sessionState?.answers?.['s3_step_3_need'] || '—')}
+                            : journeyStage === 3
+                            ? (sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')
+                            : (sessionState?.answers?.['step_3_feeling'] || sessionState?.answers?.['s2_step_4_sensitive_spot'] || '—')}
                         </span>
                       </div>
                       <div className="text-amber-500 font-bold">→</div>
                       <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'חסם' : 'תגובה אוטומטית'}</span>
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'חסם' : journeyStage === 3 ? 'הצורך האמיתי שהוחמץ' : 'תגובה אוטומטית'}</span>
                         <span className="text-white font-bold text-sm">
                           {journeyStage === 4
                             ? (sessionState?.answers?.['s4_step_4_secondary_gain'] || '—')
-                            : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')}
+                            : journeyStage === 3
+                            ? (sessionState?.answers?.['s3_step_3_need'] || '—')
+                            : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || '—')}
                         </span>
                       </div>
                     </div>
