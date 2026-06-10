@@ -3,13 +3,12 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDPu4tG5FDd8YsBRgRgViSSTJXoPg9x7jY",
-  authDomain: "heartcompass-roadmap.firebaseapp.com",
-  projectId: "heartcompass-roadmap",
-  storageBucket: "heartcompass-roadmap.firebasestorage.app",
-  messagingSenderId: "673572463523",
-  appId: "1:673572463523:web:4d15f54bb3920a33be7016",
-  measurementId: "G-J3M8S6DC2G"
+  apiKey: "AIzaSyDbLxNCv2cg92uO0I3jgVITLdQWVaByCJc",
+  authDomain: "roadmap-4b82f.firebaseapp.com",
+  projectId: "roadmap-4b82f",
+  storageBucket: "roadmap-4b82f.firebasestorage.app",
+  messagingSenderId: "729280776731",
+  appId: "1:729280776731:web:b2d9c2e1559fb0b80486be"
 };
 
 // Initialize Firebase
