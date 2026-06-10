@@ -5,6 +5,7 @@ import type { User } from "firebase/auth";
 import { auth } from "./lib/firebase";
 import TraineeJourney from "./pages/TraineeJourney";
 import CoachDashboard from "./pages/CoachDashboard";
+import DemoJourney from "./pages/DemoJourney";
 import Home from "./pages/Home";
 import AuthPage from "./pages/AuthPage";
 import ToSGate from "./components/ToS";
@@ -30,24 +31,25 @@ function App() {
   }
 
   return (
-    <ToSGate>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/journey/:sessionId" element={<TraineeJourney />} />
+    <BrowserRouter>
+      <Routes>
+        {/* Public marketing demo — no ToS gate, no Firebase */}
+        <Route path="/demo" element={<DemoJourney />} />
 
-          {/* Protected Coach Route */}
-          <Route
-            path="/coach"
-            element={user ? <CoachDashboard user={user} /> : <Navigate to="/login" />}
-          />
-          <Route
-            path="/login"
-            element={user ? <Navigate to="/coach" /> : <AuthPage onLogin={setUser} />}
-          />
-        </Routes>
-      </BrowserRouter>
-    </ToSGate>
+        <Route path="/" element={<ToSGate><Home /></ToSGate>} />
+        <Route path="/journey/:sessionId" element={<ToSGate><TraineeJourney /></ToSGate>} />
+
+        {/* Protected Coach Route */}
+        <Route
+          path="/coach"
+          element={user ? <ToSGate><CoachDashboard user={user} /></ToSGate> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/coach" /> : <ToSGate><AuthPage onLogin={setUser} /></ToSGate>}
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
