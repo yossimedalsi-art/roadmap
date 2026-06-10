@@ -111,10 +111,11 @@ export default function CoachDashboard({ user }: { user: User }) {
         coachId: user.uid,
         traineeId: selectedTrainee.id,
         phase: 0,
+        status: "active",
         journeyStage: selectedStage,
         createdAt: serverTimestamp(),
         sessionNumber: traineeSessions.length + 1,
-        previousAgreement: lastSession?.answers?.['step_10_integration'] || lastSession?.answers?.['s2_step_10_agreement'] || lastSession?.answers?.['s3_step_9_new_contract'] || lastSession?.answers?.['s4_step_6_action'] || null,
+        previousAgreement: lastSession?.answers?.['step_10_integration'] || lastSession?.answers?.['s2_step_9_agreement'] || lastSession?.answers?.['s3_step_9_new_contract'] || lastSession?.answers?.['s4_step_6_action'] || null,
         previousArchetype: lastSession?.archetype || null,
         previousEnvironment: lastSession?.environment || null,
       });

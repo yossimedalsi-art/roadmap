@@ -117,6 +117,9 @@ export default function TraineeJourney() {
   // Prevents saveState from writing null/empty values to Firestore during the
   // window between mount and when fetchSession or onSnapshot restore the session data.
   const dataInitializedRef = useRef(false);
+  // Surfaces Firestore write failures to the trainee (remote devices may hit
+  // permission/network errors silently — without this the coach sees a frozen screen).
+  const [syncError, setSyncError] = useState(false);
 
   const theme = selectedEnv ? (worldThemes[selectedEnv] ?? defaultTheme) : defaultTheme;
 
@@ -186,8 +189,10 @@ export default function TraineeJourney() {
             answers: structuredAnswers,
             ...(isJourneyComplete && { status: "completed" })
           }, { merge: true });
+          setSyncError(false);
         } catch (e) {
           console.error("Error saving state:", e);
+          setSyncError(true);
         }
       };
       saveState();
@@ -351,6 +356,14 @@ export default function TraineeJourney() {
   };
 
 
+  // Fixed banner shown on every screen when Firestore writes fail —
+  // critical for remote trainees whose connection/permission errors are otherwise silent.
+  const syncErrorBanner = syncError && (
+    <div className="fixed top-0 inset-x-0 z-[100] bg-red-600 text-white text-center text-sm font-bold py-2 px-4 shadow-lg" dir="rtl">
+      ⚠ החיבור למאמן נכשל — התשובות לא נשמרות. בדוק את חיבור האינטרנט או רענן את הדף.
+    </div>
+  );
+
   const worldSelectThemes: Record<string, { hover: string; iconBg: string; glow: string; textColor: string }> = {
     clouds: { hover: "hover:border-indigo-500/60 hover:bg-indigo-500/5 hover:shadow-[0_0_40px_rgba(99,102,241,0.2)]", iconBg: "bg-indigo-500/10", glow: "group-hover:text-indigo-400", textColor: "text-indigo-400" },
     forest: { hover: "hover:border-emerald-500/60 hover:bg-emerald-500/5 hover:shadow-[0_0_40px_rgba(34,197,94,0.2)]", iconBg: "bg-emerald-500/10", glow: "group-hover:text-emerald-400", textColor: "text-emerald-400" },
@@ -361,6 +374,7 @@ export default function TraineeJourney() {
   if (currentPhase === 0) {
     return (
       <div className="min-h-screen bg-[#0d0f14] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden" dir="rtl">
+        {syncErrorBanner}
         <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.07) 0%, transparent 65%)" }} />
         {/* Previous agreement bubble */}
         {previousAgreement && sessionNumber > 1 && (
@@ -404,6 +418,7 @@ export default function TraineeJourney() {
   if (currentPhase === 1 || currentPhase === 2) {
     return (
       <div className={`min-h-screen ${theme.bg} text-white p-6 relative overflow-x-hidden`} dir="rtl">
+        {syncErrorBanner}
         {/* World-themed gradient overlay */}
         <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
         <div className="fixed inset-0 pointer-events-none z-0 opacity-60" style={{ background: theme.patternBg }} />
@@ -559,6 +574,7 @@ export default function TraineeJourney() {
 
     return (
       <div className={`min-h-screen ${theme.bg} text-white flex flex-col items-center p-6 relative overflow-hidden`} dir="rtl">
+        {syncErrorBanner}
         {/* World-themed gradient overlay */}
         <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
         <div className="fixed inset-0 pointer-events-none z-0 opacity-50" style={{ background: theme.patternBg }} />
@@ -757,6 +773,14 @@ export default function TraineeJourney() {
                         </div>
                         <span className={`font-bold ${isSelected ? 'text-amber-400' : 'text-neutral-300'}`}>{power.name}</span>
                         <span className="text-xs text-neutral-500">{power.description}</span>
+                        {isSelected && power.triggers.length > 0 && (
+                          <div className="w-full mt-1 pt-2 border-t border-amber-500/20 text-right">
+                            <span className="text-[10px] text-amber-500/80 font-bold block mb-1">מתי הכוח הזה עוזר:</span>
+                            {power.triggers.map((t, i) => (
+                              <span key={i} className="text-[11px] text-neutral-400 block leading-relaxed">• {t}</span>
+                            ))}
+                          </div>
+                        )}
                       </motion.button>
                     );
                   })}
@@ -828,6 +852,7 @@ export default function TraineeJourney() {
 
   return (
     <div className={`min-h-screen ${theme.bg} text-white flex flex-col items-center justify-center p-6 text-center relative overflow-hidden`} dir="rtl">
+      {syncErrorBanner}
       <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
 
       <div className="absolute top-6 right-6 print:hidden z-10">
@@ -892,7 +917,7 @@ export default function TraineeJourney() {
               ההסכם החדש שלנו <span className="w-2 h-2 rounded-full bg-amber-500"></span>
             </h3>
             <p className="text-xl font-bold text-white leading-relaxed">
-              "{structuredAnswers[journeyStage === 4 ? 's4_step_6_action' : journeyStage === 3 ? 's3_step_9_new_contract' : journeyStage === 2 ? 's2_step_10_closure' : 'step_10_integration'] || 'אקח נשימה במקום להגיב מיד'}"
+              "{structuredAnswers[journeyStage === 4 ? 's4_step_6_action' : journeyStage === 3 ? 's3_step_9_new_contract' : journeyStage === 2 ? 's2_step_9_agreement' : 'step_10_integration'] || 'אקח נשימה במקום להגיב מיד'}"
             </p>
           </div>
 

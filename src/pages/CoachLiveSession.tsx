@@ -20,13 +20,14 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
     try {
       await updateDoc(doc(db, "live_sessions", sessionId), {
         status: "completed",
-        completedAt: serverTimestamp()
+        completedAt: serverTimestamp(),
+        phase: activePhases.length + 1
       });
     } catch (e) {
       console.error("Error ending journey", e);
     }
     setShowEndConfirm(false);
-    onBack();
+    // stay on page so coach can view summary and export PDF
   };
 
 
@@ -62,17 +63,23 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
           <span className="text-neutral-500 font-normal text-sm">| ממשק מאמן</span>
         </div>
         <div className="flex gap-3">
-          {sessionState?.phase > activePhases.length && (
-            <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold rounded-lg text-sm hover:bg-amber-500 hover:text-black transition">
-              <FileText className="w-4 h-4" /> ייצא סיכום PDF
+          {sessionState?.phase > activePhases.length ? (
+            <>
+              <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 font-bold rounded-lg text-sm hover:bg-amber-500 hover:text-black transition">
+                <FileText className="w-4 h-4" /> ייצא סיכום PDF
+              </button>
+              <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 text-neutral-300 font-bold rounded-lg text-sm hover:bg-white/10 transition">
+                חזור לתיק מתאמן
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setShowEndConfirm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/30 font-bold rounded-lg text-sm hover:bg-red-500 hover:text-white transition"
+            >
+              <XCircle className="w-4 h-4" /> סיים מסע
             </button>
           )}
-          <button
-            onClick={() => setShowEndConfirm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/30 font-bold rounded-lg text-sm hover:bg-red-500 hover:text-white transition"
-          >
-            <XCircle className="w-4 h-4" /> סיים מסע
-          </button>
         </div>
       </header>
 
@@ -103,6 +110,16 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
               )}
             </div>
           </div>
+
+          {/* Coach prompt for the chosen archetype — psychological guidance from the card data */}
+          {chosenArchetype?.coachPrompt && (
+            <div className="bg-blue-500/5 rounded-2xl border border-blue-500/20 shadow-2xl p-5">
+              <h3 className="text-blue-400 font-bold mb-2 text-xs tracking-widest uppercase flex items-center gap-2">
+                🧭 הנחיה למאמן — {chosenArchetype.name}
+              </h3>
+              <p className="text-neutral-300 text-sm leading-relaxed">{chosenArchetype.coachPrompt}</p>
+            </div>
+          )}
 
           {/* Blocker / Goal Map — live sidebar */}
           <div className="bg-[#11131a] rounded-2xl border border-white/5 shadow-2xl p-6">
