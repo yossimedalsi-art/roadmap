@@ -18,7 +18,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
 
   const handleEndJourney = async () => {
     try {
-      await updateDoc(doc(db, "live_sessions", sessionId), {
+      await updateDoc(doc(db, "hc_live_sessions", sessionId), {
         status: "completed",
         completedAt: serverTimestamp(),
         phase: activePhases.length + 1
@@ -33,7 +33,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
 
   useEffect(() => {
     if (!sessionId) return;
-    const docRef = doc(db, "live_sessions", sessionId);
+    const docRef = doc(db, "hc_live_sessions", sessionId);
     const unsubscribe = onSnapshot(docRef, (docSnap: any) => {
       if (docSnap.exists()) {
         setSessionState(docSnap.data());
@@ -514,7 +514,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                           onClick={async () => {
                             if (sessionId) {
                               try {
-                                await updateDoc(doc(db, "live_sessions", sessionId), {
+                                await updateDoc(doc(db, "hc_live_sessions", sessionId), {
                                   phase: sessionState.phase + 1
                                 });
                               } catch (e) {
@@ -588,7 +588,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     onClick={async () => {
                       if (sessionId) {
                         try {
-                          await updateDoc(doc(db, "live_sessions", sessionId), {
+                          await updateDoc(doc(db, "hc_live_sessions", sessionId), {
                             coachInjectedResource: power.id
                           });
                         } catch (e) {

@@ -69,7 +69,7 @@ export default function CoachDashboard({ user }: { user: User }) {
     setLoadingSessions(true);
     try {
       const q = query(
-        collection(db, "live_sessions"),
+        collection(db, "hc_live_sessions"),
         where("coachId", "==", user.uid),
         where("traineeId", "==", trainee.id)
       );
@@ -107,7 +107,7 @@ export default function CoachDashboard({ user }: { user: User }) {
     const randomId = Math.random().toString(36).substring(2, 8);
 
     try {
-      await setDoc(doc(db, "live_sessions", randomId), {
+      await setDoc(doc(db, "hc_live_sessions", randomId), {
         coachId: user.uid,
         traineeId: selectedTrainee.id,
         phase: 0,

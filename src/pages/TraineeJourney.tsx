@@ -147,7 +147,7 @@ export default function TraineeJourney() {
     if (!sessionId) return;
     const fetchSession = async () => {
       try {
-        const docRef = doc(db, "live_sessions", sessionId);
+        const docRef = doc(db, "hc_live_sessions", sessionId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists() && currentPhase === 0) {
           const parsed = docSnap.data();
@@ -178,7 +178,7 @@ export default function TraineeJourney() {
     if (currentPhase > 0 && sessionId && dataInitializedRef.current) {
       const saveState = async () => {
         try {
-          const docRef = doc(db, "live_sessions", sessionId);
+          const docRef = doc(db, "hc_live_sessions", sessionId);
           const isJourneyComplete = currentPhase > activePhases.length;
           await setDoc(docRef, {
             phase: currentPhase,
@@ -205,7 +205,7 @@ export default function TraineeJourney() {
   // reopen the modal before updateDoc clears the field (race condition).
   useEffect(() => {
     if (!sessionId) return;
-    const docRef = doc(db, "live_sessions", sessionId);
+    const docRef = doc(db, "hc_live_sessions", sessionId);
     const unsubscribe = onSnapshot(docRef, (docSnap: any) => {
       if (docSnap.exists()) {
         const parsed = docSnap.data();
@@ -337,7 +337,7 @@ export default function TraineeJourney() {
                   setInjectedResource(null);
                   if (sessionId) {
                     try {
-                      const docRef = doc(db, "live_sessions", sessionId);
+                      const docRef = doc(db, "hc_live_sessions", sessionId);
                       await updateDoc(docRef, { coachInjectedResource: null });
                     } catch (e) {
                       console.error("Error clearing coach injected resource", e);
@@ -441,7 +441,7 @@ export default function TraineeJourney() {
               setSelectedTrigger(null);
               if (sessionId) {
                 try {
-                  const docRef = doc(db, "live_sessions", sessionId);
+                  const docRef = doc(db, "hc_live_sessions", sessionId);
                   await setDoc(docRef, { phase: 0, environment: null, archetype: null, trigger: null }, { merge: true });
                 } catch (e) {
                   console.error("Error resetting phase to world select", e);
