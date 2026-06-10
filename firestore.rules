@@ -21,7 +21,7 @@ service cloud.firestore {
     //   The trainee rule intentionally does NOT require request.auth == null:
     //   a remote device may have any Firebase user signed in (or none),
     //   and the magic-link model treats session-ID knowledge as the grant.
-    match /live_sessions/{sessionId} {
+    match /hc_live_sessions/{sessionId} {
 
       // Anyone with the session ID can read (magic-link model).
       allow read: if true;
