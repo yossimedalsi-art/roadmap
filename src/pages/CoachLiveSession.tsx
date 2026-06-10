@@ -11,7 +11,18 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
   const [sessionState, setSessionState] = useState<any>(null);
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [whisperText, setWhisperText] = useState("");
   const magicLink = `${window.location.origin}/journey/${sessionId}`;
+
+  const sendWhisper = async (text: string) => {
+    if (!text.trim() || !sessionId) return;
+    try {
+      await updateDoc(doc(db, "hc_live_sessions", sessionId), { coachWhisper: text });
+      setWhisperText("");
+    } catch (e) {
+      console.error("Error sending whisper", e);
+    }
+  };
 
   const showResourceAlert =
     (sessionState?.phase ?? 0) >= 7 && !sessionState?.resourceArchetype;
@@ -110,6 +121,73 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
               )}
             </div>
           </div>
+
+          {/* Whisper Panel */}
+          <div className="bg-[#11131a] rounded-2xl border border-blue-500/20 shadow-2xl p-5">
+            <h3 className="text-blue-400 font-bold mb-3 text-xs tracking-widest uppercase flex items-center gap-2">
+              💙 שלח לחישה למתאמן
+            </h3>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {["🔥 תשובה אמיצה", "💙 אני איתך", "🤔 ספר עוד", "✨ אתה על הדרך"].map(w => (
+                <button
+                  key={w}
+                  onClick={() => sendWhisper(w)}
+                  className="text-xs bg-blue-500/10 border border-blue-500/20 text-blue-400 px-3 py-1.5 rounded-full hover:bg-blue-500 hover:text-white transition"
+                >
+                  {w}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={whisperText}
+                onChange={(e) => setWhisperText(e.target.value)}
+                placeholder="לחישה מותאמת..."
+                className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none"
+                onKeyDown={(e) => { if (e.key === 'Enter' && whisperText.trim()) sendWhisper(whisperText); }}
+              />
+              <button
+                onClick={() => sendWhisper(whisperText)}
+                disabled={!whisperText.trim()}
+                className="px-3 py-2 bg-blue-500 text-white rounded-lg disabled:opacity-30 hover:bg-blue-400 transition font-bold text-sm"
+              >
+                שלח
+              </button>
+            </div>
+          </div>
+
+          {/* Blocker Intensity Meter */}
+          {sessionState?.blockerStrengthBefore != null && (
+            <div className="bg-[#11131a] rounded-2xl border border-white/5 shadow-2xl p-5">
+              <h3 className="text-amber-500 font-bold text-xs tracking-widest uppercase mb-4 flex items-center gap-2">
+                📊 עוצמת החוסם
+              </h3>
+              <div className="flex items-center justify-center gap-5">
+                <div className="text-center">
+                  <span className="block text-xs text-neutral-500 mb-1">לפני</span>
+                  <span className="text-4xl font-black text-red-400">{sessionState.blockerStrengthBefore}</span>
+                  <span className="block text-xs text-neutral-600 mt-1">/10</span>
+                </div>
+                {sessionState?.blockerStrengthAfter != null && (
+                  <>
+                    <span className="text-amber-500 text-2xl">→</span>
+                    <div className="text-center">
+                      <span className="block text-xs text-neutral-500 mb-1">אחרי</span>
+                      <span className="text-4xl font-black text-green-400">{sessionState.blockerStrengthAfter}</span>
+                      <span className="block text-xs text-neutral-600 mt-1">/10</span>
+                    </div>
+                    <div className="text-center bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-2">
+                      <span className="block text-xs text-neutral-500 mb-1">שינוי</span>
+                      <span className={`text-2xl font-black ${sessionState.blockerStrengthBefore - sessionState.blockerStrengthAfter > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {sessionState.blockerStrengthBefore - sessionState.blockerStrengthAfter > 0 ? '−' : '+'}{Math.abs(sessionState.blockerStrengthBefore - sessionState.blockerStrengthAfter)}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Coach prompt for the chosen archetype — psychological guidance from the card data */}
           {chosenArchetype?.coachPrompt && (

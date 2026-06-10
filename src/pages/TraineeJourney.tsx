@@ -112,6 +112,11 @@ export default function TraineeJourney() {
   const [previousAgreement, setPreviousAgreement] = useState<string | null>(null);
   const [sessionNumber, setSessionNumber] = useState<number>(1);
   const [journeyStage, setJourneyStage] = useState<number>(1);
+  const [blockerStrengthBefore, setBlockerStrengthBefore] = useState<number | null>(null);
+  const [blockerStrengthAfter, setBlockerStrengthAfter] = useState<number | null>(null);
+  const [showIntensityBefore, setShowIntensityBefore] = useState(false);
+  const [coachWhisper, setCoachWhisper] = useState<string | null>(null);
+  const [oldCardBurning, setOldCardBurning] = useState(false);
   const injectedResourceRef = useRef<string | null>(null);
   injectedResourceRef.current = injectedResource;
   // Prevents saveState from writing null/empty values to Firestore during the
@@ -163,6 +168,8 @@ export default function TraineeJourney() {
             setActiveResourceCard(parsed.resourceArchetype || null);
             setSelectedTrigger(parsed.trigger);
             setStructuredAnswers(parsed.answers || {});
+            if (parsed.blockerStrengthBefore) setBlockerStrengthBefore(parsed.blockerStrengthBefore);
+            if (parsed.blockerStrengthAfter) setBlockerStrengthAfter(parsed.blockerStrengthAfter);
           }
         }
       } catch (e) {
@@ -187,6 +194,8 @@ export default function TraineeJourney() {
             resourceArchetype: activeResourceCard,
             trigger: selectedTrigger,
             answers: structuredAnswers,
+            blockerStrengthBefore: blockerStrengthBefore,
+            blockerStrengthAfter: blockerStrengthAfter,
             ...(isJourneyComplete && { status: "completed" })
           }, { merge: true });
           setSyncError(false);
@@ -211,6 +220,9 @@ export default function TraineeJourney() {
         const parsed = docSnap.data();
         if (parsed.coachInjectedResource && parsed.coachInjectedResource !== injectedResourceRef.current) {
           setInjectedResource(parsed.coachInjectedResource);
+        }
+        if (parsed.coachWhisper && parsed.coachWhisper !== null) {
+          setCoachWhisper(parsed.coachWhisper);
         }
         // Restore full session state from the first snapshot, before fetchSession's
         // async getDoc resolves — prevents saveState from writing nulls to Firestore.
@@ -254,6 +266,55 @@ export default function TraineeJourney() {
     replaced = replaced.replace(/\[משאב\]/g, resourceArchetype?.name || "הכוח החדש");
     return replaced;
   };
+
+  const renderIntensityPicker = (value: number | null, onChange: (v: number) => void) => (
+    <div className="flex gap-2 justify-center flex-wrap mt-4">
+      {[1,2,3,4,5,6,7,8,9,10].map(n => (
+        <button
+          key={n}
+          onClick={() => onChange(n)}
+          className={`w-10 h-10 rounded-full font-bold text-sm transition-all ${
+            value === n
+              ? 'bg-amber-500 text-black scale-125 shadow-[0_0_15px_rgba(245,158,11,0.5)]'
+              : n <= 3
+              ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/40'
+              : n <= 6
+              ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/40'
+              : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/40'
+          }`}
+        >
+          {n}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderWhisperBubble = () => (
+    <AnimatePresence>
+      {coachWhisper && (
+        <motion.div
+          initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }}
+          className="fixed bottom-28 left-4 right-4 md:left-auto md:right-6 md:max-w-xs z-[70] bg-[#11131a] border border-blue-500/40 rounded-2xl p-4 shadow-[0_0_30px_rgba(59,130,246,0.25)]"
+        >
+          <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest block mb-2">💙 לחישה מהמאמן</span>
+          <p className="text-white font-medium text-sm leading-relaxed">{coachWhisper}</p>
+          <button
+            onClick={async () => {
+              setCoachWhisper(null);
+              if (sessionId) {
+                try {
+                  await updateDoc(doc(db, "hc_live_sessions", sessionId), { coachWhisper: null });
+                } catch (e) { console.error("Error clearing whisper", e); }
+              }
+            }}
+            className="mt-3 text-xs text-blue-400 hover:text-white transition font-bold"
+          >
+            ✓ הבנתי
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 
   const environments = [
     { id: "clouds", title: "ממלכת העננים", icon: Cloud, color: "text-blue-400" },
@@ -547,7 +608,7 @@ export default function TraineeJourney() {
                       <motion.button
                         initial={{ opacity: 0 }} animate={{ opacity: selectedTrigger ? 1 : 0.3 }}
                         disabled={!selectedTrigger}
-                        onClick={(e) => { e.stopPropagation(); setCurrentPhase(3); }}
+                        onClick={(e) => { e.stopPropagation(); setShowIntensityBefore(true); }}
                         className="w-full flex items-center justify-center gap-2 py-4 bg-amber-500 text-black font-bold rounded-xl transition-all"
                       >
                         התחל חקירה <ArrowLeft className="w-5 h-5" />
@@ -560,8 +621,41 @@ export default function TraineeJourney() {
           })}
         </div>
         {renderInjectedModal()}
+        {renderWhisperBubble()}
         <Backpack resourceArchetype={resourceArchetype} onUseResource={handleUseResource} />
         {renderResourcePowerFlash()}
+
+        {/* Intensity Before overlay */}
+        <AnimatePresence>
+          {showIntensityBefore && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }}
+                className="bg-[#171a23] border border-amber-500/30 rounded-3xl p-8 max-w-md w-full text-center"
+              >
+                <div className="text-4xl mb-4">🌡️</div>
+                <h3 className="text-2xl font-black text-white mb-2">לפני שנתחיל —</h3>
+                <p className="text-neutral-400 mb-6">כמה חזק <strong className="text-amber-400">{chosenArchetype?.name}</strong> פועל בך עכשיו?</p>
+                <div className="flex justify-between text-xs text-neutral-500 mb-1 px-1">
+                  <span>כמעט לא מורגש</span>
+                  <span>חזק מאוד</span>
+                </div>
+                {renderIntensityPicker(blockerStrengthBefore, setBlockerStrengthBefore)}
+                <motion.button
+                  animate={{ opacity: blockerStrengthBefore ? 1 : 0.3 }}
+                  disabled={!blockerStrengthBefore}
+                  onClick={() => { setShowIntensityBefore(false); setCurrentPhase(3); }}
+                  className="mt-8 w-full py-4 bg-amber-500 text-black font-bold rounded-xl transition disabled:cursor-not-allowed"
+                >
+                  מוכן, נתחיל את החקירה
+                </motion.button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -844,8 +938,77 @@ export default function TraineeJourney() {
           </div>
         </main>
         {renderInjectedModal()}
+        {renderWhisperBubble()}
         <Backpack resourceArchetype={resourceArchetype} onUseResource={handleUseResource} />
         {renderResourcePowerFlash()}
+      </div>
+    );
+  }
+
+  // ── THE CHOICE MOMENT ──────────────────────────────────────────────
+  // Symbolic rehearsal: trainee physically chooses the new action over the
+  // old automatic reaction; the old card burns away. Stages 1-2 only (פר"ת).
+  const oldReaction = structuredAnswers['step_5_urge'] || structuredAnswers['s2_step_5_reaction'];
+  const newAgreement = structuredAnswers['step_10_integration'] || structuredAnswers['s2_step_9_agreement'];
+  const showChoiceMoment =
+    (journeyStage === 1 || journeyStage === 2) &&
+    oldReaction && newAgreement &&
+    !structuredAnswers['choice_moment'];
+
+  if (showChoiceMoment) {
+    return (
+      <div className={`min-h-screen ${theme.bg} text-white flex flex-col items-center justify-center p-6 text-center relative overflow-hidden`} dir="rtl">
+        {syncErrorBanner}
+        <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 max-w-3xl w-full">
+          <h1 className="text-3xl md:text-4xl font-black text-white mb-3">רגע הבחירה</h1>
+          <p className="text-neutral-400 mb-2 text-lg">דמיין: הטריגר קורה שוב, ממש עכשיו —</p>
+          <p className="text-amber-400 font-bold mb-10 text-xl">"{selectedTrigger || 'הרגע הקשה ההוא'}"</p>
+
+          <div className="grid md:grid-cols-2 gap-6 mb-10">
+            {/* Old automatic reaction */}
+            <motion.div
+              animate={oldCardBurning
+                ? { opacity: 0, scale: 0.6, rotate: -8, filter: "blur(6px) brightness(2)" }
+                : { opacity: 1, scale: 1 }}
+              transition={{ duration: 1.4, ease: "easeIn" }}
+              className="bg-[#171a23] border-2 border-red-500/40 rounded-3xl p-8 flex flex-col items-center"
+            >
+              <span className="text-red-400 text-xs font-bold tracking-widest uppercase mb-4">הדרך הישנה — אוטומט</span>
+              <div className="text-5xl mb-4">⛓️</div>
+              <p className="text-white font-bold text-lg leading-relaxed">"{oldReaction}"</p>
+              <p className="text-neutral-500 text-sm mt-4">מוכר. בטוח. אבל גובה מחיר.</p>
+            </motion.div>
+
+            {/* New chosen action */}
+            <motion.button
+              onClick={() => {
+                if (oldCardBurning) return;
+                setOldCardBurning(true);
+                setTimeout(() => {
+                  handleDialogueSelect('choice_moment', 'new');
+                }, 1600);
+              }}
+              whileHover={!oldCardBurning ? { scale: 1.04, y: -4 } : {}}
+              whileTap={!oldCardBurning ? { scale: 0.98 } : {}}
+              animate={oldCardBurning
+                ? { scale: 1.06, boxShadow: "0 0 60px rgba(245,158,11,0.5)" }
+                : {}}
+              className="bg-[#171a23] border-2 border-amber-500/60 rounded-3xl p-8 flex flex-col items-center cursor-pointer shadow-[0_0_30px_rgba(245,158,11,0.15)] transition-all"
+            >
+              <span className="text-amber-400 text-xs font-bold tracking-widest uppercase mb-4">הדרך החדשה — הבחירה שלי</span>
+              <div className="text-5xl mb-4">🔑</div>
+              <p className="text-white font-bold text-lg leading-relaxed">"{newAgreement}"</p>
+              <p className="text-amber-500/80 text-sm mt-4 font-bold">{oldCardBurning ? '✨ הבחירה נעשתה' : 'לחץ כדי לבחור בדרך הזו'}</p>
+            </motion.button>
+          </div>
+
+          <p className="text-neutral-500 text-sm">
+            {oldCardBurning ? 'הדפוס הישן משתחרר...' : 'איזו דרך אתה בוחר הפעם?'}
+          </p>
+        </motion.div>
+        {renderWhisperBubble()}
       </div>
     );
   }
@@ -912,13 +1075,45 @@ export default function TraineeJourney() {
             )}
           </div>
 
-          <div className="w-full text-right bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 mb-8">
+          <div className="w-full text-right bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 mb-6">
             <h3 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-4 flex items-center gap-2">
               ההסכם החדש שלנו <span className="w-2 h-2 rounded-full bg-amber-500"></span>
             </h3>
             <p className="text-xl font-bold text-white leading-relaxed">
               "{structuredAnswers[journeyStage === 4 ? 's4_step_6_action' : journeyStage === 3 ? 's3_step_9_new_contract' : journeyStage === 2 ? 's2_step_9_agreement' : 'step_10_integration'] || 'אקח נשימה במקום להגיב מיד'}"
             </p>
+          </div>
+
+          {/* Intensity After — measure shift */}
+          <div className="w-full bg-[#11131a] border border-white/10 rounded-2xl p-6 mb-6 print:hidden">
+            <h3 className="text-white font-bold text-sm tracking-widest uppercase mb-1 text-center">🌡️ כמה חזק החוסם עכשיו, אחרי המסע?</h3>
+            <p className="text-neutral-500 text-xs text-center mb-2">
+              {blockerStrengthBefore ? `לפני המסע בחרת ${blockerStrengthBefore}` : ''}
+            </p>
+            {renderIntensityPicker(blockerStrengthAfter, (v) => {
+              setBlockerStrengthAfter(v);
+            })}
+            {blockerStrengthBefore && blockerStrengthAfter && (
+              <div className="mt-5 flex items-center justify-center gap-4 text-center">
+                <div>
+                  <span className="block text-xs text-neutral-500 mb-1">לפני</span>
+                  <span className="text-3xl font-black text-red-400">{blockerStrengthBefore}</span>
+                </div>
+                <span className="text-amber-500 text-2xl font-bold">→</span>
+                <div>
+                  <span className="block text-xs text-neutral-500 mb-1">אחרי</span>
+                  <span className="text-3xl font-black text-green-400">{blockerStrengthAfter}</span>
+                </div>
+                {blockerStrengthBefore !== blockerStrengthAfter && (
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-2">
+                    <span className="block text-xs text-neutral-500 mb-1">שינוי</span>
+                    <span className={`text-2xl font-black ${blockerStrengthBefore - blockerStrengthAfter > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {blockerStrengthBefore - blockerStrengthAfter > 0 ? '−' : '+'}{Math.abs(blockerStrengthBefore - blockerStrengthAfter)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="w-full bg-[#11131a] border border-white/10 rounded-2xl p-6 mb-8">

@@ -5,6 +5,7 @@ import { db, auth } from "../lib/firebase";
 import { Plus, User as UserIcon, Calendar, ArrowRight, LogOut, FolderOpen, ChevronDown, ChevronUp, CheckCircle2, Clock } from "lucide-react";
 import CoachLiveSession from "./CoachLiveSession";
 import HeartCompassLogo from "../components/HeartCompassLogo";
+import { worldsData } from "../data/worlds";
 
 export default function CoachDashboard({ user }: { user: User }) {
   const [trainees, setTrainees] = useState<any[]>([]);
@@ -253,6 +254,56 @@ export default function CoachDashboard({ user }: { user: User }) {
                     {agreement && (
                       <p className="text-white text-sm font-bold">"{agreement}"</p>
                     )}
+                  </div>
+                );
+              })()}
+
+              {/* Creatures Album: every archetype this trainee has met across journeys */}
+              {(() => {
+                const allArchetypes = worldsData.flatMap(w => w.archetypes);
+                const met: Record<string, { count: number; completed: number; strengthDrop: number | null }> = {};
+                traineeSessions.forEach(s => {
+                  if (!s.archetype) return;
+                  if (!met[s.archetype]) met[s.archetype] = { count: 0, completed: 0, strengthDrop: null };
+                  met[s.archetype].count++;
+                  if (s.status === "completed") met[s.archetype].completed++;
+                  if (s.blockerStrengthBefore != null && s.blockerStrengthAfter != null) {
+                    met[s.archetype].strengthDrop = s.blockerStrengthBefore - s.blockerStrengthAfter;
+                  }
+                });
+                const entries = Object.entries(met);
+                if (entries.length === 0) return null;
+                return (
+                  <div className="mb-5">
+                    <h3 className="font-bold text-neutral-300 mb-3 text-sm flex items-center gap-2">
+                      🏆 אלבום היצורים — דמויות שהמתאמן פגש
+                    </h3>
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {entries.map(([archId, info]) => {
+                        const card = allArchetypes.find(a => a.id === archId);
+                        if (!card) return null;
+                        const status = info.completed >= 2 ? '🌕 בעל ברית' : info.completed === 1 ? '🌓 זוהה' : '🌑 התעורר';
+                        return (
+                          <div key={archId} className="shrink-0 w-28 bg-black/30 border border-white/10 rounded-xl p-3 text-center">
+                            <div className="w-14 h-14 mx-auto rounded-full overflow-hidden border border-amber-500/30 mb-2 bg-black">
+                              {card.imageUrl ? (
+                                <img src={card.imageUrl} alt={card.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-2xl">🔮</div>
+                              )}
+                            </div>
+                            <p className="text-white text-xs font-bold truncate">{card.name}</p>
+                            <p className="text-amber-500 text-[10px] mt-1">{status}</p>
+                            {info.strengthDrop != null && info.strengthDrop !== 0 && (
+                              <p className={`text-[10px] font-bold mt-0.5 ${info.strengthDrop > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                עוצמה {info.strengthDrop > 0 ? '−' : '+'}{Math.abs(info.strengthDrop)}
+                              </p>
+                            )}
+                            {info.count > 1 && <p className="text-neutral-500 text-[10px]">{info.count} מפגשים</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })()}
