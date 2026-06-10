@@ -15,9 +15,12 @@ service cloud.firestore {
 
     // ── Live Sessions ─────────────────────────────────────────────────
     // • Coach (authenticated): full read/write for their own sessions.
-    // • Trainee (via magic link, unauthenticated): can read any session
-    //   by ID and update journey fields only — cannot change coachId,
-    //   traineeId, or status (those belong to the coach).
+    // • Trainee (via magic link): can read any session by ID and update
+    //   journey progress fields. coachId/traineeId are immutable, and
+    //   status may only transition to "completed" (natural journey end).
+    //   The trainee rule intentionally does NOT require request.auth == null:
+    //   a remote device may have any Firebase user signed in (or none),
+    //   and the magic-link model treats session-ID knowledge as the grant.
     match /live_sessions/{sessionId} {
 
       // Anyone with the session ID can read (magic-link model).
@@ -29,19 +32,19 @@ service cloud.firestore {
       allow update, delete: if request.auth != null
                              && request.auth.uid == resource.data.coachId;
 
-      // Trainee (unauthenticated): may update journey progress fields only.
-      // The four protected fields (coachId, traineeId, status, completedAt)
-      // must remain unchanged.
-      allow update: if request.auth == null
-                    && request.resource.data.coachId    == resource.data.coachId
+      // Trainee (any auth state): may update journey progress fields.
+      // coachId/traineeId must remain unchanged; status may stay the same
+      // or move to "completed"; completedAt must remain unchanged.
+      allow update: if request.resource.data.coachId    == resource.data.coachId
                     && request.resource.data.traineeId  == resource.data.traineeId
                     && (
                          !('status' in request.resource.data)
-                         || request.resource.data.status == resource.data.status
+                         || request.resource.data.status == resource.data.get('status', null)
+                         || request.resource.data.status == "completed"
                        )
                     && (
                          !('completedAt' in request.resource.data)
-                         || request.resource.data.completedAt == resource.data.completedAt
+                         || request.resource.data.completedAt == resource.data.get('completedAt', null)
                        );
     }
 
