@@ -296,7 +296,7 @@ export const goodPowersData: Archetype[] = [
     icon: "🫂",
     description: "חיבוק שמזכיר שאתה לא לבד ויש מי ששומר עליך.",
     coachPrompt: "מציע ביטחון פיזי ורגשי",
-    triggers: [],
+    triggers: ["כשאני מרגיש לבד מול העולם", "כשהגוף מתכווץ מפחד או עצב", "כשאני צריך לדעת שמישהו שומר עליי"],
     imageUrl: "/images/powers/power_hug.png"
   },
   {
@@ -306,7 +306,7 @@ export const goodPowersData: Archetype[] = [
     icon: "💬",
     description: "להזכיר לעצמך שאתה עושה הכי טוב שאתה יכול, וזה מספיק.",
     coachPrompt: "מציע קול פנימי חומל",
-    triggers: [],
+    triggers: ["כשהקול המבקר בראש תוקף אותי", "כשאני מרגיש שנכשלתי או אכזבתי", "כשאני שוכח כמה רחוק כבר הגעתי"],
     imageUrl: "/images/powers/power_word.png"
   },
   {
@@ -316,7 +316,7 @@ export const goodPowersData: Archetype[] = [
     icon: "🌬️",
     description: "כלי שעוזר להכניס חמצן ולהרגיע את הלחץ בגוף.",
     coachPrompt: "מציע חזרה לקרקע דרך הגוף",
-    triggers: [],
+    triggers: ["כשהלחץ עולה ואני רוצה להגיב מיד", "כשהמחשבות רצות מהר מדי", "רגע לפני שאני אומר משהו שאתחרט עליו"],
     imageUrl: "/images/powers/power_breathe.png"
   },
   {
@@ -326,7 +326,7 @@ export const goodPowersData: Archetype[] = [
     icon: "👁️",
     description: "פשוט להרגיש שרואים אותך כמו שאתה.",
     coachPrompt: "מציע נראות ותיקוף",
-    triggers: [],
+    triggers: ["כשאני מרגיש שקוף ולא נחשב", "כשאף אחד לא מבין מה עובר עליי", "כשאני צריך שיגידו לי שהרגש שלי בסדר"],
     imageUrl: "/images/powers/power_validation.png"
   },
   {
@@ -336,7 +336,7 @@ export const goodPowersData: Archetype[] = [
     icon: "🌳",
     description: "להרגיש את הרגליים על הקרקע ולחזור לכאן ועכשיו.",
     coachPrompt: "מציע יציבות כשהכל מרגיש סוער",
-    triggers: [],
+    triggers: ["כשאני מרחף ומתנתק מהמציאות", "כשהכל מסביב מרגיש לא יציב", "כשאני צריך לחזור לרגע הזה, לכאן ועכשיו"],
     imageUrl: "/images/powers/power_grounding.png"
   },
   {
@@ -346,7 +346,7 @@ export const goodPowersData: Archetype[] = [
     icon: "⏸️",
     description: "רשות לקחת הפסקה מהכל בלי להרגיש אשמה.",
     coachPrompt: "מציע שבירת לופ דרך התנתקות זמנית",
-    triggers: [],
+    triggers: ["כשהעומס גדול מדי ואני על סף התפוצצות", "כשאני תקוע בלופ ולא מוצא יציאה", "כשאני צריך רשות לנוח בלי אשמה"],
     imageUrl: "/images/powers/power_pause.png"
   },
   {
@@ -356,7 +356,7 @@ export const goodPowersData: Archetype[] = [
     icon: "❤️",
     description: "להיות החבר הכי טוב של עצמך, במיוחד כשטועים.",
     coachPrompt: "מציע מנוגד ישיר לביקורת פנימית",
-    triggers: [],
+    triggers: ["כשאני מלקה את עצמי על טעות", "כשהבושה אומרת לי שמשהו בי פגום", "כשהייתי מנחם חבר — אבל לא את עצמי"],
     imageUrl: "/images/powers/power_compassion.png"
   },
   {
@@ -366,7 +366,7 @@ export const goodPowersData: Archetype[] = [
     icon: "🎨",
     description: "להזיז את הגוף או ליצור משהו כדי לפרוק אנרגיה תקועה.",
     coachPrompt: "מציע המרת אנרגיה (סובלימציה)",
-    triggers: [],
+    triggers: ["כשהכעס או התסכול תקועים בגוף", "כשהמילים לא מספיקות לבטא מה שבפנים", "כשאני צריך לפרוק אנרגיה בדרך בריאה"],
     imageUrl: "/images/powers/power_action.png"
   }
 ];
