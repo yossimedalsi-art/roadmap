@@ -244,7 +244,7 @@ export default function CoachDashboard({ user }: { user: User }) {
 
               {traineeSessions.find(s => s.status === "completed") && (() => {
                 const last = traineeSessions.find(s => s.status === "completed")!;
-                const agreement = last.answers?.['step_10_integration'];
+                const agreement = last.answers?.['step_10_integration'] || last.answers?.['s2_step_9_agreement'] || last.answers?.['s3_step_9_new_contract'] || last.answers?.['s4_step_6_action'];
                 return (
                   <div className="mb-5 p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl text-right">
                     <p className="text-amber-500 text-xs font-bold tracking-widest uppercase mb-2">סיכום מסע אחרון</p>
@@ -323,7 +323,7 @@ export default function CoachDashboard({ user }: { user: User }) {
                   traineeSessions.map(session => {
                     const isCompleted = session.status === "completed";
                     const isExpanded = expandedSession === session.id;
-                    const agreement = session.answers?.['step_10_integration'];
+                    const agreement = session.answers?.['step_10_integration'] || session.answers?.['s2_step_9_agreement'] || session.answers?.['s3_step_9_new_contract'] || session.answers?.['s4_step_6_action'];
 
                     return (
                       <div key={session.id} className={`border rounded-xl transition-all ${isCompleted ? 'bg-black/40 border-amber-500/20' : 'bg-black/40 border-white/5 hover:border-white/10'}`}>
