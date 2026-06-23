@@ -462,11 +462,11 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
 
                       return (
                         <div key={idx} className={`p-5 rounded-2xl border transition-all flex items-center gap-4 ${
-                          isSelected ? 'bg-amber-500/10 border-amber-500' : 'bg-black/30 border-white/5 opacity-50'
+                          isSelected ? 'bg-amber-500/10 border-amber-500' : 'bg-black/30 border-white/10'
                         }`}>
-                          <span className={`w-8 h-8 shrink-0 rounded-md border flex items-center justify-center text-sm font-bold ${isSelected ? 'bg-amber-500/20 text-amber-500 border-amber-500' : 'bg-white/5 text-neutral-500 border-white/10'}`}>{letter}</span>
-                          <span className={`flex-1 text-right ${isSelected ? 'text-white font-bold' : 'text-neutral-400'}`}>{option}</span>
-                          {isSelected && <span className="text-xs text-blue-400 font-bold tracking-widest uppercase shrink-0">✦ כוח</span>}
+                          <span className={`w-8 h-8 shrink-0 rounded-md border flex items-center justify-center text-sm font-bold ${isSelected ? 'bg-amber-500/20 text-amber-500 border-amber-500' : 'bg-white/5 text-neutral-400 border-white/10'}`}>{letter}</span>
+                          <span className={`flex-1 text-right ${isSelected ? 'text-white font-bold' : 'text-neutral-300'}`}>{option}</span>
+                          {isSelected && <span className="text-xs text-blue-400 font-bold tracking-widest uppercase shrink-0">✦ נבחרה</span>}
                         </div>
                       );
                     })}
