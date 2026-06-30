@@ -1,13 +1,14 @@
 import { motion } from "framer-motion";
 import { Check, Compass, Lock, Star } from "lucide-react";
-import { journeyPhases } from "../data/journey";
+import type { JourneyStep } from "../data/journey";
 
 interface JourneyMapProps {
   currentPhase: number;
+  phases: JourneyStep[];
   onClose: () => void;
 }
 
-export default function JourneyMap({ currentPhase, onClose }: JourneyMapProps) {
+export default function JourneyMap({ currentPhase, phases, onClose }: JourneyMapProps) {
   return (
     <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6" dir="rtl">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-black to-black"></div>
@@ -31,15 +32,15 @@ export default function JourneyMap({ currentPhase, onClose }: JourneyMapProps) {
           <div className="absolute top-1/2 left-8 right-8 h-1 bg-white/5 -translate-y-1/2 hidden md:block rounded-full"></div>
           
           <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">
-            {journeyPhases.map((phase, index) => {
+            {phases.map((phase, index) => {
               const isCompleted = currentPhase > phase.order;
               const isCurrent = currentPhase === phase.order;
               const isLocked = currentPhase < phase.order;
-              
+
               return (
                 <div key={phase.id} className="flex flex-col items-center relative group w-full md:w-auto">
                   {/* Connecting line for mobile */}
-                  {index < journeyPhases.length - 1 && (
+                  {index < phases.length - 1 && (
                     <div className="w-1 h-12 bg-white/5 md:hidden my-2"></div>
                   )}
 
