@@ -206,7 +206,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
             </h3>
             <div className="flex flex-col gap-2">
               <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'המטרה' : journeyStage === 3 ? 'הטריגר שהעיר את ההגנה' : 'מחשבה (פרשנות)'}</span>
+                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'המטרה' : journeyStage === 3 ? 'הטריגר שהעיר את התגובה' : 'מחשבה (פרשנות)'}</span>
                 <span className="text-white text-sm font-medium break-words">
                   {journeyStage === 4
                     ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
@@ -217,7 +217,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
               </div>
               <div className="text-amber-500 text-center text-lg">↓</div>
               <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'כוחות' : journeyStage === 3 ? 'מה ניסתה ההגנה להשיג' : 'רגש / נקודה רגישה'}</span>
+                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'כוחות' : journeyStage === 3 ? 'מה ניסתה התגובה להשיג' : 'רגש / נקודה רגישה'}</span>
                 <span className="text-white text-sm font-medium break-words">
                   {journeyStage === 4
                     ? (sessionState?.answers?.['s4_step_2_capability'] || '—')
@@ -329,7 +329,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     </h4>
                     <div className="flex flex-col md:flex-row items-center justify-center gap-3">
                       <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'המטרה' : journeyStage === 3 ? 'הטריגר שהעיר את ההגנה' : 'מחשבה (פרשנות)'}</span>
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'המטרה' : journeyStage === 3 ? 'הטריגר שהעיר את התגובה' : 'מחשבה (פרשנות)'}</span>
                         <span className="text-white font-bold text-sm">
                           {journeyStage === 4
                             ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
@@ -340,7 +340,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       </div>
                       <div className="text-amber-500 font-bold">→</div>
                       <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'כוחות' : journeyStage === 3 ? 'מה ניסתה ההגנה להשיג' : 'רגש / נקודה רגישה'}</span>
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'כוחות' : journeyStage === 3 ? 'מה ניסתה התגובה להשיג' : 'רגש / נקודה רגישה'}</span>
                         <span className="text-white font-bold text-sm">
                           {journeyStage === 4
                             ? (sessionState?.answers?.['s4_step_2_capability'] || '—')

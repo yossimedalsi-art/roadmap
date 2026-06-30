@@ -1130,7 +1130,7 @@ export default function TraineeJourney() {
             <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-center">
               <div className="flex flex-col items-center bg-black/40 p-4 rounded-xl border border-white/5 flex-1 w-full">
                 <span className="text-xs text-neutral-500 mb-2">
-                  {journeyStage === 4 ? 'המטרה שלי' : journeyStage === 3 ? 'הטריגר שהעיר את ההגנה' : 'מחשבה (פרשנות)'}
+                  {journeyStage === 4 ? 'המטרה שלי' : journeyStage === 3 ? 'הטריגר שהעיר את התגובה' : 'מחשבה (פרשנות)'}
                 </span>
                 <span className="text-white font-bold">
                   {journeyStage === 4
@@ -1143,7 +1143,7 @@ export default function TraineeJourney() {
               <div className="text-amber-500">→</div>
               <div className="flex flex-col items-center bg-black/40 p-4 rounded-xl border border-white/5 flex-1 w-full">
                 <span className="text-xs text-neutral-500 mb-2">
-                  {journeyStage === 4 ? 'הכוחות שלי' : journeyStage === 3 ? 'מה ניסתה ההגנה להשיג' : 'רגש / נקודה רגישה'}
+                  {journeyStage === 4 ? 'הכוחות שלי' : journeyStage === 3 ? 'מה ניסתה התגובה להשיג' : 'רגש / נקודה רגישה'}
                 </span>
                 <span className="text-white font-bold">
                   {journeyStage === 4
