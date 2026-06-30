@@ -688,7 +688,7 @@ export default function TraineeJourney() {
             </button>
           </div>
         </header>
-        {showMap && <JourneyMap currentPhase={currentPhase} onClose={() => setShowMap(false)} />}
+        {showMap && <JourneyMap currentPhase={currentPhase} phases={activePhases} onClose={() => setShowMap(false)} />}
 
         <main className="flex-1 w-full max-w-3xl flex flex-col items-center relative z-10">
           <AnimatePresence mode="wait">
@@ -900,9 +900,16 @@ export default function TraineeJourney() {
                       <p className="text-blue-300 text-xs font-bold uppercase tracking-widest mb-2 flex items-center justify-center gap-2">
                         <Music className="w-3.5 h-3.5" /> 528 Hz — תדר ריפוי (הפעל עם המדיטציה)
                       </p>
-                      <audio controls loop className="w-full" src="/audio/528hz.mp3">
+                      <audio controls loop className="w-full mb-3" src="/audio/528hz.mp3">
                         הדפדפן אינו תומך בהפעלת שמע.
                       </audio>
+                      <a
+                        href="/audio/528hz.mp3"
+                        download="528hz-healing.mp3"
+                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-bold rounded-xl hover:bg-blue-500 hover:text-white transition text-sm"
+                      >
+                        <Download className="w-4 h-4" /> הורד את הקובץ
+                      </a>
                     </div>
 
                     <div className="text-amber-500/80 text-sm font-bold animate-pulse">
