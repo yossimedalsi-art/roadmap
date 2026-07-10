@@ -23,8 +23,17 @@ service cloud.firestore {
     //   and the magic-link model treats session-ID knowledge as the grant.
     match /hc_live_sessions/{sessionId} {
 
-      // Anyone with the session ID can read (magic-link model).
-      allow read: if true;
+      // Magic-link model: anyone who KNOWS a session ID can fetch that
+      // single document — but only for new-format IDs (crypto.randomUUID,
+      // 36 chars), which are unguessable. Legacy 6-char IDs are readable
+      // by their coach only. Listing/enumerating the collection is never
+      // public: without this split, `allow read: if true` would let anyone
+      // dump every session via a collection query.
+      allow get: if sessionId.size() >= 30
+                 || (request.auth != null
+                     && request.auth.uid == resource.data.coachId);
+      allow list: if request.auth != null
+                  && request.auth.uid == resource.data.coachId;
 
       // Coach: full write authority.
       allow create: if request.auth != null
