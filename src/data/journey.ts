@@ -834,7 +834,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_4_meditation_start",
-    order: 6,
+    order: 7,
     traineeTitle: "דמיון נובע - זיהוי החסם בגוף",
     uiType: "meditation",
     coachFraming: "הנחיית מדיטציה חיה (דמיון נובע). בקש מהמתאמן לעצום עיניים. תדר 528 פועל ברקע.",
@@ -846,7 +846,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_5_meditation_child",
-    order: 7,
+    order: 8,
     traineeTitle: "חיבור לילד הפנימי ופירוק הביינד",
     uiType: "meditation",
     coachFraming: "הקשבה בלבד. אין לשכנע, רק להרגיש. פנייה לחלק הפנימי (הילד).",
@@ -859,7 +859,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_6_meditation_release",
-    order: 8,
+    order: 9,
     traineeTitle: "שחרור וניקוי",
     uiType: "meditation",
     coachFraming: "שחרור סומטי סמלי. פרידה מהשומר הישן.",
@@ -871,7 +871,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_7_meditation_integration",
-    order: 9,
+    order: 10,
     traineeTitle: "הטמעה ויציאה",
     uiType: "meditation",
     coachFraming: "מילוי החלל שנוצר באיכות חדשה, והחזרה הדרגתית לכאן ועכשיו.",
@@ -883,7 +883,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_8_resource_help",
-    order: 10,
+    order: 11,
     traineeTitle: "קח כוח שילווה אותך בהמשך",
     uiType: "good-powers",
     coachFraming: "הזמנת כוח תומך לאחר שחרור החסם. עיגון האיכות החדשה.",
@@ -892,7 +892,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_9_new_contract",
-    order: 11,
+    order: 12,
     traineeTitle: "הסכם קטן עם עצמי",
     uiType: "structured-dialogue",
     options: {

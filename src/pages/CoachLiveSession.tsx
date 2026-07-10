@@ -24,9 +24,6 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
     }
   };
 
-  const showResourceAlert =
-    (sessionState?.phase ?? 0) >= 7 && !sessionState?.resourceArchetype;
-
   const handleEndJourney = async () => {
     try {
       await updateDoc(doc(db, "hc_live_sessions", sessionId), {
@@ -59,6 +56,12 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
   const journeyStage = sessionState?.journeyStage || 1;
   const activePhases = journeyStage === 4 ? stage4Phases : journeyStage === 3 ? stage3Phases : journeyStage === 2 ? stage2Phases : journeyPhases;
   const currentStep = sessionState?.phase > 0 ? activePhases[Math.min(sessionState.phase - 1, activePhases.length - 1)] : null;
+
+  const resourceIdx = activePhases.findIndex(p => p.uiType === "good-powers");
+  const showResourceAlert =
+    resourceIdx !== -1 &&
+    (sessionState?.phase ?? 0) >= resourceIdx + 1 &&
+    !sessionState?.resourceArchetype;
 
   const handlePrint = () => {
     window.print();
