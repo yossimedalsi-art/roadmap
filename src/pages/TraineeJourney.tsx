@@ -4,6 +4,7 @@ import { Compass, TreePine, Cloud, Gamepad2, Music, ArrowLeft, Download, Map, Sp
 import Backpack from "../components/Backpack";
 import JourneyMap from "../components/JourneyMap";
 import BlockerCircle from "../components/BlockerCircle";
+import BottomLine from "../components/BottomLine";
 import { useParams } from "react-router-dom";
 import { worldsData, goodPowersData } from "../data/worlds";
 import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans } from "../data/journey";
@@ -1492,6 +1493,8 @@ export default function TraineeJourney() {
               </div>
             )}
           </div>
+
+          <BottomLine journeyStage={journeyStage} answers={structuredAnswers} />
 
           <div className="w-full bg-[#11131a] border border-white/10 rounded-2xl p-6 mb-8">
             <h3 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-6 text-center">

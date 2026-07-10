@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Copy, Plus, LayoutDashboard, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap, RotateCcw, Music } from "lucide-react";
 import HeartCompassLogo from "../components/HeartCompassLogo";
 import BlockerCircle from "../components/BlockerCircle";
+import BottomLine from "../components/BottomLine";
 import { worldsData, goodPowersData } from "../data/worlds";
 import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans } from "../data/journey";
 import { db } from "../lib/firebase";
@@ -357,6 +358,8 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       : `התמה המרכזית: זיהוי החלק השומר (${chosenArchetype?.name}) וחיבורו למשאבים.`}
                   </p>
 
+                  <BottomLine journeyStage={journeyStage} answers={sessionState?.answers || {}} />
+
                   {/* Blocker/Goal Map in Summary */}
                   <div className="bg-black/40 border border-white/10 rounded-2xl p-6 mb-8">
                     <h4 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-4">
@@ -479,6 +482,23 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                 </div>
               )}
 
+              {/* Round 6 (א'5) — the asimon moment. Once the trainee has answered it,
+                  keep it visible in the live panel (through the remaining steps, not just
+                  while it's the active question) — it's the pivot the coach should keep
+                  the follow-up conversation anchored to. */}
+              {(journeyStage === 1 || journeyStage === 2) &&
+                (sessionState?.answers?.step_9b_asimon || sessionState?.answers?.s2_step_8b_asimon) && (
+                <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/40 rounded-2xl p-5 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
+                  <span className="text-amber-400 text-xl shrink-0">🪙</span>
+                  <div>
+                    <p className="text-amber-400 font-bold text-sm mb-1 tracking-widest uppercase">רגע האסימון</p>
+                    <p className="text-white text-lg font-medium leading-relaxed">
+                      "{sessionState.answers.step_9b_asimon || sessionState.answers.s2_step_8b_asimon}"
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* The Active Question (Mirrors Trainee UI) — hidden when journey is complete */}
               {currentStep && sessionState?.phase <= activePhases.length && (
                 <div className="bg-[#11131a] rounded-2xl border border-blue-500/20 shadow-lg p-8">
@@ -520,7 +540,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     )}
 
                     {/* Pattern Revealed (Mirror of what the trainee sees) */}
-                    {sessionState?.answers?.[currentStep.id] && currentStep.patternRevealed && (
+                    {sessionState?.answers?.[currentStep.id] && (currentStep.patternRevealed || currentStep.patternRevealedAdult) && (
                       <div className="col-span-1 md:col-span-2 mt-2 p-5 rounded-2xl border bg-blue-500/10 border-blue-500/20 flex items-start gap-4">
                         <span className="w-8 h-8 shrink-0 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg">💧</span>
                         <div>
@@ -531,7 +551,14 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                               const optionsArray = activeOptions?.[sessionState.environment as keyof typeof activeOptions] || [];
                               const answerIdx = optionsArray.indexOf(answer);
                               if (answerIdx !== -1) {
-                                const patterns = currentStep.patternRevealed?.[sessionState.environment as keyof typeof currentStep.patternRevealed];
+                                // Round 6: when the trainee is tagged "adult" and this step
+                                // has a patternRevealedAdult (the adult option list has a
+                                // different length/order than the teen one — indexing into
+                                // the teen-aligned patternRevealed would be wrong), read the
+                                // insight from the adult-aligned map instead.
+                                const useAdult = sessionState?.ageGroup === "adult" && currentStep.patternRevealedAdult;
+                                const patternSource = useAdult ? currentStep.patternRevealedAdult : currentStep.patternRevealed;
+                                const patterns = patternSource?.[sessionState.environment as keyof typeof patternSource];
                                 return patterns ? patterns[answerIdx] : "";
                               }
                               return "מדהים שהצלחת לנסח את זה בעצמך. הדפוס מנסה להגן עליך, אבל עכשיו אתה מתחיל לראות אותו מבחוץ.";
