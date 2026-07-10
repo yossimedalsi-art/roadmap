@@ -253,6 +253,9 @@ export default function TraineeJourney() {
           });
         }
       }
+    }, (e) => {
+      console.error("Error listening to session:", e);
+      setSyncError(true);
     });
     return () => unsubscribe();
   }, [sessionId]);

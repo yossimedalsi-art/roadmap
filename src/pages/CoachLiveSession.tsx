@@ -12,6 +12,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [whisperText, setWhisperText] = useState("");
+  const [syncError, setSyncError] = useState(false);
   const magicLink = `${window.location.origin}/journey/${sessionId}`;
 
   const sendWhisper = async (text: string) => {
@@ -45,8 +46,12 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
     const unsubscribe = onSnapshot(docRef, (docSnap: any) => {
       if (docSnap.exists()) {
         setSessionState(docSnap.data());
+        setSyncError(false);
       } else {
       }
+    }, (e) => {
+      console.error("Error listening to session:", e);
+      setSyncError(true);
     });
     return () => unsubscribe();
   }, [sessionId]);
@@ -69,6 +74,11 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
 
   return (
     <div className="min-h-screen bg-[#0a0b10] text-neutral-100 flex flex-col font-sans" dir="rtl">
+      {syncError && (
+        <div className="w-full bg-red-600 text-white text-center text-sm font-bold py-1.5 px-4 print:hidden">
+          החיבור לסשן נכשל — רענן את הדף
+        </div>
+      )}
       {/* Header */}
       <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-[#11131a] print:hidden">
         <div className="flex items-center gap-2 text-amber-500">

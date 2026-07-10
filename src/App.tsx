@@ -9,6 +9,7 @@ import DemoJourney from "./pages/DemoJourney";
 import Home from "./pages/Home";
 import AuthPage from "./pages/AuthPage";
 import ToSGate from "./components/ToS";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -32,23 +33,25 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public marketing demo — no ToS gate, no Firebase */}
-        <Route path="/demo" element={<DemoJourney />} />
+      <ErrorBoundary>
+        <Routes>
+          {/* Public marketing demo — no ToS gate, no Firebase */}
+          <Route path="/demo" element={<DemoJourney />} />
 
-        <Route path="/" element={<ToSGate><Home /></ToSGate>} />
-        <Route path="/journey/:sessionId" element={<ToSGate><TraineeJourney /></ToSGate>} />
+          <Route path="/" element={<ToSGate><Home /></ToSGate>} />
+          <Route path="/journey/:sessionId" element={<ToSGate><TraineeJourney /></ToSGate>} />
 
-        {/* Protected Coach Route */}
-        <Route
-          path="/coach"
-          element={user ? <ToSGate><CoachDashboard user={user} /></ToSGate> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/login"
-          element={user ? <Navigate to="/coach" /> : <ToSGate><AuthPage onLogin={setUser} /></ToSGate>}
-        />
-      </Routes>
+          {/* Protected Coach Route */}
+          <Route
+            path="/coach"
+            element={user ? <ToSGate><CoachDashboard user={user} /></ToSGate> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/login"
+            element={user ? <Navigate to="/coach" /> : <ToSGate><AuthPage onLogin={setUser} /></ToSGate>}
+          />
+        </Routes>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }
