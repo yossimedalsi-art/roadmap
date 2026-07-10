@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { getCircleData } from "../data/journey";
+import { getCircleData, loopFeedLines } from "../data/journey";
 
 interface BlockerCircleProps {
   journeyStage: number;
@@ -131,7 +131,15 @@ export default function BlockerCircle({
     ? { trigger: "הלחישה של החוסם", feeling: "על מה זה שומר", reaction: "הכוח שכבר יש לי" }
     : { trigger: "הטריגר", feeling: "מה הרגשתי", reaction: "מה עשיתי אוטומטית" };
 
-  const closingLabel = isGoalMap ? "...ובכל זאת עוצר אותי מהמטרה" : "...ומייצר את הטריגר הבא";
+  // Round 5 (chapter 1): stage 1/2 reactions each have an owner-approved
+  // "loop feed" line (how that specific reaction feeds the next trigger).
+  // When the trainee's reaction answer matches one, show it instead of the
+  // generic label — it's the whole point of the closing arc.
+  const loopFeedLine = !isGoalMap && data.reaction !== "—" ? loopFeedLines[data.reaction] : undefined;
+  const closingLabelFull = isGoalMap
+    ? "...ובכל זאת עוצר אותי מהמטרה"
+    : loopFeedLine || "...ומייצר את הטריגר הבא";
+  const closingLabel = truncate(closingLabelFull, 45);
 
   const showExitCrack = Boolean((resourceName && resourceName.trim()) || (agreementText && agreementText.trim()));
   const animated = variant === "summary" && interactive;
@@ -186,6 +194,7 @@ export default function BlockerCircle({
           <div
             // @ts-expect-error -- xmlns is valid on foreignObject content but not in React's typings
             xmlns="http://www.w3.org/1999/xhtml"
+            title={closingLabelFull}
             className={`bc-closing-label text-center text-[10px] font-bold text-amber-400/90 transition-opacity duration-700 ${exited ? "opacity-10" : "opacity-100"}`}
           >
             {closingLabel}
