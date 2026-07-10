@@ -446,6 +446,36 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                   })()}
                 </div>
 
+              {/* Consent-ramp critical flag (round 4) — persists from the choice step
+                  through every meditation phase whenever the trainee declined
+                  release twice in a row. The coach guides the meditation's content
+                  by voice, so this is the signal to keep it to grounding/soothing,
+                  not release work. */}
+              {journeyStage === 3 && currentStep && sessionState?.phase <= activePhases.length &&
+                sessionState?.answers?.s3_ramp_choice === "not_yet_final" &&
+                (currentStep.uiType === "meditation" || currentStep.id === "s3_ramp_choice") && (
+                <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/40 rounded-2xl p-5 shadow-[0_0_20px_rgba(239,68,68,0.15)]">
+                  <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-red-300 font-bold text-sm md:text-base leading-relaxed">
+                    ⚠️ המתאמן לא נתן הסכמה לשחרור — הנחה מדיטציית היכרות/הרגעה בלבד, לא שחרור
+                  </p>
+                </div>
+              )}
+
+              {/* Consent given — calm confirmation with the opener quote for the meditation. */}
+              {journeyStage === 3 && currentStep && sessionState?.phase <= activePhases.length &&
+                sessionState?.answers?.s3_ramp_choice === "ready" &&
+                sessionState?.answers?.s3_ramp_consent &&
+                currentStep.uiType === "meditation" && (
+                <div className="flex items-start gap-3 bg-green-500/10 border border-green-500/30 rounded-2xl p-5">
+                  <span className="text-green-400 text-xl shrink-0">🟢</span>
+                  <div>
+                    <p className="text-green-300 font-bold text-sm mb-1 tracking-widest uppercase">הסכמה ניתנה — פתיח למדיטציה</p>
+                    <p className="text-white text-lg font-medium leading-relaxed">"{sessionState.answers.s3_ramp_consent}"</p>
+                  </div>
+                </div>
+              )}
+
               {/* The Active Question (Mirrors Trainee UI) — hidden when journey is complete */}
               {currentStep && sessionState?.phase <= activePhases.length && (
                 <div className="bg-[#11131a] rounded-2xl border border-blue-500/20 shadow-lg p-8">
@@ -509,6 +539,50 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     )}
                   </div>
                   )}
+
+                  {/* Choice Mirror — the consent-ramp "מוכן / עוד לא" moment (s3_ramp_choice) */}
+                  {currentStep.uiType === "choice" && currentStep.choiceConfig && (() => {
+                    const choiceState = sessionState?.answers?.[currentStep.id];
+                    const fearAnswer = sessionState?.answers?.["s3_ramp_notyet_fear"];
+                    const trustAnswer = sessionState?.answers?.["s3_ramp_notyet_trust"];
+                    const notYetSelected = choiceState === "not_yet_1" || choiceState === "not_yet_final";
+                    return (
+                      <div className="flex flex-col gap-4 py-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className={`p-5 rounded-2xl border text-center transition-all ${choiceState === "ready" ? "bg-amber-500/10 border-amber-500" : "bg-black/30 border-white/10"}`}>
+                            <span className={choiceState === "ready" ? "text-white font-bold" : "text-neutral-300"}>{currentStep.choiceConfig.yes}</span>
+                          </div>
+                          <div className={`p-5 rounded-2xl border text-center transition-all ${notYetSelected ? "bg-amber-500/10 border-amber-500" : "bg-black/30 border-white/10"}`}>
+                            <span className={notYetSelected ? "text-white font-bold" : "text-neutral-300"}>{currentStep.choiceConfig.notYet}</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-blue-300 font-bold text-center tracking-wide">
+                          {!choiceState && "המתאמן טרם בחר."}
+                          {choiceState === "not_yet_1" && !fearAnswer && "בלולאת \"עוד לא\" — ממתין לתשובה: מה הכי מפחיד בלחיות בלעדיו?"}
+                          {choiceState === "not_yet_1" && !!fearAnswer && !trustAnswer && "בלולאת \"עוד לא\" — ממתין לתשובה: מה הוא צריך לדעת עליך היום כדי להרשות לעצמו לנוח?"}
+                          {choiceState === "not_yet_1" && !!fearAnswer && !!trustAnswer && "שתי השאלות נענו — הבחירה מוצעת שוב למתאמן."}
+                          {choiceState === "ready" && "✓ המתאמן בחר להיפרד — עובר למשפט ההסכמה."}
+                          {choiceState === "not_yet_final" && "⚠️ \"עוד לא\" נבחר פעמיים ברציפות — אין הסכמה לשחרור."}
+                        </p>
+                        {(fearAnswer || trustAnswer) && (
+                          <div className="flex flex-col gap-3">
+                            {fearAnswer && (
+                              <div className="p-4 rounded-xl border border-white/10 bg-black/20">
+                                <span className="text-neutral-500 text-xs block mb-1">מה הכי מפחיד בלחיות בלעדיו?</span>
+                                <span className="text-white break-words whitespace-pre-wrap">{fearAnswer}</span>
+                              </div>
+                            )}
+                            {trustAnswer && (
+                              <div className="p-4 rounded-xl border border-white/10 bg-black/20">
+                                <span className="text-neutral-500 text-xs block mb-1">מה הוא צריך לדעת עליך היום כדי להרשות לעצמו לנוח?</span>
+                                <span className="text-white break-words whitespace-pre-wrap">{trustAnswer}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Scale Mirror — the excitement slider (1-100) */}
                   {currentStep.uiType === "scale" && (
