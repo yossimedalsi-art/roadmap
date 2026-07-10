@@ -105,7 +105,7 @@ export default function CoachDashboard({ user }: { user: User }) {
     if (!selectedTrainee) return;
     const completedSessions = traineeSessions.filter(s => s.status === "completed");
     const lastSession = completedSessions[0];
-    const randomId = Math.random().toString(36).substring(2, 8);
+    const randomId = crypto.randomUUID();
 
     try {
       await setDoc(doc(db, "hc_live_sessions", randomId), {
