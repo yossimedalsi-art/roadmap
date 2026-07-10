@@ -2,7 +2,7 @@ export type JourneyStep = {
   id: string;
   order: number;
   traineeTitle: string;
-  uiType: "text-input" | "archetype-selector" | "structured-dialogue" | "reward" | "good-powers" | "meditation" | "scale";
+  uiType: "text-input" | "archetype-selector" | "structured-dialogue" | "reward" | "good-powers" | "meditation" | "scale" | "choice";
   options?: {
     clouds: string[];
     forest: string[];
@@ -23,6 +23,14 @@ export type JourneyStep = {
     max: number;
     threshold: number;
     teenThreshold?: number;
+  };
+  // Only used by uiType "choice" — two equal-dignity buttons (round 4's
+  // consent ramp). Labels only; the branching logic itself lives in
+  // TraineeJourney (the "not yet" path loops through follow-up questions
+  // before re-offering the same choice).
+  choiceConfig?: {
+    yes: string;
+    notYet: string;
   };
   coachFraming?: string;
   coachDeepeningQuestions?: string[];
@@ -830,9 +838,76 @@ export const stage3Phases: JourneyStep[] = [
       "איך היית מתנהג היום אם היית מקבל את מה שהיית צריך אז?"
     ]
   },
+  // ── רמפת ההולכה למדיטציה (סיבוב 4, פרק 3) ─────────────────────────
+  // 5 מסכים שמביאים את המתאמן להסכמה פעילה לפני השחרור: הרווח, המחיר,
+  // בדיקת עדכניות, הבחירה עצמה, ומשפט ההסכמה (רק במסלול "מוכן").
+  {
+    id: "s3_ramp_gain",
+    order: 6,
+    traineeTitle: "רגע לפני שממשיכים — בוא ניתן כבוד. [ארכיטיפ] איתך הרבה זמן, והוא לא סתם. מה הוא נותן לך?",
+    uiType: "structured-dialogue",
+    options: {
+      clouds: ["שקט — פחות עימותים", "ביטחון — אף אחד לא מתקרב מספיק כדי לפגוע", "שליטה — אני קובע מתי ומה", "מנוחה מהציפיות", "הוא מכיר אותי הכי הרבה זמן"],
+      forest: ["שקט — פחות עימותים", "ביטחון — אף אחד לא מתקרב מספיק כדי לפגוע", "שליטה — אני קובע מתי ומה", "מנוחה מהציפיות", "הוא מכיר אותי הכי הרבה זמן"],
+      arcade: ["שקט — פחות עימותים", "ביטחון — אף אחד לא מתקרב מספיק כדי לפגוע", "שליטה — אני קובע מתי ומה", "מנוחה מהציפיות", "הוא מכיר אותי הכי הרבה זמן"],
+      fairies: ["שקט — פחות עימותים", "ביטחון — אף אחד לא מתקרב מספיק כדי לפגוע", "שליטה — אני קובע מתי ומה", "מנוחה מהציפיות", "הוא מכיר אותי הכי הרבה זמן"]
+    },
+    coachFraming: "הרווח אמיתי. מי שלא מכיר בו — יפגוש אותו במדיטציה כהתנגדות."
+  },
+  {
+    id: "s3_ramp_price",
+    order: 7,
+    traineeTitle: "והוא גם גובה משהו. מה המחיר בשנה האחרונה?",
+    uiType: "structured-dialogue",
+    options: {
+      clouds: ["אנשים שהתרחקו / דברים שפספסתי", "אני נראה 'בסדר' אבל לבד בפנים", "ויתרתי על דברים שרציתי באמת", "אני עייף מלהחזיק את זה", "מכירים את ההגנה, לא אותי"],
+      forest: ["אנשים שהתרחקו / דברים שפספסתי", "אני נראה 'בסדר' אבל לבד בפנים", "ויתרתי על דברים שרציתי באמת", "אני עייף מלהחזיק את זה", "מכירים את ההגנה, לא אותי"],
+      arcade: ["אנשים שהתרחקו / דברים שפספסתי", "אני נראה 'בסדר' אבל לבד בפנים", "ויתרתי על דברים שרציתי באמת", "אני עייף מלהחזיק את זה", "מכירים את ההגנה, לא אותי"],
+      fairies: ["אנשים שהתרחקו / דברים שפספסתי", "אני נראה 'בסדר' אבל לבד בפנים", "ויתרתי על דברים שרציתי באמת", "אני עייף מלהחזיק את זה", "מכירים את ההגנה, לא אותי"]
+    },
+    coachFraming: "אדלר: לפני שממשיכים, לוודא שהמחיר נשמע בקול רם ולא רק מבפנים.",
+    coachDeepeningQuestions: [
+      "דוגמה מהחודש האחרון?",
+      "ומה זה יעלה עוד שנה ככה?",
+      "האם אתה מוכן להמשיך לשלם את המחיר הזה?"
+    ]
+  },
+  {
+    id: "s3_ramp_current",
+    order: 8,
+    traineeTitle: "הוא נבנה למנוע משהו שקרה פעם. זה עדיין קורה היום?",
+    uiType: "structured-dialogue",
+    options: {
+      clouds: ["כן, עדיין", "הרבה פחות ממה שהוא חושב", "כבר לא — אבל הוא לא שם לב", "לא בטוח"],
+      forest: ["כן, עדיין", "הרבה פחות ממה שהוא חושב", "כבר לא — אבל הוא לא שם לב", "לא בטוח"],
+      arcade: ["כן, עדיין", "הרבה פחות ממה שהוא חושב", "כבר לא — אבל הוא לא שם לב", "לא בטוח"],
+      fairies: ["כן, עדיין", "הרבה פחות ממה שהוא חושב", "כבר לא — אבל הוא לא שם לב", "לא בטוח"]
+    },
+    coachFraming: "רגע ה'אהה' של הביינד — ההגנה רצה על תוכנה ישנה.",
+    coachWarning: "'כן, עדיין' → לעצור ולחקור; אולי עובדים על עדכון ההגנה, לא שחרור."
+  },
+  {
+    id: "s3_ramp_choice",
+    order: 9,
+    traineeTitle: "עכשיו כשראית את הרווח, המחיר, ואת מה שכבר לא נכון — מה אתה בוחר?",
+    uiType: "choice",
+    choiceConfig: {
+      yes: "🔓 אני מוכן להיפרד מהדרך הישנה שלו",
+      notYet: "🕐 עוד לא — אני רוצה להבין אותו יותר"
+    },
+    coachFraming: "הבחירה עצמה היא ההתערבות — מחזירה את הקורטקס לנהיגה.",
+    coachWarning: "המדיטציה ממילא מונחית ע\"י המאמן, אז תוצאת הבחירה מוצגת לו והוא מתאים את ההנחיה. \"עוד לא\" פעמיים ברציפות → מדיטציית היכרות/הרגעה בלבד, לא שחרור."
+  },
+  {
+    id: "s3_ramp_consent",
+    order: 10,
+    traineeTitle: "'אני מוכן לשחרר את ___ כי אני כבר לא צריך ש___. במקום זה אני בוחר ___'",
+    uiType: "text-input",
+    coachFraming: "משפט ההסכמה מוצג למאמן כפתיח למדיטציה."
+  },
   {
     id: "s3_step_4_meditation_prep",
-    order: 6,
+    order: 11,
     traineeTitle: "התקרקעות וחיבור לגוף",
     uiType: "meditation",
     coachFraming: "הכנה למדיטציה - לא להיכנס לטראנס אלא להוריד דריכות.",
@@ -843,7 +918,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_4_meditation_start",
-    order: 7,
+    order: 12,
     traineeTitle: "דמיון נובע - זיהוי החסם בגוף",
     uiType: "meditation",
     coachFraming: "הנחיית מדיטציה חיה (דמיון נובע). בקש מהמתאמן לעצום עיניים. תדר 528 פועל ברקע.",
@@ -855,7 +930,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_5_meditation_child",
-    order: 8,
+    order: 13,
     traineeTitle: "חיבור לילד הפנימי ופירוק הביינד",
     uiType: "meditation",
     coachFraming: "הקשבה בלבד. אין לשכנע, רק להרגיש. פנייה לחלק הפנימי (הילד).",
@@ -868,7 +943,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_6_meditation_release",
-    order: 9,
+    order: 14,
     traineeTitle: "שחרור וניקוי",
     uiType: "meditation",
     coachFraming: "שחרור סומטי סמלי. פרידה מהשומר הישן.",
@@ -880,7 +955,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_7_meditation_integration",
-    order: 10,
+    order: 15,
     traineeTitle: "הטמעה ויציאה",
     uiType: "meditation",
     coachFraming: "מילוי החלל שנוצר באיכות חדשה, והחזרה הדרגתית לכאן ועכשיו.",
@@ -892,7 +967,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_8_resource_help",
-    order: 11,
+    order: 16,
     traineeTitle: "קח כוח שילווה אותך בהמשך",
     uiType: "good-powers",
     coachFraming: "הזמנת כוח תומך לאחר שחרור החסם. עיגון האיכות החדשה.",
@@ -901,7 +976,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_9_new_contract",
-    order: 12,
+    order: 17,
     traineeTitle: "הסכם קטן עם עצמי",
     uiType: "structured-dialogue",
     options: {
