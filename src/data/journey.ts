@@ -26,6 +26,20 @@ export type JourneyStep = {
     arcade: string[];
     fairies: string[];
   };
+  // Adult-tagged variant of `patternRevealed` (round 6). Needed whenever a
+  // step also has `optionsAdult` AND the adult option list has a different
+  // length/order than the teen one (e.g. some worlds drop a couple of
+  // teen-only reactions) — in that case indexing the trainee's adult answer
+  // into the teen-aligned `patternRevealed` array would return the wrong
+  // insight. When absent, the UI falls back to `patternRevealed` (correct
+  // for steps like the trigger step, where every option shares one line —
+  // see loopFeedLines-style comments at each step's definition).
+  patternRevealedAdult?: {
+    clouds: string[];
+    forest: string[];
+    arcade: string[];
+    fairies: string[];
+  };
   // Only used by uiType "scale" — the excitement slider (1-100). Below
   // `threshold` (or `teenThreshold` when the trainee is tagged as a teen)
   // the trainee is routed to a refinement screen instead of advancing.
@@ -46,6 +60,168 @@ export type JourneyStep = {
   coachFraming?: string;
   coachDeepeningQuestions?: string[];
   coachWarning?: string;
+};
+
+// ── Round 6 (docs/content-draft-rounds2-4.md, נספח א') — restored insight
+// content shared between stage 1 (journeyPhases) and stage 2 (stage2Phases),
+// since both stages reuse the exact same trigger/belief/feeling/reaction
+// option text. Defined once here so the two stages can't drift apart.
+
+// א2 — trigger step: one line, true for every option (the event itself is
+// neutral; what hurts is what it activated). Repeated to array length so it
+// lines up positionally with `options` (7 teen items/world) AND
+// `optionsAdult` (also 7 items/world) — since every entry is identical,
+// indexing by either array returns the same correct string.
+const TRIGGER_INSIGHT =
+  "שים לב: האירוע עצמו ניטרלי — מצלמה הייתה מתעדת רק את מה שקרה. מה שכואב הוא מה שהוא הפעיל בך. וזה בדיוק מה שנבדוק עכשיו.";
+
+// א1 — "במה זה נגע?" — the 8 official belief names (replaces the old
+// 6-item generic list) plus their per-belief patternRevealed line.
+const TOUCHED_BELIEFS = [
+  "אני לא מספיק טוב",
+  "אני חסר אונים — לא יכול לבד",
+  "פחד מחשיפה — שיגלו עליי / יראו עליי",
+  "לא מגיע לי / אני לא ראוי",
+  "לא רואים אותי / אני לא שייך",
+  "אני לא אהוב / דחוי",
+  "אני בסכנה — חייב שליטה",
+  "אני שונה / מוזר"
+];
+const TOUCHED_BASE_LINE =
+  "האמונה הזו היא החלטה ישנה, לא עובדה. היא זו שמפעילה את ההגנה — וברגע שקוראים לה בשם, היא מאבדת מהכוח שלה.";
+const TOUCHED_CLOSINGS = [
+  "בוא נבדוק מי החליט שאתה לא מספיק.",
+  "בוא נראה כמה אתה כבר כן מסתדר.",
+  "מה יקרה אם יראו אותך באמת?",
+  "מי קבע כמה מגיע לך?",
+  "מי כן ראה אותך פעם?",
+  "האם זו עובדה — או פחד ותיק?",
+  "ממה השליטה שומרת עליך?",
+  "שונה זה גם ייחודי — מתי זה הפך לבעיה?"
+];
+const TOUCHED_INSIGHTS = TOUCHED_CLOSINGS.map((closing) => `${TOUCHED_BASE_LINE} ${closing}`);
+
+// א3 — the 4 base-feeling insights, in the same order as the (shared,
+// world-independent) feeling options: פחד / בושה / עצב / חוסר אונים.
+const FEELING_INSIGHTS = [
+  "פחד הוא מערכת האזעקה של המוח ההישרדותי — היא נדלקת חזק דווקא כשמשהו יקר לך מונח על הכף.",
+  "בושה אומרת 'אסור שיראו אותי ככה'. היא שומרת מחשיפה — ומשאירה אותך לבד עם זה.",
+  "עצב מגיע כשמשהו חשוב הלך לאיבוד. הוא לא חולשה — הוא מסמן מה באמת יקר לך.",
+  "חוסר אונים אומר 'אין לי שליטה'. המוח מעדיף לכבות הכול מאשר להרגיש את זה — וזה בדיוק המקום שממנו מתחילים."
+];
+
+// א4 — reaction → dfus+belief insight, built from the mapping table's fixed
+// template. NOTE: two source rows write the pattern name as `דפוס ה"שנייה
+// לפני"` (already including the "דפוס ה" prefix the template also adds) —
+// normalized here to the bare name `"שנייה לפני"` so the template doesn't
+// double up ("זה דפוס הדפוס ה..."). One row (עננים 🧑, "הכנתי 20 פעם ולא
+// אמרתי") gives the raw belief as "אני לא יודע להחליט" but explicitly says
+// "(להציג: 'פחד מחשיפה')" — the displayed belief follows that instruction.
+function reactionInsight(name: string, belief: string): string {
+  return `זה דפוס ה${name}. הוא נוגע ב'${belief}'. עד היום הוא שמר עליך — עכשיו כשהוא על השולחן, יש לך בחירה.`;
+}
+
+// Aligned with step_5_urge/s2_step_5_reaction `options` (teen, 7 items/world).
+const REACTION_INSIGHTS_TEEN = {
+  clouds: [
+    reactionInsight("הימנעות", "לא רואים אותי / לא שייך"),
+    reactionInsight("הימנעות", "אני לא מספיק טוב"),
+    reactionInsight("פרפקציוניזם", "אני לא מספיק טוב"),
+    reactionInsight("ריצוי", "אני לא אהוב / דחוי"),
+    reactionInsight("בריחה וניתוק", "אני עלול להיפגע"),
+    reactionInsight(`לחיות ב"הוכחה"`, "פחד מחשיפה"),
+    reactionInsight(`"שנייה לפני"`, "לא מגיע לי")
+  ],
+  forest: [
+    reactionInsight("דרמתיות ואגו", "לא רואים אותי / לא שווה"),
+    reactionInsight("דרמתיות", "לא רואים אותי"),
+    reactionInsight("ניתוק מרגש", "אני עלול להיפגע"),
+    reactionInsight("משימתיות-יתר (הגיבור הבודד)", "אני עלול להיפגע"),
+    reactionInsight("הלקאה עצמית (חרטה)", "לא מגיע לי"),
+    reactionInsight("נתק והאשמה", "אני לא אהוב / דחוי"),
+    reactionInsight("ביריונות הפוכה", "לא רואים אותי")
+  ],
+  arcade: [
+    reactionInsight("בריחה", "אני עלול להיפגע"),
+    reactionInsight("דריכות", "אני בסכנה — שליטה"),
+    reactionInsight("פרפקציוניזם", "פחד מחשיפה"),
+    reactionInsight("מאבק שליטה", "אני בסכנה — שליטה"),
+    reactionInsight("צורך במשמעות", "לא רואים אותי"),
+    reactionInsight("אגרסיביות", "לא שווה"),
+    reactionInsight("חרדת נטישה דיגיטלית", "אני לא שייך")
+  ],
+  fairies: [
+    reactionInsight("דחיינות", "אני לא מספיק טוב"),
+    reactionInsight("פרפקציוניזם", "אני לא מספיק טוב"),
+    reactionInsight("הקטנה", "לא מגיע לי"),
+    reactionInsight("ריצוי", "אני לא אהוב"),
+    reactionInsight("הימנעות עסוקה", "פחד מחשיפה"),
+    reactionInsight("חבלה עצמית", "לא מגיע לי"),
+    reactionInsight("דימוי עצמי משווה", "אני לא מספיק טוב")
+  ]
+};
+
+// Aligned with step_5_urge/s2_step_5_reaction `optionsAdult` (5-6 items/world
+// — shorter than the teen lists, which is exactly why this needs its own
+// patternRevealedAdult field rather than sharing indices with the above).
+const REACTION_INSIGHTS_ADULT = {
+  clouds: [
+    reactionInsight("הימנעות", "פחד מחשיפה"),
+    reactionInsight("ריצוי", "לא רואים אותי"),
+    reactionInsight("דריכות הישרדותית", "אני בסכנה — שליטה"),
+    reactionInsight("הססנות", "פחד מחשיפה"),
+    reactionInsight("ריצוי", "אני לא אהוב"),
+    reactionInsight("הימנעות מאינטימיות", "אני עלול להיפגע")
+  ],
+  forest: [
+    reactionInsight("אגרסיביות", "לא רואים אותי"),
+    reactionInsight("עצמאות נוקשה", "אני לא אהוב / דחוי"),
+    reactionInsight("ריצוי", "אני לא אהוב"),
+    reactionInsight("הלקאה עצמית", "לא מגיע לי"),
+    reactionInsight("ניתוק מרגשות", "אני עלול להיפגע"),
+    reactionInsight("עונש שקט", "אני לא אהוב / דחוי")
+  ],
+  arcade: [
+    reactionInsight(`לחיות ב"הוכחה"`, "אני לא בסדר"),
+    reactionInsight("הסחה וניתוק", "אני עלול להיפגע"),
+    reactionInsight("איסוף הוכחות", "אני בעייתי / פגום"),
+    reactionInsight("ויסות חיצוני", "אני חסר אונים"),
+    reactionInsight("דחיינות", "אני לא מספיק טוב")
+  ],
+  fairies: [
+    reactionInsight("פרפקציוניזם", "אני לא מספיק טוב"),
+    reactionInsight("חיים תחת תנאים", "לא מגיע לי"),
+    reactionInsight("ריצוי", "אני לא אהוב"),
+    reactionInsight(`"שנייה לפני"`, "לא מגיע לי"),
+    reactionInsight("הלקאה עצמית", "לא מגיע לי")
+  ]
+};
+
+// א5 — "רגע האסימון", inserted right before the agreement/integration step
+// in both stage 1 and stage 2. Options and insights are identical across
+// worlds and ages (no optionsAdult).
+const ASIMON_OPTIONS = [
+  "כבר לא — אני מוכן לבחור אחרת",
+  "עדיין כן — הוא עוד שומר עליי ממשהו",
+  "לא בטוח — משהו בי מתלבט"
+];
+const ASIMON_INSIGHTS = [
+  "זה האסימון שנופל. מהרגע שהמחיר גלוי — בכל פעם שהדפוס יופיע, תזהה אותו. זו תחילת הבחירה.",
+  "תשובה אמיצה ואמיתית. אם הוא עוד שומר — הצורך שמתחתיו עוד רעב. נכיר אותו לעומק לפני שנשחרר.",
+  "ההתלבטות היא בדיוק הסדק. חלק בך כבר רואה את המחיר."
+];
+const ASIMON_STEP_BASE = {
+  traineeTitle:
+    "רגע האסימון: ראית את המעגל. בכנות מלאה — האם מה שהדפוס הזה נותן לך שווה יותר ממה שהוא לוקח ממך?",
+  uiType: "structured-dialogue" as const,
+  options: { clouds: ASIMON_OPTIONS, forest: ASIMON_OPTIONS, arcade: ASIMON_OPTIONS, fairies: ASIMON_OPTIONS },
+  patternRevealed: { clouds: ASIMON_INSIGHTS, forest: ASIMON_INSIGHTS, arcade: ASIMON_INSIGHTS, fairies: ASIMON_INSIGHTS },
+  coachFraming: "שאלת ההתחייבות של אדלר. אם ענה 'עדיין כן' — לא לתקן ולא לשכנע; לחקור את הרווח. אחרי שאלת חדירה — שתיקה.",
+  coachDeepeningQuestions: [
+    "מה המחיר שאתה משלם ביומיום על האחיזה הזאת?",
+    "האם אתה מוכן להמשיך לשלם אותו?",
+    "מה יקרה בעוד שנה אם שום דבר לא ישתנה?"
+  ]
 };
 
 export const journeyPhases: JourneyStep[] = [
@@ -140,6 +316,19 @@ export const journeyPhases: JourneyStep[] = [
       ]
     },
     coachFraming: "זיהוי הטריגר המיידי — הרגע המצולם, לא הפרשנות עליו. אחרי שאלת חדירה — שתיקה. התשובה האמיתית צפה בשקט.",
+    // Round 6 (נספח א׳2): the insight is the SAME line regardless of which
+    // moment the trainee picked — the point is "the event itself is
+    // neutral". Repeated once per option so it lines up with either the
+    // teen (`options`) or adult (`optionsAdult`) array — both are 7 items
+    // per world, and since every entry is identical, indexing by either
+    // array returns the same correct string (no patternRevealedAdult
+    // needed here).
+    patternRevealed: {
+      clouds: Array(7).fill(TRIGGER_INSIGHT),
+      forest: Array(7).fill(TRIGGER_INSIGHT),
+      arcade: Array(7).fill(TRIGGER_INSIGHT),
+      fairies: Array(7).fill(TRIGGER_INSIGHT)
+    },
     coachDeepeningQuestions: [
       "מה מתוך הסיפור הזה נמצא ב-100% בשליטה שלך?",
       "הוא סובל בגלל המצב, או בגלל הניסיון להכריח את המציאות להיות משהו אחר?"
@@ -152,10 +341,16 @@ export const journeyPhases: JourneyStep[] = [
     traineeTitle: "במה זה נגע?",
     uiType: "structured-dialogue",
     options: {
-      clouds: ["בזה שאני לא מספיק", "בפחד להישאר לבד", "בזה שאין לי שליטה", "בזה שלא רואים אותי", "בפחד לטעות", "בזה שאני לא באמת חשוב"],
-      forest: ["בזה שאני לא מספיק", "בפחד להישאר לבד", "בזה שאין לי שליטה", "בזה שלא רואים אותי", "בפחד לטעות", "בזה שאני לא באמת חשוב"],
-      arcade: ["בזה שאני לא מספיק", "בפחד להישאר לבד", "בזה שאין לי שליטה", "בזה שלא רואים אותי", "בפחד לטעות", "בזה שאני לא באמת חשוב"],
-      fairies: ["בזה שאני לא מספיק", "בפחד להישאר לבד", "בזה שאין לי שליטה", "בזה שלא רואים אותי", "בפחד לטעות", "בזה שאני לא באמת חשוב"]
+      clouds: TOUCHED_BELIEFS,
+      forest: TOUCHED_BELIEFS,
+      arcade: TOUCHED_BELIEFS,
+      fairies: TOUCHED_BELIEFS
+    },
+    patternRevealed: {
+      clouds: TOUCHED_INSIGHTS,
+      forest: TOUCHED_INSIGHTS,
+      arcade: TOUCHED_INSIGHTS,
+      fairies: TOUCHED_INSIGHTS
     },
     coachFraming: "השאלה היחידה שעוצרת לופ — לא מי אשם ולא מה לעשות, אלא איזה מקום בי הופעל. אחרי שאלת חדירה — שתיקה. התשובה האמיתית צפה בשקט.",
     coachDeepeningQuestions: [
@@ -174,6 +369,12 @@ export const journeyPhases: JourneyStep[] = [
       forest: ["פחד — הלב דפק", "בושה — רציתי להיעלם", "עצב — משהו שקע בבטן", "חוסר אונים"],
       arcade: ["פחד — הלב דפק", "בושה — רציתי להיעלם", "עצב — משהו שקע בבטן", "חוסר אונים"],
       fairies: ["פחד — הלב דפק", "בושה — רציתי להיעלם", "עצב — משהו שקע בבטן", "חוסר אונים"]
+    },
+    patternRevealed: {
+      clouds: FEELING_INSIGHTS,
+      forest: FEELING_INSIGHTS,
+      arcade: FEELING_INSIGHTS,
+      fairies: FEELING_INSIGHTS
     },
     coachFraming: "זיהוי הרגש הגולמי — רגש הבסיס לפני שהוא מסתעף (כעס/קנאה/אשמה). חשוב לתת לגיטימציה לרגש לפני שעוברים לניתוח שכלתני. אחרי שאלת חדירה — שתיקה. התשובה האמיתית צפה בשקט.",
     coachDeepeningQuestions: [
@@ -296,6 +497,8 @@ export const journeyPhases: JourneyStep[] = [
         "ירדתי על עצמי על \"בזבוז הפוטנציאל\""
       ]
     },
+    patternRevealed: REACTION_INSIGHTS_TEEN,
+    patternRevealedAdult: REACTION_INSIGHTS_ADULT,
     coachFraming: "זיהוי ה'תגובה' במעגל הפר\"ת — ההתנהגות האוטומטית שהגוף הפעיל מתוך הרגש. אנחנו מפרידים בין הרגש שהוא הרגיש לבין מה שהגוף עשה אוטומטית מתוכו. אחרי שאלת חדירה — שתיקה. התשובה האמיתית צפה בשקט.",
     coachDeepeningQuestions: [
       "מה ההתנהגות הזו מאפשרת לו?",
@@ -439,9 +642,16 @@ export const journeyPhases: JourneyStep[] = [
     coachFraming: "המרת הדחף ההישרדותי (בריחה/תקיפה) בפעולה מודעת שמונעת על ידי המשאב.",
     coachDeepeningQuestions: ["האם הפעולה הזו אפשרית כבר היום?", "מה צריך לקרות כדי שתוכל לעשות את זה בפעם הבאה שהטריגר יופיע?"]
   },
+  // ── רגע האסימון (round 6, נספח א'5) — inserted right before the closing
+  // agreement/integration step, per spec.
+  {
+    id: "step_9b_asimon",
+    order: 11,
+    ...ASIMON_STEP_BASE
+  },
   {
     id: "step_10_integration",
-    order: 11,
+    order: 12,
     traineeTitle: "אז מה הצורך האמיתי שלך עכשיו?",
     uiType: "structured-dialogue",
     options: {
@@ -578,6 +788,13 @@ export const stage2Phases: JourneyStep[] = [
       ]
     },
     coachFraming: "זיהוי הטריגר המציאותי — הרגע המצולם, לא הפרשנות עליו. אחרי שאלת חדירה — שתיקה. התשובה האמיתית צפה בשקט.",
+    // See TRIGGER_INSIGHT's comment on step_2_trigger — same reasoning here.
+    patternRevealed: {
+      clouds: Array(7).fill(TRIGGER_INSIGHT),
+      forest: Array(7).fill(TRIGGER_INSIGHT),
+      arcade: Array(7).fill(TRIGGER_INSIGHT),
+      fairies: Array(7).fill(TRIGGER_INSIGHT)
+    },
     coachDeepeningQuestions: [
       "מה מתוך הסיפור הזה נמצא ב-100% בשליטה שלך?",
       "הוא סובל בגלל המצב, או בגלל הניסיון להכריח את המציאות להיות משהו אחר?"
@@ -590,10 +807,16 @@ export const stage2Phases: JourneyStep[] = [
     traineeTitle: "במה זה נגע?",
     uiType: "structured-dialogue",
     options: {
-      clouds: ["בזה שאני לא מספיק", "בפחד להישאר לבד", "בזה שאין לי שליטה", "בזה שלא רואים אותי", "בפחד לטעות", "בזה שאני לא באמת חשוב"],
-      forest: ["בזה שאני לא מספיק", "בפחד להישאר לבד", "בזה שאין לי שליטה", "בזה שלא רואים אותי", "בפחד לטעות", "בזה שאני לא באמת חשוב"],
-      arcade: ["בזה שאני לא מספיק", "בפחד להישאר לבד", "בזה שאין לי שליטה", "בזה שלא רואים אותי", "בפחד לטעות", "בזה שאני לא באמת חשוב"],
-      fairies: ["בזה שאני לא מספיק", "בפחד להישאר לבד", "בזה שאין לי שליטה", "בזה שלא רואים אותי", "בפחד לטעות", "בזה שאני לא באמת חשוב"]
+      clouds: TOUCHED_BELIEFS,
+      forest: TOUCHED_BELIEFS,
+      arcade: TOUCHED_BELIEFS,
+      fairies: TOUCHED_BELIEFS
+    },
+    patternRevealed: {
+      clouds: TOUCHED_INSIGHTS,
+      forest: TOUCHED_INSIGHTS,
+      arcade: TOUCHED_INSIGHTS,
+      fairies: TOUCHED_INSIGHTS
     },
     coachFraming: "השאלה היחידה שעוצרת לופ — לא מי אשם ולא מה לעשות, אלא איזה מקום בי הופעל. אחרי שאלת חדירה — שתיקה. התשובה האמיתית צפה בשקט.",
     coachDeepeningQuestions: [
@@ -761,6 +984,8 @@ export const stage2Phases: JourneyStep[] = [
         "ירדתי על עצמי על \"בזבוז הפוטנציאל\""
       ]
     },
+    patternRevealed: REACTION_INSIGHTS_TEEN,
+    patternRevealedAdult: REACTION_INSIGHTS_ADULT,
     coachFraming: "שלב 4 בלופ - תגובה. החיבור להתנהגות ההישרדותית האוטומטית. אחרי שאלת חדירה — שתיקה. התשובה האמיתית צפה בשקט.",
     coachDeepeningQuestions: [
       "מה ההתנהגות הזו מאפשרת לו?",
@@ -865,9 +1090,16 @@ export const stage2Phases: JourneyStep[] = [
       "איך זה ירגיש בגוף כשתצליח לעשות את הדבר השונה הזה?"
     ]
   },
+  // ── רגע האסימון (round 6, נספח א'5) — inserted right before the closing
+  // agreement step, per spec.
+  {
+    id: "s2_step_8b_asimon",
+    order: 10,
+    ...ASIMON_STEP_BASE
+  },
   {
     id: "s2_step_9_agreement",
-    order: 10,
+    order: 11,
     traineeTitle: "מה המטרה שלך לשבוע הקרוב מול הלופ הזה?",
     uiType: "structured-dialogue",
     options: {
@@ -912,7 +1144,7 @@ export const stage2Phases: JourneyStep[] = [
   },
   {
     id: "s2_step_10_closure",
-    order: 11,
+    order: 12,
     traineeTitle: "מילה טובה לעצמך על העבודה שעשית היום:",
     uiType: "structured-dialogue",
     options: {
