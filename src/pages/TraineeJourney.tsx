@@ -449,6 +449,11 @@ export default function TraineeJourney() {
   const getReplacedTitle = (title: string) => {
     let replaced = title.replace(/\[ארכיטיפ\]/g, chosenArchetype?.name || "הדמות");
     replaced = replaced.replace(/\[משאב\]/g, resourceArchetype?.name || "הכוח החדש");
+    // Round 7: the stage-3 consent sentence (s3_ramp_consent) quotes the
+    // trainee's own secondary-gain answer back at them instead of asking
+    // them to retype it.
+    const gainAnswer = structuredAnswers.s3_step_2_secondary_gain?.trim();
+    replaced = replaced.replace(/\[רווח\]/g, gainAnswer || "ההגנה הישנה");
     return replaced;
   };
 

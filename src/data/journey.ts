@@ -1330,9 +1330,21 @@ export const stage3Phases: JourneyStep[] = [
   {
     id: "s3_ramp_consent",
     order: 9,
-    traineeTitle: "'אני מוכן לשחרר את ___ כי אני כבר לא צריך ש___. במקום זה אני בוחר ___'",
-    uiType: "text-input",
-    coachFraming: "משפט ההסכמה מוצג למאמן כפתיח למדיטציה."
+    // Round 7: was free-typing the whole template sentence — replaced with
+    // selection so a flooded trainee only has to pick the last blank. The
+    // [ארכיטיפ] and [רווח] placeholders are filled in by getReplacedTitle
+    // (TraineeJourney) / the equivalent replace() chain (CoachLiveSession)
+    // from the chosen archetype's name and the trainee's own
+    // s3_step_2_secondary_gain answer.
+    traineeTitle: "אני מוכן לשחרר את [ארכיטיפ] כי אני כבר לא צריך ש[רווח]. במקום זה אני בוחר:",
+    uiType: "structured-dialogue",
+    options: {
+      clouds: ["שקט בלב", "קרבה אמיתית", "להיות אני", "חופש לבחור", "ביטחון מבפנים"],
+      forest: ["שקט בלב", "קרבה אמיתית", "להיות אני", "חופש לבחור", "ביטחון מבפנים"],
+      arcade: ["שקט בלב", "קרבה אמיתית", "להיות אני", "חופש לבחור", "ביטחון מבפנים"],
+      fairies: ["שקט בלב", "קרבה אמיתית", "להיות אני", "חופש לבחור", "ביטחון מבפנים"]
+    },
+    coachFraming: "המשפט המלא — הדמות + הרווח שהוא עצמו זיהה + הבחירה החדשה — הוא פתיח המדיטציה. הקרא לו אותו במילותיו."
   },
   {
     id: "s3_step_4_meditation_prep",

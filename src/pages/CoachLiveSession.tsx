@@ -101,6 +101,25 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
     ? 's2_step_9_agreement'
     : 'step_10_integration';
 
+  // Round 7: s3_ramp_consent is now a selection (the trainee picks the
+  // final "אני בוחר ___" word from a short list) instead of free-typing the
+  // whole template sentence. Compose the full sentence here from the parts
+  // the trainee actually gave us — the archetype name, their own
+  // secondary-gain answer, and their choice — so the coach still gets one
+  // full sentence to read back as the meditation opener. Backward compat: a
+  // session completed before this change stored the whole free-typed
+  // sentence directly in s3_ramp_consent (and, since that's how the old
+  // template quote started, it will already contain this phrase) — show it
+  // as-is instead of re-composing it.
+  const s3ConsentRaw = sessionState?.answers?.s3_ramp_consent as string | undefined;
+  const s3ConsentIsLegacyFreeSentence = !!s3ConsentRaw && s3ConsentRaw.includes("אני מוכן לשחרר");
+  const s3ConsentGainText = (sessionState?.answers?.s3_step_2_secondary_gain || "").trim() || "ההגנה הישנה";
+  const s3ConsentSentence = s3ConsentRaw
+    ? (s3ConsentIsLegacyFreeSentence
+        ? s3ConsentRaw
+        : `אני מוכן לשחרר את ${chosenArchetype?.name || "הדמות"} כי אני כבר לא צריך ש${s3ConsentGainText}. במקום זה אני בוחר ${s3ConsentRaw}`)
+    : null;
+
   const handlePrint = () => {
     window.print();
   };
@@ -174,7 +193,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                   return (
                     <div key={key} className="text-sm border-b border-white/5 pb-3">
                       <span className="text-neutral-500 block mb-1 text-xs">
-                        {phase.traineeTitle.replace(/\[ארכיטיפ\]/g, 'הדמות').replace(/\[משאב\]/g, 'המשאב')}
+                        {phase.traineeTitle.replace(/\[ארכיטיפ\]/g, 'הדמות').replace(/\[משאב\]/g, 'המשאב').replace(/\[רווח\]/g, 'הרווח')}
                       </span>
                       <span className="text-white font-medium break-words whitespace-pre-wrap">{value as string}</span>
                     </div>
@@ -477,7 +496,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                   <span className="text-green-400 text-xl shrink-0">🟢</span>
                   <div>
                     <p className="text-green-300 font-bold text-sm mb-1 tracking-widest uppercase">הסכמה ניתנה — פתיח למדיטציה</p>
-                    <p className="text-white text-lg font-medium leading-relaxed">"{sessionState.answers.s3_ramp_consent}"</p>
+                    <p className="text-white text-lg font-medium leading-relaxed">"{s3ConsentSentence}"</p>
                   </div>
                 </div>
               )}
@@ -504,7 +523,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                 <div className="bg-[#11131a] rounded-2xl border border-blue-500/20 shadow-lg p-8">
                   <div className="flex justify-between items-center mb-8">
                     <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight">
-                      {currentStep.traineeTitle.replace(/\[ארכיטיפ\]/g, `"${chosenArchetype?.name || ''}"`).replace(/\[משאב\]/g, `"${sessionState?.resourceArchetype ? worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype)?.name : 'הכוח החדש'}"`)}
+                      {currentStep.traineeTitle.replace(/\[ארכיטיפ\]/g, `"${chosenArchetype?.name || ''}"`).replace(/\[משאב\]/g, `"${sessionState?.resourceArchetype ? worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype)?.name : 'הכוח החדש'}"`).replace(/\[רווח\]/g, `"${s3ConsentGainText}"`)}
                     </h3>
                     <div className="flex items-center gap-2 text-xs font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full">
                       <span className="w-2 h-2 rounded-full bg-blue-500"></span> {`שלב ${sessionState?.phase ?? 0} מתוך ${activePhases.length}`}
