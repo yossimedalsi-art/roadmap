@@ -55,15 +55,55 @@ const arcReactionToTrigger = arcPath(ANGLE_REACTION + GAP_DEG, ANGLE_TRIGGER_WRA
 // Full circle path (two 180° arcs) used as the travel path for the pulse dot.
 const fullCirclePath = `M ${CX} ${CY - R} A ${R} ${R} 0 1 1 ${CX - 0.01} ${CY - R} Z`;
 
-// Label for the closing arc, placed just outside the circle at its midpoint.
-const closingArcMid = pointAt((ANGLE_REACTION + ANGLE_TRIGGER_WRAP) / 2, R + 34);
-
-// Exit crack: from the reaction node, curving down-left, outside the circle.
-const exitBoxCenter = { x: 100, y: 430 };
-const exitCrackPath = `M ${posReaction.x - 6} ${posReaction.y + 34} C ${posReaction.x - 40} ${posReaction.y + 90}, ${exitBoxCenter.x + 20} ${exitBoxCenter.y - 70}, ${exitBoxCenter.x} ${exitBoxCenter.y - 34}`;
-
 const NODE_W = 132;
 const NODE_H = 76;
+
+// ── Closing-arc label pill (round 6 fix) ────────────────────────────────
+// Bug (owner screenshot feedback): the label used to sit at R+34 near the
+// top-left, where it got clipped by the viewBox edge and crossed by the
+// closing arc itself. Fix: pin it as a fixed-size pill fully outside the
+// circle in the upper-left quadrant, connected to the arc by a short
+// leader line, and widen the viewBox (see the `viewBox` prop below) so the
+// pill — which now sits at negative x — isn't clipped.
+//
+// Geometry proof (SVG user units; CX=240 CY=200 R=140, NODE_W=132 NODE_H=76):
+//  - Label pill box:  x ∈ [-100, 80],  y ∈ [118, 182]   (LABEL_W=180, LABEL_H=64,
+//    centered at (-10, 150)).
+//  - Trigger node box: x ∈ [174, 306], y ∈ [22, 98] (top of the circle).
+//    x-ranges are disjoint (pill's max-x 80 < trigger's min-x 174), so no
+//    overlap is possible regardless of how long the truncated label text is
+//    — the pill's box size is fixed, only its (clipped) text content varies.
+//  - Reaction node box: x ∈ [52.76, 184.76], y ∈ [232, 308] (lower-left).
+//    y-ranges are disjoint (pill's max-y 182 < reaction's min-y 232), so
+//    again no overlap is possible at any label length.
+//  - Closing arc (angles 178°→242°, radius R=140): for y ∈ [115, 185] (the
+//    pill's y-span with a little slack), the arc's x = CX - √(R² - (y-CY)²)
+//    ranges from ~100.8 (at y=185) to ~128.76 (at y=130, the arc's own
+//    midpoint) to ~128.76 (at y=115) — i.e. always ≥ 100.8, comfortably to
+//    the right of the pill's right edge (x=80). The arc never crosses the
+//    pill, leaving a ~20-48px gap for the leader line.
+//  - Distance from the circle's center (240,200) to the pill rect's nearest
+//    corner (80,185) is √(160² + 15²) ≈ 160.7 > R(140) — the whole pill is
+//    outside the circle.
+const LABEL_W = 180;
+const LABEL_H = 64;
+const labelBox = { x: -100, y: 118 }; // top-left corner of the pill
+const labelCenter = { x: labelBox.x + LABEL_W / 2, y: labelBox.y + LABEL_H / 2 }; // (-10, 150)
+// Point ON the closing arc itself (radius R, not R+something) — the leader
+// line's target, so it visibly connects the pill to the arc it explains.
+const closingArcAnchor = pointAt((ANGLE_REACTION + ANGLE_TRIGGER_WRAP) / 2, R);
+// Leader line from the pill's right edge to the arc anchor point. Both
+// endpoints checked above to sit clear of the trigger/reaction node boxes.
+const leaderLineStart = { x: labelBox.x + LABEL_W, y: labelCenter.y };
+
+// Exit crack: from the reaction node, curving down-left, outside the circle.
+// Starts NODE_H/2 + 10px below the reaction node's center so the path's
+// start point clears the node box's bottom edge (y=308) instead of
+// originating inside it (round 6 fix — it used to start at +34, i.e.
+// y=304, a few px *inside* the box).
+const exitBoxCenter = { x: 100, y: 430 };
+const exitCrackStart = { x: posReaction.x - 6, y: posReaction.y + NODE_H / 2 + 10 };
+const exitCrackPath = `M ${exitCrackStart.x} ${exitCrackStart.y} C ${posReaction.x - 40} ${posReaction.y + 90}, ${exitBoxCenter.x + 20} ${exitBoxCenter.y - 70}, ${exitBoxCenter.x} ${exitBoxCenter.y - 34}`;
 
 function NodeBox({
   x,
@@ -139,7 +179,6 @@ export default function BlockerCircle({
   const closingLabelFull = isGoalMap
     ? "...ובכל זאת עוצר אותי מהמטרה"
     : loopFeedLine || "...ומייצר את הטריגר הבא";
-  const closingLabel = truncate(closingLabelFull, 45);
 
   const showExitCrack = Boolean((resourceName && resourceName.trim()) || (agreementText && agreementText.trim()));
   const animated = variant === "summary" && interactive;
@@ -149,7 +188,7 @@ export default function BlockerCircle({
   return (
     <div className={`bc-root ${containerMaxWidth} mx-auto w-full`} dir="rtl">
       <svg
-        viewBox={`0 0 480 520`}
+        viewBox={`-140 0 620 520`}
         className="bc-svg w-full h-auto"
         role="img"
         aria-label="מעגל החסם"
@@ -190,14 +229,30 @@ export default function BlockerCircle({
           strokeWidth={4.5}
           markerEnd="url(#bc-arrow-strong)"
         />
-        <foreignObject x={closingArcMid.x - 90} y={closingArcMid.y - 14} width={180} height={30}>
+        {/* Leader line — connects the pill (fully outside the circle) to the
+            point on the closing arc it explains. Geometry proved above. */}
+        <line
+          x1={leaderLineStart.x}
+          y1={leaderLineStart.y}
+          x2={closingArcAnchor.x}
+          y2={closingArcAnchor.y}
+          className={`stroke-amber-400/50 transition-opacity duration-700 ${exited ? "opacity-10" : "opacity-100"}`}
+          strokeWidth={1.5}
+          strokeDasharray="3 3"
+        />
+        <foreignObject x={labelBox.x} y={labelBox.y} width={LABEL_W} height={LABEL_H}>
           <div
             // @ts-expect-error -- xmlns is valid on foreignObject content but not in React's typings
             xmlns="http://www.w3.org/1999/xhtml"
             title={closingLabelFull}
-            className={`bc-closing-label text-center text-[10px] font-bold text-amber-400/90 transition-opacity duration-700 ${exited ? "opacity-10" : "opacity-100"}`}
+            className={`bc-closing-label w-full h-full flex items-center justify-center text-center rounded-xl border border-amber-400/25 bg-[#171a23]/90 px-2.5 py-1.5 transition-opacity duration-700 ${exited ? "opacity-10" : "opacity-100"}`}
           >
-            {closingLabel}
+            <span
+              className="text-[10px] font-bold text-amber-400/90 leading-tight overflow-hidden"
+              style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}
+            >
+              {closingLabelFull}
+            </span>
           </div>
         </foreignObject>
 
@@ -318,8 +373,12 @@ export default function BlockerCircle({
             stroke: #444 !important;
           }
           .bc-closing-label {
-            color: #444 !important;
+            background: white !important;
+            border-color: #ccc !important;
             opacity: 1 !important;
+          }
+          .bc-closing-label span {
+            color: #444 !important;
           }
         }
       `}</style>
