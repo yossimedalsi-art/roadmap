@@ -33,7 +33,11 @@ function resolveGain(journeyStage: number, answers: Record<string, string>): str
   // deliberate gap in this round's content, so it renders as "—".
   if (journeyStage === 1) return pick(answers, "step_7_protection") ?? DASH;
   if (journeyStage === 2) return DASH;
-  if (journeyStage === 3) return pick(answers, "s3_ramp_gain") ?? DASH;
+  // Stage 3 (round 7): s3_ramp_gain was removed as a redundant duplicate of
+  // s3_step_2_secondary_gain ("על מה ההתנהגות הזו בעצם ניסתה לשמור?"),
+  // asked 4 screens earlier in the same flow. s3_ramp_gain is kept here only
+  // as a fallback so sessions completed before this change still render.
+  if (journeyStage === 3) return pick(answers, "s3_step_2_secondary_gain") ?? pick(answers, "s3_ramp_gain") ?? DASH;
   if (journeyStage === 4) return pick(answers, "s4_step_4_secondary_gain") ?? DASH;
   return DASH;
 }

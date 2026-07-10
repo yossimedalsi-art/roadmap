@@ -1278,25 +1278,14 @@ export const stage3Phases: JourneyStep[] = [
       "איך היית מתנהג היום אם היית מקבל את מה שהיית צריך אז?"
     ]
   },
-  // ── רמפת ההולכה למדיטציה (סיבוב 4, פרק 3) ─────────────────────────
-  // 5 מסכים שמביאים את המתאמן להסכמה פעילה לפני השחרור: הרווח, המחיר,
-  // בדיקת עדכניות, הבחירה עצמה, ומשפט ההסכמה (רק במסלול "מוכן").
-  {
-    id: "s3_ramp_gain",
-    order: 6,
-    traineeTitle: "רגע לפני שממשיכים — בוא ניתן כבוד. [ארכיטיפ] איתך הרבה זמן, והוא לא סתם. מה הוא נותן לך?",
-    uiType: "structured-dialogue",
-    options: {
-      clouds: ["שקט — פחות עימותים", "ביטחון — אף אחד לא מתקרב מספיק כדי לפגוע", "שליטה — אני קובע מתי ומה", "מנוחה מהציפיות", "הוא מכיר אותי הכי הרבה זמן"],
-      forest: ["שקט — פחות עימותים", "ביטחון — אף אחד לא מתקרב מספיק כדי לפגוע", "שליטה — אני קובע מתי ומה", "מנוחה מהציפיות", "הוא מכיר אותי הכי הרבה זמן"],
-      arcade: ["שקט — פחות עימותים", "ביטחון — אף אחד לא מתקרב מספיק כדי לפגוע", "שליטה — אני קובע מתי ומה", "מנוחה מהציפיות", "הוא מכיר אותי הכי הרבה זמן"],
-      fairies: ["שקט — פחות עימותים", "ביטחון — אף אחד לא מתקרב מספיק כדי לפגוע", "שליטה — אני קובע מתי ומה", "מנוחה מהציפיות", "הוא מכיר אותי הכי הרבה זמן"]
-    },
-    coachFraming: "הרווח אמיתי. מי שלא מכיר בו — יפגוש אותו במדיטציה כהתנגדות."
-  },
+  // ── רמפת ההולכה למדיטציה (סיבוב 4, פרק 3; סיבוב 7 קיצר מ-5 ל-4 מסכים —
+  // הוסר s3_ramp_gain הכפול: אותה שאלה כבר נשאלה ב-s3_step_2_secondary_gain
+  // ("על מה ההתנהגות הזו בעצם ניסתה לשמור?") 4 מסכים קודם לכן) ───────────
+  // 4 מסכים שמביאים את המתאמן להסכמה פעילה לפני השחרור: המחיר, בדיקת
+  // עדכניות, הבחירה עצמה, ומשפט ההסכמה (רק במסלול "מוכן").
   {
     id: "s3_ramp_price",
-    order: 7,
+    order: 6,
     traineeTitle: "והוא גם גובה משהו. מה המחיר בשנה האחרונה?",
     uiType: "structured-dialogue",
     options: {
@@ -1314,7 +1303,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_ramp_current",
-    order: 8,
+    order: 7,
     traineeTitle: "הוא נבנה למנוע משהו שקרה פעם. זה עדיין קורה היום?",
     uiType: "structured-dialogue",
     options: {
@@ -1328,7 +1317,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_ramp_choice",
-    order: 9,
+    order: 8,
     traineeTitle: "עכשיו כשראית את הרווח, המחיר, ואת מה שכבר לא נכון — מה אתה בוחר?",
     uiType: "choice",
     choiceConfig: {
@@ -1340,14 +1329,14 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_ramp_consent",
-    order: 10,
+    order: 9,
     traineeTitle: "'אני מוכן לשחרר את ___ כי אני כבר לא צריך ש___. במקום זה אני בוחר ___'",
     uiType: "text-input",
     coachFraming: "משפט ההסכמה מוצג למאמן כפתיח למדיטציה."
   },
   {
     id: "s3_step_4_meditation_prep",
-    order: 11,
+    order: 10,
     traineeTitle: "התקרקעות וחיבור לגוף",
     uiType: "meditation",
     coachFraming: "הכנה למדיטציה - לא להיכנס לטראנס אלא להוריד דריכות.",
@@ -1358,7 +1347,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_4_meditation_start",
-    order: 12,
+    order: 11,
     traineeTitle: "דמיון נובע - זיהוי החסם בגוף",
     uiType: "meditation",
     coachFraming: "הנחיית מדיטציה חיה (דמיון נובע). בקש מהמתאמן לעצום עיניים. תדר 528 פועל ברקע.",
@@ -1370,7 +1359,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_5_meditation_child",
-    order: 13,
+    order: 12,
     traineeTitle: "חיבור לילד הפנימי ופירוק הביינד",
     uiType: "meditation",
     coachFraming: "הקשבה בלבד. אין לשכנע, רק להרגיש. פנייה לחלק הפנימי (הילד).",
@@ -1383,7 +1372,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_6_meditation_release",
-    order: 14,
+    order: 13,
     traineeTitle: "שחרור וניקוי",
     uiType: "meditation",
     coachFraming: "שחרור סומטי סמלי. פרידה מהשומר הישן.",
@@ -1395,7 +1384,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_7_meditation_integration",
-    order: 15,
+    order: 14,
     traineeTitle: "הטמעה ויציאה",
     uiType: "meditation",
     coachFraming: "מילוי החלל שנוצר באיכות חדשה, והחזרה הדרגתית לכאן ועכשיו.",
@@ -1407,7 +1396,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_8_resource_help",
-    order: 16,
+    order: 15,
     traineeTitle: "קח כוח שילווה אותך בהמשך",
     uiType: "good-powers",
     coachFraming: "הזמנת כוח תומך לאחר שחרור החסם. עיגון האיכות החדשה.",
@@ -1416,7 +1405,7 @@ export const stage3Phases: JourneyStep[] = [
   },
   {
     id: "s3_step_9_new_contract",
-    order: 17,
+    order: 16,
     traineeTitle: "הסכם קטן עם עצמי",
     uiType: "structured-dialogue",
     options: {
