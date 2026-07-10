@@ -21,7 +21,10 @@ const s3ChoiceStep = stage3Phases.find((step) => step.id === "s3_ramp_choice");
 function resolveBelief(journeyStage: number, answers: Record<string, string>): string {
   if (journeyStage === 1) return pick(answers, "step_2b_touched") ?? DASH;
   if (journeyStage === 2) return pick(answers, "s2_step_2b_touched") ?? DASH;
-  if (journeyStage === 3) return pick(answers, "s3_step_2_secondary_gain") ?? DASH;
+  // Stage 3's "what drives me" is the unmet need — the gain row below
+  // already shows s3_step_2_secondary_gain, so reading it here too would
+  // print the same text twice.
+  if (journeyStage === 3) return pick(answers, "s3_step_3_need") ?? pick(answers, "s3_step_2_secondary_gain") ?? DASH;
   if (journeyStage === 4) return pick(answers, "s4_why") ?? DASH;
   return DASH;
 }
