@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Compass, TreePine, Cloud, Gamepad2, Music, ArrowLeft, Download, Map, Sparkles } from "lucide-react";
 import Backpack from "../components/Backpack";
 import JourneyMap from "../components/JourneyMap";
+import BlockerCircle from "../components/BlockerCircle";
 import { useParams } from "react-router-dom";
 import { worldsData, goodPowersData } from "../data/worlds";
 import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans } from "../data/journey";
@@ -1207,46 +1208,25 @@ export default function TraineeJourney() {
             <h3 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-6 text-center">
               {journeyStage === 4 ? 'מפת המטרה שלנו' : 'מעגל החסם שזיהינו'}
             </h3>
-            <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-center">
-              <div className="flex flex-col items-center bg-black/40 p-4 rounded-xl border border-white/5 flex-1 w-full">
-                <span className="text-xs text-neutral-500 mb-2">
-                  {journeyStage === 4 ? 'המטרה שלי' : journeyStage === 3 ? 'הטריגר שהעיר את התגובה' : 'מחשבה (פרשנות)'}
-                </span>
-                <span className="text-white font-bold">
-                  {journeyStage === 4
-                    ? (structuredAnswers['s4_step_1_what_i_want'] || 'לא צוין')
+            <BlockerCircle
+              journeyStage={journeyStage}
+              answers={structuredAnswers}
+              trigger={selectedTrigger ?? undefined}
+              resourceName={resourceArchetype?.name ?? null}
+              agreementText={
+                structuredAnswers[
+                  journeyStage === 4
+                    ? 's4_step_6_action'
                     : journeyStage === 3
-                    ? (structuredAnswers['s3_step_1_trigger'] || selectedTrigger || 'לא צוין')
-                    : (structuredAnswers['step_6_thought'] || structuredAnswers['s2_step_3_interpretation'] || selectedTrigger || 'לא צוין')}
-                </span>
-              </div>
-              <div className="text-amber-500">→</div>
-              <div className="flex flex-col items-center bg-black/40 p-4 rounded-xl border border-white/5 flex-1 w-full">
-                <span className="text-xs text-neutral-500 mb-2">
-                  {journeyStage === 4 ? 'הכוחות שלי' : journeyStage === 3 ? 'מה ניסתה התגובה להשיג' : 'רגש / נקודה רגישה'}
-                </span>
-                <span className="text-white font-bold">
-                  {journeyStage === 4
-                    ? (structuredAnswers['s4_step_2_capability'] || 'לא צוין')
-                    : journeyStage === 3
-                    ? (structuredAnswers['s3_step_2_secondary_gain'] || 'לא צוין')
-                    : (structuredAnswers['step_3_feeling'] || structuredAnswers['s2_step_4_sensitive_spot'] || 'לא צוין')}
-                </span>
-              </div>
-              <div className="text-amber-500">→</div>
-              <div className="flex flex-col items-center bg-black/40 p-4 rounded-xl border border-white/5 flex-1 w-full">
-                <span className="text-xs text-neutral-500 mb-2">
-                  {journeyStage === 4 ? 'מה עוצר אותי' : journeyStage === 3 ? 'הצורך האמיתי שהוחמץ' : 'תגובה אוטומטית'}
-                </span>
-                <span className="text-white font-bold">
-                  {journeyStage === 4
-                    ? (structuredAnswers['s4_step_4_secondary_gain'] || 'לא צוין')
-                    : journeyStage === 3
-                    ? (structuredAnswers['s3_step_3_need'] || 'לא צוין')
-                    : (structuredAnswers['step_5_urge'] || structuredAnswers['s2_step_5_reaction'] || 'לא צוין')}
-                </span>
-              </div>
-            </div>
+                    ? 's3_step_9_new_contract'
+                    : journeyStage === 2
+                    ? 's2_step_9_agreement'
+                    : 'step_10_integration'
+                ] ?? null
+              }
+              variant="summary"
+              interactive
+            />
             <p className="text-xs text-neutral-500 text-center mt-4">
               {journeyStage === 4
                 ? 'זוהי מפת המטרה שלנו — הרצון, הכוחות הקיימים, ומה שעוצר. הצעד הבא נמצא בהסכם מעלה.'

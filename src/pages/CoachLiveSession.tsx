@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Copy, Plus, LayoutDashboard, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap, RotateCcw, Music } from "lucide-react";
 import HeartCompassLogo from "../components/HeartCompassLogo";
+import BlockerCircle from "../components/BlockerCircle";
 import { worldsData, goodPowersData } from "../data/worlds";
 import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans } from "../data/journey";
 import { db } from "../lib/firebase";
@@ -82,6 +83,19 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
     resourceIdx !== -1 &&
     (sessionState?.phase ?? 0) >= resourceIdx + 1 &&
     !sessionState?.resourceArchetype;
+
+  // Resolved resource card + the answer key holding the weekly agreement —
+  // shared by the BlockerCircle in the live sidebar and the summary panel.
+  const resourceCard = sessionState?.resourceArchetype
+    ? (goodPowersData.find(p => p.id === sessionState.resourceArchetype) || worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype))
+    : null;
+  const agreementAnswerKey = journeyStage === 4
+    ? 's4_step_6_action'
+    : journeyStage === 3
+    ? 's3_step_9_new_contract'
+    : journeyStage === 2
+    ? 's2_step_9_agreement'
+    : 'step_10_integration';
 
   const handlePrint = () => {
     window.print();
@@ -248,40 +262,14 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
             <h3 className="text-amber-500 font-bold mb-4 text-sm tracking-widest uppercase flex items-center gap-2">
               {journeyStage === 4 ? '🎯 מפת המטרה' : '🔄 מעגל החסם'}
             </h3>
-            <div className="flex flex-col gap-2">
-              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'המטרה' : journeyStage === 3 ? 'הטריגר שהעיר את התגובה' : 'מחשבה (פרשנות)'}</span>
-                <span className="text-white text-sm font-medium break-words">
-                  {journeyStage === 4
-                    ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
-                    : journeyStage === 3
-                    ? (sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')
-                    : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.trigger || '—')}
-                </span>
-              </div>
-              <div className="text-amber-500 text-center text-lg">↓</div>
-              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'כוחות' : journeyStage === 3 ? 'מה ניסתה התגובה להשיג' : 'רגש / נקודה רגישה'}</span>
-                <span className="text-white text-sm font-medium break-words">
-                  {journeyStage === 4
-                    ? (sessionState?.answers?.['s4_step_2_capability'] || '—')
-                    : journeyStage === 3
-                    ? (sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')
-                    : (sessionState?.answers?.['step_3_feeling'] || sessionState?.answers?.['s2_step_4_sensitive_spot'] || '—')}
-                </span>
-              </div>
-              <div className="text-amber-500 text-center text-lg">↓</div>
-              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'חסם' : journeyStage === 3 ? 'הצורך האמיתי שהוחמץ' : 'תגובה אוטומטית'}</span>
-                <span className="text-white text-sm font-medium break-words">
-                  {journeyStage === 4
-                    ? (sessionState?.answers?.['s4_step_4_secondary_gain'] || '—')
-                    : journeyStage === 3
-                    ? (sessionState?.answers?.['s3_step_3_need'] || '—')
-                    : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || '—')}
-                </span>
-              </div>
-            </div>
+            <BlockerCircle
+              journeyStage={journeyStage}
+              answers={sessionState?.answers || {}}
+              trigger={sessionState?.trigger ?? undefined}
+              resourceName={resourceCard?.name ?? null}
+              agreementText={sessionState?.answers?.[agreementAnswerKey] ?? null}
+              variant="live"
+            />
           </div>
         </section>
 
@@ -371,40 +359,14 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     <h4 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-4">
                       {journeyStage === 4 ? 'מפת המטרה שסוכמה' : 'מעגל החסם שזוהה'}
                     </h4>
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-3">
-                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'המטרה' : journeyStage === 3 ? 'הטריגר שהעיר את התגובה' : 'מחשבה (פרשנות)'}</span>
-                        <span className="text-white font-bold text-sm">
-                          {journeyStage === 4
-                            ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
-                            : journeyStage === 3
-                            ? (sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')
-                            : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.trigger || '—')}
-                        </span>
-                      </div>
-                      <div className="text-amber-500 font-bold">→</div>
-                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'כוחות' : journeyStage === 3 ? 'מה ניסתה התגובה להשיג' : 'רגש / נקודה רגישה'}</span>
-                        <span className="text-white font-bold text-sm">
-                          {journeyStage === 4
-                            ? (sessionState?.answers?.['s4_step_2_capability'] || '—')
-                            : journeyStage === 3
-                            ? (sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')
-                            : (sessionState?.answers?.['step_3_feeling'] || sessionState?.answers?.['s2_step_4_sensitive_spot'] || '—')}
-                        </span>
-                      </div>
-                      <div className="text-amber-500 font-bold">→</div>
-                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'חסם' : journeyStage === 3 ? 'הצורך האמיתי שהוחמץ' : 'תגובה אוטומטית'}</span>
-                        <span className="text-white font-bold text-sm">
-                          {journeyStage === 4
-                            ? (sessionState?.answers?.['s4_step_4_secondary_gain'] || '—')
-                            : journeyStage === 3
-                            ? (sessionState?.answers?.['s3_step_3_need'] || '—')
-                            : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || '—')}
-                        </span>
-                      </div>
-                    </div>
+                    <BlockerCircle
+                      journeyStage={journeyStage}
+                      answers={sessionState?.answers || {}}
+                      trigger={sessionState?.trigger ?? undefined}
+                      resourceName={resourceCard?.name ?? null}
+                      agreementText={sessionState?.answers?.[agreementAnswerKey] ?? null}
+                      variant="summary"
+                    />
                   </div>
 
                   <div className="space-y-10">
