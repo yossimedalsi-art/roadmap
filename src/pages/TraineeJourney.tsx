@@ -118,6 +118,11 @@ export default function TraineeJourney() {
   // defaults to 'adult' whenever the field hasn't been set yet.
   const [ageGroup, setAgeGroup] = useState<"adult" | "teen">("adult");
   const [scaleValue, setScaleValue] = useState<number>(50);
+  // Free-text draft for the two "not yet" follow-up questions on the
+  // consent-ramp choice screen (s3_ramp_choice) — kept separate from
+  // customInput so it doesn't collide with the structured-dialogue/text-input
+  // draft-sync effect below, which only watches those two uiTypes.
+  const [rampFollowupInput, setRampFollowupInput] = useState<string>("");
   const [blockerStrengthBefore, setBlockerStrengthBefore] = useState<number | null>(null);
   const [blockerStrengthAfter, setBlockerStrengthAfter] = useState<number | null>(null);
   const [showIntensityBefore, setShowIntensityBefore] = useState(false);
@@ -366,6 +371,47 @@ export default function TraineeJourney() {
 
   const handleScaleSubmit = (stepId: string, value: number) => {
     setStructuredAnswers(prev => ({ ...prev, [stepId]: String(value) }));
+    clearDraft();
+  };
+
+  // Reset the ramp follow-up free-text draft whenever we land on a fresh
+  // phase — otherwise leftover text from the "fear" question would bleed
+  // into the "trust" question's input.
+  useEffect(() => {
+    setRampFollowupInput("");
+  }, [currentPhase]);
+
+  // ── The consent-ramp choice (s3_ramp_choice, round 4) ──────────────────
+  // "מוכן" always stores "ready" and advances one step (into the consent
+  // sentence). "עוד לא" the first time parks on this same phase and walks
+  // the trainee through two follow-up questions before re-offering the same
+  // two buttons; "עוד לא" a second time (i.e. once both follow-ups are
+  // answered) stores "not_yet_final" and skips the consent screen entirely
+  // (advance by 2) straight into meditation prep — matching the spec's "no
+  // consent given" branch.
+  const handleRampReady = (stepId: string) => {
+    setStructuredAnswers(prev => ({ ...prev, [stepId]: "ready" }));
+    clearDraft();
+    setCustomInput("");
+    setCurrentPhase(prev => prev + 1);
+  };
+
+  const handleRampNotYet = (stepId: string, alreadyLoopedOnce: boolean) => {
+    if (!alreadyLoopedOnce) {
+      setStructuredAnswers(prev => ({ ...prev, [stepId]: "not_yet_1" }));
+      clearDraft();
+      return;
+    }
+    setStructuredAnswers(prev => ({ ...prev, [stepId]: "not_yet_final" }));
+    clearDraft();
+    setCustomInput("");
+    setCurrentPhase(prev => prev + 2);
+  };
+
+  const handleRampFollowupSave = (answerKey: string) => {
+    if (!rampFollowupInput.trim()) return;
+    setStructuredAnswers(prev => ({ ...prev, [answerKey]: rampFollowupInput }));
+    setRampFollowupInput("");
     clearDraft();
   };
 
@@ -814,7 +860,11 @@ export default function TraineeJourney() {
     const needsExcitementRefine =
       isScaleStep && scaleNumeric != null && scaleNumeric < scaleThreshold && !scaleAlreadyRefined;
 
-    const isAnswered = !!answer && !needsExcitementRefine;
+    // Choice ("consent ramp") steps drive their own advancement inline —
+    // the generic "next step" footer button never applies to them.
+    const isChoiceStep = currentStep.uiType === "choice";
+
+    const isAnswered = !!answer && !needsExcitementRefine && !isChoiceStep;
 
     return (
       <div className={`min-h-screen ${theme.bg} text-white flex flex-col items-center p-6 relative overflow-hidden`} dir="rtl">
@@ -1037,6 +1087,116 @@ export default function TraineeJourney() {
                   )}
                 </div>
               )}
+
+              {/* Choice Block — the consent-ramp "מוכן / עוד לא" moment (s3_ramp_choice) */}
+              {isChoiceStep && currentStep.choiceConfig && (() => {
+                const choiceState = structuredAnswers[currentStep.id];
+                const fearAnswer = structuredAnswers["s3_ramp_notyet_fear"];
+                const trustAnswer = structuredAnswers["s3_ramp_notyet_trust"];
+                const isResolved = choiceState === "ready" || choiceState === "not_yet_final";
+                const inNotYetLoop = choiceState === "not_yet_1" && !isResolved;
+
+                // Sub-step: "מה הכי מפחיד בלחיות בלעדיו?"
+                if (inNotYetLoop && !fearAnswer) {
+                  return (
+                    <div className="mb-8 w-full flex flex-col gap-4">
+                      <div className="p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 text-amber-300/90 text-sm text-center">
+                        לגמרי בסדר — הוא שמר עליך שנים.
+                      </div>
+                      <h3 className="text-white font-bold text-xl text-center leading-relaxed">
+                        מה הכי מפחיד בלחיות בלעדיו?
+                      </h3>
+                      <div className="p-5 rounded-2xl border bg-black/30 border-white/5 flex flex-col gap-3">
+                        <input
+                          type="text"
+                          placeholder="הקלד את התשובה שלך כאן..."
+                          value={rampFollowupInput}
+                          onChange={(e) => setRampFollowupInput(e.target.value)}
+                          className="bg-transparent flex-1 outline-none text-sm text-white placeholder-neutral-600"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && rampFollowupInput.trim()) {
+                              handleRampFollowupSave("s3_ramp_notyet_fear");
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => handleRampFollowupSave("s3_ramp_notyet_fear")}
+                          disabled={!rampFollowupInput.trim()}
+                          className="self-end bg-amber-500/20 text-amber-500 px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-500 hover:text-black transition disabled:opacity-30"
+                        >
+                          שמור והמשך
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Sub-step: "מה הוא צריך לדעת עליך היום כדי להרשות לעצמו לנוח?"
+                if (inNotYetLoop && fearAnswer && !trustAnswer) {
+                  return (
+                    <div className="mb-8 w-full flex flex-col gap-4">
+                      <h3 className="text-white font-bold text-xl text-center leading-relaxed">
+                        מה הוא צריך לדעת עליך היום כדי להרשות לעצמו לנוח?
+                      </h3>
+                      <div className="p-5 rounded-2xl border bg-black/30 border-white/5 flex flex-col gap-3">
+                        <input
+                          type="text"
+                          placeholder="הקלד את התשובה שלך כאן..."
+                          value={rampFollowupInput}
+                          onChange={(e) => setRampFollowupInput(e.target.value)}
+                          className="bg-transparent flex-1 outline-none text-sm text-white placeholder-neutral-600"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && rampFollowupInput.trim()) {
+                              handleRampFollowupSave("s3_ramp_notyet_trust");
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => handleRampFollowupSave("s3_ramp_notyet_trust")}
+                          disabled={!rampFollowupInput.trim()}
+                          className="self-end bg-amber-500/20 text-amber-500 px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-500 hover:text-black transition disabled:opacity-30"
+                        >
+                          שמור והמשך
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Resolved — brief confirmation while the phase advances.
+                if (isResolved) {
+                  return (
+                    <div className="mb-8 w-full p-6 rounded-2xl border border-amber-500/30 bg-amber-500/5 text-center">
+                      <p className="text-amber-400 font-bold text-lg">
+                        {choiceState === "ready" ? "✓ הבחירה נרשמה — ממשיכים" : "✓ הבחירה נרשמה — ממשיכים למדיטציית היכרות והרגעה"}
+                      </p>
+                    </div>
+                  );
+                }
+
+                // Initial offering, or the re-offer after both follow-ups were answered.
+                const alreadyLoopedOnce = !!fearAnswer && !!trustAnswer;
+                return (
+                  <div className="mb-8 w-full grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <motion.button
+                      whileHover={{ y: -3 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleRampReady(currentStep.id)}
+                      className="p-8 rounded-2xl border-2 border-amber-500/50 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 text-center transition-all shadow-[0_0_20px_rgba(245,158,11,0.08)]"
+                    >
+                      <span className="block text-white font-bold text-lg leading-relaxed">{currentStep.choiceConfig!.yes}</span>
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ y: -3 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleRampNotYet(currentStep.id, alreadyLoopedOnce)}
+                      className="p-8 rounded-2xl border-2 border-amber-500/50 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 text-center transition-all shadow-[0_0_20px_rgba(245,158,11,0.08)]"
+                    >
+                      <span className="block text-white font-bold text-lg leading-relaxed">{currentStep.choiceConfig!.notYet}</span>
+                    </motion.button>
+                  </div>
+                );
+              })()}
 
               {/* Good Powers Block */}
               {currentStep.uiType === "good-powers" && (
