@@ -1355,3 +1355,85 @@ export const homeworkPlans: Record<number, Record<string, any>> = {
     }
   }
 };
+
+// ── The Blocker Circle — shared data mapping ──────────────────────────
+// Feeds the BlockerCircle component (src/components/BlockerCircle.tsx),
+// which replaces the three duplicated "linear blocker row" renderings
+// that used to live in TraineeJourney.tsx and CoachLiveSession.tsx.
+export type CircleData = {
+  trigger: string;
+  feeling: string;
+  reaction: string;
+  belief: string;
+  agreement: string;
+};
+
+const CIRCLE_DASH = "—";
+
+/**
+ * Maps a journey stage's structured answers onto the 5 slots the
+ * BlockerCircle needs: trigger / feeling / reaction (the 3 circumference
+ * nodes), belief (the center of the loop) and agreement (the weekly
+ * commitment shown in the "exit crack").
+ *
+ * Every answer key below was verified against journeyPhases / stage2Phases /
+ * stage3Phases / stage4Phases in this file.
+ */
+export function getCircleData(
+  journeyStage: number,
+  answers: Record<string, string>,
+  trigger?: string
+): CircleData {
+  const pick = (key: string): string => answers[key] || CIRCLE_DASH;
+
+  if (journeyStage === 4) {
+    // Stage 4 is the "goal map" variant — there is no interpretation/belief
+    // step, so belief is intentionally left blank ('—'). The reaction slot
+    // reuses the trainee's already-identified capability (s4_step_2_capability):
+    // there is no dedicated "avoidance behavior" question in this stage's
+    // data model, so the circle shows the gap between the capability the
+    // trainee already has and the blocker that still stops them.
+    return {
+      trigger: answers.s4_step_3_blocker_impact || trigger || CIRCLE_DASH,
+      feeling: pick("s4_step_4_secondary_gain"),
+      reaction: pick("s4_step_2_capability"),
+      belief: CIRCLE_DASH,
+      agreement: pick("s4_step_6_action"),
+    };
+  }
+
+  if (journeyStage === 3) {
+    // Stage 3 has no single "feeling" step — the closest analog is the
+    // unmet need (s3_step_3_need), the same substitution the old linear
+    // UI used to fill this slot.
+    return {
+      trigger: answers.s3_step_1_trigger || trigger || CIRCLE_DASH,
+      feeling: pick("s3_step_3_need"),
+      reaction: pick("s3_step_2b_reaction"),
+      belief: pick("s3_step_2_secondary_gain"),
+      agreement: pick("s3_step_9_new_contract"),
+    };
+  }
+
+  if (journeyStage === 2) {
+    // Stage 2 has no dedicated "feeling" step either — the sensitive spot
+    // (s2_step_4_sensitive_spot) plays that role, matching the fallback
+    // already used elsewhere in the app for this stage.
+    return {
+      trigger: answers.s2_step_2_trigger || trigger || CIRCLE_DASH,
+      feeling: pick("s2_step_4_sensitive_spot"),
+      reaction: pick("s2_step_5_reaction"),
+      belief: pick("s2_step_3_interpretation"),
+      agreement: pick("s2_step_9_agreement"),
+    };
+  }
+
+  // Stage 1 (default)
+  return {
+    trigger: answers.step_2_trigger || trigger || CIRCLE_DASH,
+    feeling: pick("step_3_feeling"),
+    reaction: pick("step_5_urge"),
+    belief: pick("step_6_thought"),
+    agreement: pick("step_10_integration"),
+  };
+}
