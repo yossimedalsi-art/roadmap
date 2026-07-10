@@ -7,7 +7,7 @@ import { useParams } from "react-router-dom";
 import { worldsData, goodPowersData } from "../data/worlds";
 import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans } from "../data/journey";
 import { db } from "../lib/firebase";
-import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
 
 const FALLBACK_IMAGE = "/images/guardian.png";
@@ -260,8 +260,85 @@ export default function TraineeJourney() {
     return () => unsubscribe();
   }, [sessionId]);
 
+  // Presence heartbeat — lets the coach's live view know the trainee is
+  // actively connected. Writes on mount and then every 20s.
+  useEffect(() => {
+    if (!sessionId) return;
+    const docRef = doc(db, "hc_live_sessions", sessionId);
+    const sendHeartbeat = async () => {
+      try {
+        await updateDoc(docRef, { traineeLastSeen: serverTimestamp() });
+      } catch {
+        try {
+          await setDoc(docRef, { traineeLastSeen: serverTimestamp() }, { merge: true });
+        } catch (e2) {
+          console.error("Error sending presence heartbeat:", e2);
+        }
+      }
+    };
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 20000);
+    return () => clearInterval(interval);
+  }, [sessionId]);
+
+  // Live draft sync — mirrors the free-text inputs (text-input steps and the
+  // "אחר" custom option in structured-dialogue steps) to Firestore while the
+  // trainee is typing, debounced so the coach sees near-real-time progress
+  // without a write on every keystroke.
+  const draftTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearDraft = () => {
+    if (draftTimeoutRef.current) {
+      clearTimeout(draftTimeoutRef.current);
+      draftTimeoutRef.current = null;
+    }
+    if (sessionId) {
+      updateDoc(doc(db, "hc_live_sessions", sessionId), { draft: null }).catch((e) => {
+        console.error("Error clearing draft:", e);
+      });
+    }
+  };
+
+  useEffect(() => {
+    const step = activePhases[currentPhase - 1];
+    const isFreeTextStep = step && (step.uiType === "text-input" || step.uiType === "structured-dialogue");
+    if (draftTimeoutRef.current) {
+      clearTimeout(draftTimeoutRef.current);
+      draftTimeoutRef.current = null;
+    }
+    if (!sessionId || !isFreeTextStep || !customInput.trim()) return;
+    draftTimeoutRef.current = setTimeout(async () => {
+      try {
+        await updateDoc(doc(db, "hc_live_sessions", sessionId), {
+          draft: { stepId: step.id, text: customInput }
+        });
+      } catch (e) {
+        console.error("Error syncing draft:", e);
+      }
+    }, 600);
+    return () => {
+      if (draftTimeoutRef.current) {
+        clearTimeout(draftTimeoutRef.current);
+        draftTimeoutRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customInput, currentPhase, sessionId]);
+
+  // Clear the persisted draft whenever the phase changes (submission that
+  // advances the step, or the coach driving the phase forward).
+  const prevPhaseForDraftRef = useRef(currentPhase);
+  useEffect(() => {
+    if (prevPhaseForDraftRef.current !== currentPhase && sessionId && dataInitializedRef.current) {
+      updateDoc(doc(db, "hc_live_sessions", sessionId), { draft: null }).catch((e) => {
+        console.error("Error clearing draft on phase change:", e);
+      });
+    }
+    prevPhaseForDraftRef.current = currentPhase;
+  }, [currentPhase, sessionId]);
+
   const handleDialogueSelect = (stepId: string, option: string) => {
     setStructuredAnswers(prev => ({ ...prev, [stepId]: option }));
+    clearDraft();
   };
 
   const getReplacedTitle = (title: string) => {

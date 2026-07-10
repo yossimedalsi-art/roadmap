@@ -13,6 +13,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [whisperText, setWhisperText] = useState("");
   const [syncError, setSyncError] = useState(false);
+  const [isTraineeOnline, setIsTraineeOnline] = useState(false);
   const magicLink = `${window.location.origin}/journey/${sessionId}`;
 
   const sendWhisper = async (text: string) => {
@@ -56,6 +57,20 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
     return () => unsubscribe();
   }, [sessionId]);
 
+  // Recompute the presence indicator every 10s (not only on snapshot updates)
+  // so "מנותק" kicks in even if the trainee's tab silently died mid-session.
+  useEffect(() => {
+    const recompute = () => {
+      const lastSeenMs = sessionState?.traineeLastSeen?.toMillis
+        ? sessionState.traineeLastSeen.toMillis()
+        : null;
+      setIsTraineeOnline(lastSeenMs != null && Date.now() - lastSeenMs < 45000);
+    };
+    recompute();
+    const interval = setInterval(recompute, 10000);
+    return () => clearInterval(interval);
+  }, [sessionState?.traineeLastSeen]);
+
   const activeWorld = worldsData.find(w => w.id === sessionState?.environment);
   const chosenArchetype = activeWorld?.archetypes.find(a => a.id === sessionState?.archetype);
   const journeyStage = sessionState?.journeyStage || 1;
@@ -85,6 +100,12 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
           <HeartCompassLogo size={30} />
           <span className="font-bold text-base tracking-wide">מצפן הלב</span>
           <span className="text-neutral-500 font-normal text-sm">| ממשק מאמן</span>
+          <span className="flex items-center gap-1.5 mr-2 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
+            <span className={`w-2 h-2 rounded-full ${isTraineeOnline ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]' : 'bg-neutral-500'}`}></span>
+            <span className={`text-xs font-bold ${isTraineeOnline ? 'text-green-400' : 'text-neutral-500'}`}>
+              {isTraineeOnline ? 'מתאמן מחובר' : 'מנותק / ממתין'}
+            </span>
+          </span>
         </div>
         <div className="flex gap-3">
           {sessionState?.phase > activePhases.length ? (
@@ -115,6 +136,16 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
             <h3 className="text-amber-500 font-bold mb-4 flex items-center gap-2">
               מפת תשובות עד כה
             </h3>
+            {sessionState?.draft?.text && sessionState.draft.stepId === currentStep?.id && (
+              <div className="mb-4 p-3 rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5">
+                <span className="text-[10px] text-amber-500 font-bold uppercase tracking-widest block mb-1.5 animate-pulse">
+                  ✎ מקליד עכשיו...
+                </span>
+                <span className="text-neutral-300 text-sm break-words whitespace-pre-wrap">
+                  {sessionState.draft.text}
+                </span>
+              </div>
+            )}
             <div className="space-y-4">
               {Object.keys(sessionState?.answers || {}).length === 0 ? (
                 <p className="text-neutral-500 text-sm">המתאמן טרם ענה על שאלות בשלב זה.</p>
