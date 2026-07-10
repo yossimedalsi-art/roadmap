@@ -77,6 +77,9 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
   const journeyStage = sessionState?.journeyStage || 1;
   const activePhases = journeyStage === 4 ? stage4Phases : journeyStage === 3 ? stage3Phases : journeyStage === 2 ? stage2Phases : journeyPhases;
   const currentStep = sessionState?.phase > 0 ? activePhases[Math.min(sessionState.phase - 1, activePhases.length - 1)] : null;
+  // Round 5 age layer: mirror the same options the adult-tagged trainee is
+  // actually seeing (optionsAdult), instead of always showing the teen list.
+  const activeOptions = (sessionState?.ageGroup === "adult" && currentStep?.optionsAdult) ? currentStep.optionsAdult : currentStep?.options;
 
   const resourceIdx = activePhases.findIndex(p => p.uiType === "good-powers");
   const showResourceAlert =
@@ -491,7 +494,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                   {/* Options Mirror */}
                   {currentStep.uiType === "structured-dialogue" && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {currentStep.options?.[sessionState?.environment as keyof typeof currentStep.options]?.map((option, idx) => {
+                    {activeOptions?.[sessionState?.environment as keyof typeof activeOptions]?.map((option, idx) => {
                       const traineeAnswer = sessionState?.answers?.[currentStep.id];
                       const isSelected = traineeAnswer === option;
                       const letter = String.fromCharCode(65 + idx);
@@ -508,7 +511,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     })}
 
                     {/* Handle Custom Text in Mirror */}
-                    {sessionState?.answers?.[currentStep.id] && !currentStep.options?.[sessionState?.environment as keyof typeof currentStep.options]?.includes(sessionState.answers[currentStep.id]) && (
+                    {sessionState?.answers?.[currentStep.id] && !activeOptions?.[sessionState?.environment as keyof typeof activeOptions]?.includes(sessionState.answers[currentStep.id]) && (
                       <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border bg-amber-500/10 border-amber-500 flex items-center gap-4">
                         <span className="w-8 h-8 shrink-0 rounded-md border bg-amber-500/20 text-amber-500 border-amber-500 flex items-center justify-center text-sm font-bold">✎</span>
                         <span className="flex-1 text-white font-bold text-right">"{sessionState.answers[currentStep.id]}"</span>
@@ -525,7 +528,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                           <p className="text-blue-100 font-medium text-lg">
                             {(() => {
                               const answer = sessionState.answers[currentStep.id];
-                              const optionsArray = currentStep.options?.[sessionState.environment as keyof typeof currentStep.options] || [];
+                              const optionsArray = activeOptions?.[sessionState.environment as keyof typeof activeOptions] || [];
                               const answerIdx = optionsArray.indexOf(answer);
                               if (answerIdx !== -1) {
                                 const patterns = currentStep.patternRevealed?.[sessionState.environment as keyof typeof currentStep.patternRevealed];

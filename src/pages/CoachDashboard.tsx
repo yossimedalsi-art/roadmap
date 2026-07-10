@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { User } from "firebase/auth";
-import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
 import { Plus, User as UserIcon, Calendar, ArrowRight, LogOut, FolderOpen, ChevronDown, ChevronUp, CheckCircle2, Clock } from "lucide-react";
 import CoachLiveSession from "./CoachLiveSession";
@@ -65,6 +65,21 @@ export default function CoachDashboard({ user }: { user: User }) {
     }
   };
 
+  // Round 5 age layer: coach tags each trainee once as "נער" (teen) or
+  // "מבוגר" (adult) on their card. Steps with an optionsAdult split read
+  // this via the session's own `ageGroup` field (copied at session
+  // creation below) to decide which option list to show.
+  const handleSetAgeGroup = async (e: React.MouseEvent, traineeId: string, ageGroup: "teen" | "adult") => {
+    e.stopPropagation();
+    setTrainees(prev => prev.map(t => t.id === traineeId ? { ...t, ageGroup } : t));
+    setSelectedTrainee((prev: any) => prev && prev.id === traineeId ? { ...prev, ageGroup } : prev);
+    try {
+      await updateDoc(doc(db, "trainees", traineeId), { ageGroup });
+    } catch (e) {
+      console.error("Error updating trainee age group", e);
+    }
+  };
+
   const handleSelectTrainee = async (trainee: any) => {
     setSelectedTrainee(trainee);
     setLoadingSessions(true);
@@ -114,6 +129,7 @@ export default function CoachDashboard({ user }: { user: User }) {
         phase: 0,
         status: "active",
         journeyStage: selectedStage,
+        ageGroup: selectedTrainee.ageGroup === "teen" ? "teen" : "adult",
         createdAt: serverTimestamp(),
         sessionNumber: traineeSessions.length + 1,
         previousAgreement: lastSession?.answers?.['step_10_integration'] || lastSession?.answers?.['s2_step_9_agreement'] || lastSession?.answers?.['s3_step_9_new_contract'] || lastSession?.answers?.['s4_step_6_action'] || null,
@@ -203,16 +219,40 @@ export default function CoachDashboard({ user }: { user: User }) {
             ) : trainees.length === 0 ? (
               <p className="text-center text-neutral-500 mt-10">אין לך עדיין מתאמנים.<br/>צור את המתאמן הראשון שלך!</p>
             ) : (
-              trainees.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => handleSelectTrainee(t)}
-                  className={`w-full flex items-center justify-between p-4 rounded-xl transition border text-right ${selectedTrainee?.id === t.id ? 'bg-amber-500/10 border-amber-500/50 text-amber-400' : 'bg-black/20 border-white/5 hover:border-white/20 hover:bg-white/5 text-neutral-300'}`}
-                >
-                  <span className="font-bold">{t.name}</span>
-                  <ArrowRight className={`w-4 h-4 ${selectedTrainee?.id === t.id ? 'opacity-100' : 'opacity-0'}`} />
-                </button>
-              ))
+              trainees.map(t => {
+                const traineeAgeGroup: "teen" | "adult" = t.ageGroup === "teen" ? "teen" : "adult";
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => handleSelectTrainee(t)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSelectTrainee(t); }}
+                    className={`w-full flex items-center justify-between gap-2 p-4 rounded-xl transition border text-right cursor-pointer ${selectedTrainee?.id === t.id ? 'bg-amber-500/10 border-amber-500/50 text-amber-400' : 'bg-black/20 border-white/5 hover:border-white/20 hover:bg-white/5 text-neutral-300'}`}
+                  >
+                    <span className="font-bold truncate">{t.name}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex rounded-full overflow-hidden border border-white/10 text-[10px] font-bold">
+                        <button
+                          onClick={(e) => handleSetAgeGroup(e, t.id, "teen")}
+                          title="נער"
+                          className={`px-2 py-1 transition ${traineeAgeGroup === "teen" ? "bg-amber-500 text-black" : "bg-black/30 text-neutral-500 hover:text-white"}`}
+                        >
+                          נער
+                        </button>
+                        <button
+                          onClick={(e) => handleSetAgeGroup(e, t.id, "adult")}
+                          title="מבוגר"
+                          className={`px-2 py-1 transition ${traineeAgeGroup === "adult" ? "bg-amber-500 text-black" : "bg-black/30 text-neutral-500 hover:text-white"}`}
+                        >
+                          מבוגר
+                        </button>
+                      </div>
+                      <ArrowRight className={`w-4 h-4 ${selectedTrainee?.id === t.id ? 'opacity-100' : 'opacity-0'}`} />
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

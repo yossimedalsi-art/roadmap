@@ -941,9 +941,15 @@ export default function TraineeJourney() {
                 {getReplacedTitle(currentStep.traineeTitle)}
               </h2>
 
-              {currentStep.uiType === "structured-dialogue" && currentStep.options && selectedEnv && (
+              {currentStep.uiType === "structured-dialogue" && currentStep.options && selectedEnv && (() => {
+                // Round 5 age layer: adult-tagged trainees read from
+                // optionsAdult when the step has one; everyone else (and
+                // steps without a split) keep using options (teen wording
+                // where a split exists, the only wording otherwise).
+                const activeOptions = (ageGroup === "adult" && currentStep.optionsAdult) ? currentStep.optionsAdult : currentStep.options;
+                return (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                  {currentStep.options[selectedEnv as keyof typeof currentStep.options]?.map((option, idx) => {
+                  {activeOptions[selectedEnv as keyof typeof activeOptions]?.map((option, idx) => {
                     const isSelected = answer === option;
                     const letter = String.fromCharCode(65 + idx); // A, B, C, D
 
@@ -998,7 +1004,8 @@ export default function TraineeJourney() {
                     </div>
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* Text Input Block */}
               {currentStep.uiType === "text-input" && (
