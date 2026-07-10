@@ -113,6 +113,11 @@ export default function TraineeJourney() {
   const [previousAgreement, setPreviousAgreement] = useState<string | null>(null);
   const [sessionNumber, setSessionNumber] = useState<number>(1);
   const [journeyStage, setJourneyStage] = useState<number>(1);
+  // Age tagging (coach sets this on the trainee card — mechanism lands in a
+  // later round). Only read here to drive the excitement-scale threshold;
+  // defaults to 'adult' whenever the field hasn't been set yet.
+  const [ageGroup, setAgeGroup] = useState<"adult" | "teen">("adult");
+  const [scaleValue, setScaleValue] = useState<number>(50);
   const [blockerStrengthBefore, setBlockerStrengthBefore] = useState<number | null>(null);
   const [blockerStrengthAfter, setBlockerStrengthAfter] = useState<number | null>(null);
   const [showIntensityBefore, setShowIntensityBefore] = useState(false);
@@ -161,6 +166,7 @@ export default function TraineeJourney() {
           if (parsed.previousAgreement) setPreviousAgreement(parsed.previousAgreement);
           if (parsed.sessionNumber) setSessionNumber(parsed.sessionNumber);
           if (parsed.journeyStage) setJourneyStage(parsed.journeyStage);
+          if (parsed.ageGroup === "teen" || parsed.ageGroup === "adult") setAgeGroup(parsed.ageGroup);
           // Restore in-progress session
           if (parsed.phase > 0) {
             setCurrentPhase(parsed.phase);
@@ -224,6 +230,9 @@ export default function TraineeJourney() {
         }
         if (parsed.coachWhisper && parsed.coachWhisper !== null) {
           setCoachWhisper(parsed.coachWhisper);
+        }
+        if (parsed.ageGroup === "teen" || parsed.ageGroup === "adult") {
+          setAgeGroup(parsed.ageGroup);
         }
         // Restore full session state from the first snapshot, before fetchSession's
         // async getDoc resolves — prevents saveState from writing nulls to Firestore.
@@ -340,6 +349,54 @@ export default function TraineeJourney() {
   const handleDialogueSelect = (stepId: string, option: string) => {
     setStructuredAnswers(prev => ({ ...prev, [stepId]: option }));
     clearDraft();
+  };
+
+  // Reset the scale slider's local draft value whenever we land on a fresh
+  // "scale" step — either to the previously-saved answer (revisiting) or the
+  // midpoint of its configured range.
+  useEffect(() => {
+    const step = activePhases[currentPhase - 1];
+    if (step?.uiType === "scale") {
+      const saved = structuredAnswers[step.id];
+      const cfg = step.scaleConfig ?? { min: 1, max: 100, threshold: 95 };
+      setScaleValue(saved ? Number(saved) : Math.round((cfg.min + cfg.max) / 2));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPhase]);
+
+  const handleScaleSubmit = (stepId: string, value: number) => {
+    setStructuredAnswers(prev => ({ ...prev, [stepId]: String(value) }));
+    clearDraft();
+  };
+
+  // The excitement-scale "accuracy screen" (מסך דיוק) — shown once when the
+  // trainee's score lands below the round-3 threshold. Routes back to the
+  // goal-sentence step so they can re-word it, and marks the loop as used so
+  // a second low score just proceeds forward (per spec — "coach handles it").
+  const excitementRefineOptions = [
+    "גדולה מדי — נקטין",
+    "קטנה מדי — לא מרגש",
+    "זו מטרה של ההורים/בוס/בן זוג, לא שלי",
+    "המילים לא מדויקות",
+  ];
+
+  const handleExcitementRefine = (stepId: string, option: string) => {
+    const goalSentenceIdx = activePhases.findIndex(p => p.id === "s4_goal_sentence");
+    setStructuredAnswers(prev => {
+      const next: Record<string, string> = {
+        ...prev,
+        [`${stepId}_refine`]: option,
+        [`${stepId}_refined`]: "1",
+      };
+      delete next[stepId];
+      delete next["s4_goal_sentence"];
+      return next;
+    });
+    setCustomInput("");
+    clearDraft();
+    if (goalSentenceIdx !== -1) {
+      setCurrentPhase(goalSentenceIdx + 1);
+    }
   };
 
   const getReplacedTitle = (title: string) => {
@@ -745,7 +802,19 @@ export default function TraineeJourney() {
   if (currentPhase >= 3 && currentPhase <= activePhases.length) {
     const currentStep = activePhases[currentPhase - 1];
     const answer = structuredAnswers[currentStep.id];
-    const isAnswered = !!answer;
+
+    // Scale ("excitement slider") steps route to a one-time refinement
+    // screen when the score is below threshold — suppress the generic
+    // "next step" footer button while that screen is showing.
+    const isScaleStep = currentStep.uiType === "scale";
+    const scaleCfg = currentStep.scaleConfig ?? { min: 1, max: 100, threshold: 95 };
+    const scaleNumeric = isScaleStep && answer != null ? Number(answer) : null;
+    const scaleThreshold = ageGroup === "teen" && scaleCfg.teenThreshold != null ? scaleCfg.teenThreshold : scaleCfg.threshold;
+    const scaleAlreadyRefined = structuredAnswers[`${currentStep.id}_refined`] === "1";
+    const needsExcitementRefine =
+      isScaleStep && scaleNumeric != null && scaleNumeric < scaleThreshold && !scaleAlreadyRefined;
+
+    const isAnswered = !!answer && !needsExcitementRefine;
 
     return (
       <div className={`min-h-screen ${theme.bg} text-white flex flex-col items-center p-6 relative overflow-hidden`} dir="rtl">
@@ -913,6 +982,59 @@ export default function TraineeJourney() {
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Scale Block — the excitement slider (1-100) */}
+              {isScaleStep && (
+                <div className="mb-8 w-full">
+                  {needsExcitementRefine ? (
+                    <div className="flex flex-col gap-4">
+                      <div className="p-5 rounded-2xl border border-amber-500/40 bg-amber-500/5 text-center">
+                        <p className="text-amber-400 font-black text-3xl mb-1">{scaleNumeric}<span className="text-base font-bold text-neutral-500">/{scaleCfg.max}</span></p>
+                        <p className="text-neutral-400 text-sm">בוא נדייק את המשפט לפני שממשיכים</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {excitementRefineOptions.map((option, idx) => (
+                          <motion.button
+                            key={idx}
+                            onClick={() => handleExcitementRefine(currentStep.id, option)}
+                            className="p-5 rounded-2xl border text-right transition-all duration-300 bg-black/30 border-white/5 hover:border-amber-500/50 text-neutral-300 hover:text-amber-400"
+                          >
+                            {option}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3 p-6 rounded-2xl border border-white/5 bg-black/30">
+                      <div className={`text-7xl font-black tabular-nums ${answer ? 'text-amber-400' : 'text-amber-500'}`}>
+                        {answer ? scaleNumeric : scaleValue}
+                      </div>
+                      <input
+                        type="range"
+                        min={scaleCfg.min}
+                        max={scaleCfg.max}
+                        value={answer ? (scaleNumeric ?? scaleValue) : scaleValue}
+                        disabled={!!answer}
+                        onChange={(e) => setScaleValue(Number(e.target.value))}
+                        dir="rtl"
+                        className="w-full accent-amber-500 h-3 cursor-pointer disabled:cursor-default disabled:opacity-70"
+                      />
+                      <div className="flex justify-between w-full text-xs font-bold text-neutral-500 px-1">
+                        <span>בקושי</span>
+                        <span>בוער בי 🔥</span>
+                      </div>
+                      {!answer && (
+                        <button
+                          onClick={() => handleScaleSubmit(currentStep.id, scaleValue)}
+                          className="mt-2 px-8 py-3 bg-amber-500/20 text-amber-500 font-bold rounded-xl hover:bg-amber-500 hover:text-black transition"
+                        >
+                          שמור
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

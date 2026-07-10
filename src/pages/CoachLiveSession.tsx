@@ -509,6 +509,27 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     )}
                   </div>
                   )}
+
+                  {/* Scale Mirror — the excitement slider (1-100) */}
+                  {currentStep.uiType === "scale" && (
+                    <div className="flex flex-col items-center gap-3 py-8">
+                      {sessionState?.answers?.[currentStep.id] != null ? (
+                        <>
+                          <span className="text-8xl font-black text-amber-400 tabular-nums leading-none">
+                            {sessionState.answers[currentStep.id]}
+                          </span>
+                          <span className="text-neutral-500 text-sm">מתוך {currentStep.scaleConfig?.max ?? 100}</span>
+                        </>
+                      ) : (
+                        <span className="text-neutral-500 text-sm">המתאמן טרם הזיז את המחוון</span>
+                      )}
+                      {sessionState?.answers?.[`${currentStep.id}_refine`] && (
+                        <div className="mt-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-sm font-bold">
+                          מסך דיוק — המתאמן בחר: "{sessionState.answers[`${currentStep.id}_refine`]}"
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
