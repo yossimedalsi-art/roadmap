@@ -919,6 +919,13 @@ export default function TraineeJourney() {
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 perspective-1000 pb-20">
           {activeWorld?.archetypes.map(arc => {
             const isFlipped = activeCard === arc.id;
+            // Round 11: adult trainees get the age-matched trigger phrasing
+            // on the card back; stage-4 keeps using goalTriggers regardless
+            // of age group, and archetypes without triggersAdult fall back
+            // to the existing (teen-friendly) triggers.
+            const triggerOptions = journeyStage === 4 && arc.goalTriggers
+              ? arc.goalTriggers
+              : (ageGroup === "adult" && arc.triggersAdult ? arc.triggersAdult : arc.triggers);
 
             return (
               <div key={arc.id} className="relative h-[500px] [perspective:1000px]">
@@ -980,7 +987,7 @@ export default function TraineeJourney() {
                     </h4>
 
                     <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
-                      {(journeyStage === 4 && arc.goalTriggers ? arc.goalTriggers : arc.triggers).map((trigger, idx) => (
+                      {triggerOptions.map((trigger, idx) => (
                         <button
                           key={idx}
                           onClick={(e) => { e.stopPropagation(); setSelectedTrigger(trigger); clearDraft(); }}
