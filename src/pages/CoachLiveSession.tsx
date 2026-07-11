@@ -80,7 +80,13 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
   const currentStep = sessionState?.phase > 0 ? activePhases[Math.min(sessionState.phase - 1, activePhases.length - 1)] : null;
   // Round 5 age layer: mirror the same options the adult-tagged trainee is
   // actually seeing (optionsAdult), instead of always showing the teen list.
-  const activeOptions = (sessionState?.ageGroup === "adult" && currentStep?.optionsAdult) ? currentStep.optionsAdult : currentStep?.options;
+  // Round 9 (QA fix): legacy sessions written before the ageGroup field
+  // existed have no `ageGroup` at all — TraineeJourney defaults its local
+  // `ageGroup` state to "adult" in that case (see its useState initializer),
+  // so the coach side must default the same way, or the two screens show
+  // different wording/thresholds for the exact same session.
+  const isAdult = (sessionState?.ageGroup ?? "adult") === "adult";
+  const activeOptions = (isAdult && currentStep?.optionsAdult) ? currentStep.optionsAdult : currentStep?.options;
 
   const resourceIdx = activePhases.findIndex(p => p.uiType === "good-powers");
   const showResourceAlert =
@@ -598,8 +604,10 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                                 // has a patternRevealedAdult (the adult option list has a
                                 // different length/order than the teen one — indexing into
                                 // the teen-aligned patternRevealed would be wrong), read the
-                                // insight from the adult-aligned map instead.
-                                const useAdult = sessionState?.ageGroup === "adult" && currentStep.patternRevealedAdult;
+                                // insight from the adult-aligned map instead. Round 9: use the
+                                // same isAdult default as activeOptions above (legacy sessions
+                                // with no ageGroup field default to "adult").
+                                const useAdult = isAdult && currentStep.patternRevealedAdult;
                                 const patternSource = useAdult ? currentStep.patternRevealedAdult : currentStep.patternRevealed;
                                 const patterns = patternSource?.[sessionState.environment as keyof typeof patternSource];
                                 if (patterns?.[answerIdx]) return patterns[answerIdx];
