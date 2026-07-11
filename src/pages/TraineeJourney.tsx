@@ -138,6 +138,31 @@ export default function TraineeJourney() {
   // permission/network errors silently — without this the coach sees a frozen screen).
   const [syncError, setSyncError] = useState(false);
 
+  // ── phaseVersion invariant (round 9 QA fix — phase write race) ──────────
+  // Two independent writers can change `phase` on the same session doc: the
+  // trainee (this file's saveState effect, on every local phase change —
+  // forward navigation, the excitement-refine loop's backward jump, the
+  // consent-ramp's +2 skip) and the coach (CoachLiveSession's meditation
+  // "advance" button and end-journey action). A plain "reject remote phase
+  // <= my current phase" guard breaks the moment the trainee jumps
+  // *backward* locally (refine loop): a stale, already-in-flight remote
+  // write with a numerically higher phase can arrive right after and snap
+  // the trainee forward again, undoing the jump.
+  //
+  // `phaseVersion` fixes this: every write that changes `phase` also writes
+  // a version number one higher than the highest version that writer has
+  // seen so far (missing/undefined is treated as 0). A remote update is
+  // only ever applied locally when its phaseVersion is STRICTLY GREATER
+  // than the highest version this client already knows about — regardless
+  // of which direction the raw phase number moved. `lastKnownPhaseVersionRef`
+  // holds that "highest version seen" value; `lastVersionedPhaseRef` remembers
+  // which `currentPhase` value it was last computed for, so the saveState
+  // effect (which also re-runs for answer/env/card changes that don't touch
+  // phase at all) only bumps the version when the phase itself actually
+  // changed.
+  const lastKnownPhaseVersionRef = useRef<number>(0);
+  const lastVersionedPhaseRef = useRef<number>(0);
+
   const theme = selectedEnv ? (worldThemes[selectedEnv] ?? defaultTheme) : defaultTheme;
 
   const activeWorld = worldsData.find(w => w.id === selectedEnv);
@@ -176,6 +201,11 @@ export default function TraineeJourney() {
           // Restore in-progress session
           if (parsed.phase > 0) {
             setCurrentPhase(parsed.phase);
+            // Seed the phaseVersion invariant from the doc we just loaded —
+            // old sessions predating this fix simply have no phaseVersion
+            // field, which is exactly the "missing == 0" case.
+            lastKnownPhaseVersionRef.current = parsed.phaseVersion || 0;
+            lastVersionedPhaseRef.current = parsed.phase;
             setSelectedEnv(parsed.environment);
             setActiveCard(parsed.archetype);
             setActiveResourceCard(parsed.resourceArchetype || null);
@@ -196,12 +226,25 @@ export default function TraineeJourney() {
 
   useEffect(() => {
     if (currentPhase > 0 && sessionId && dataInitializedRef.current) {
+      // Bump phaseVersion only when this run's currentPhase actually differs
+      // from the phase our last write/accepted-update already carried a
+      // version for — this effect also re-runs for answer/env/card changes
+      // that leave `phase` untouched, and those shouldn't inflate the
+      // version counter. Computed synchronously (not inside the async
+      // saveState below) so a rapid double-fire of this effect can't race
+      // on the refs.
+      if (currentPhase !== lastVersionedPhaseRef.current) {
+        lastKnownPhaseVersionRef.current += 1;
+        lastVersionedPhaseRef.current = currentPhase;
+      }
+      const phaseVersionToWrite = lastKnownPhaseVersionRef.current;
       const saveState = async () => {
         try {
           const docRef = doc(db, "hc_live_sessions", sessionId);
           const isJourneyComplete = currentPhase > activePhases.length;
           await setDoc(docRef, {
             phase: currentPhase,
+            phaseVersion: phaseVersionToWrite,
             environment: selectedEnv,
             archetype: activeCard,
             resourceArchetype: activeResourceCard,
@@ -255,18 +298,39 @@ export default function TraineeJourney() {
         // Listen for Coach advancing the phase.
         // During meditation sub-steps, keep the trainee on the first meditation screen
         // so the audio player keeps playing — only advance when moving to a non-meditation step.
+        //
+        // Round 9 (QA fix — phase write race): accept this remote phase only
+        // if its phaseVersion is strictly greater than the highest version
+        // this client already knows about (missing phaseVersion == 0, so old
+        // sessions/writes keep working). A plain numeric "parsed.phase <=
+        // prev" guard would let a stale, higher-numbered write from before a
+        // local backward jump (the excitement-refine loop) snap the trainee
+        // forward again after the jump — phaseVersion tells stale and fresh
+        // writes apart regardless of which direction the phase number moved.
         if (parsed.phase && parsed.phase > 0) {
-          const jStage = parsed.journeyStage || 1;
-          const phases = jStage === 4 ? stage4Phases : jStage === 3 ? stage3Phases : jStage === 2 ? stage2Phases : journeyPhases;
-          const newStep = phases[parsed.phase - 1];
-          setCurrentPhase(prev => {
-            if (parsed.phase <= prev) return prev;
-            const currStep = phases[prev - 1];
-            if (newStep?.uiType === "meditation" && currStep?.uiType === "meditation") {
-              return prev; // stay on current meditation screen
-            }
-            return parsed.phase;
-          });
+          const remoteVersion = parsed.phaseVersion ?? 0;
+          if (remoteVersion > lastKnownPhaseVersionRef.current) {
+            const jStage = parsed.journeyStage || 1;
+            const phases = jStage === 4 ? stage4Phases : jStage === 3 ? stage3Phases : jStage === 2 ? stage2Phases : journeyPhases;
+            const newStep = phases[parsed.phase - 1];
+            setCurrentPhase(prev => {
+              const currStep = phases[prev - 1];
+              const resolved =
+                newStep?.uiType === "meditation" && currStep?.uiType === "meditation"
+                  ? prev // stay on current meditation screen
+                  : parsed.phase;
+              // Keep the version bookkeeping in sync with whatever phase we
+              // actually end up representing locally (meditation sub-steps
+              // collapse to `prev`, i.e. no phase change at all) — otherwise
+              // the next saveState effect run would think the phase changed
+              // when it didn't (or didn't when it did) and mis-bump the
+              // version. Plain assignment (not +=), so it's safe even if
+              // React invokes this updater more than once (StrictMode).
+              lastKnownPhaseVersionRef.current = remoteVersion;
+              lastVersionedPhaseRef.current = resolved;
+              return resolved;
+            });
+          }
         }
       }
     }, (e) => {
@@ -726,7 +790,13 @@ export default function TraineeJourney() {
               if (sessionId) {
                 try {
                   const docRef = doc(db, "hc_live_sessions", sessionId);
-                  await setDoc(docRef, { phase: 0, environment: null, archetype: null, trigger: null }, { merge: true });
+                  // This writes `phase` directly (the saveState effect only
+                  // fires for currentPhase > 0), so bump the phaseVersion
+                  // invariant here too — see its comment near the top of
+                  // this component.
+                  lastKnownPhaseVersionRef.current += 1;
+                  lastVersionedPhaseRef.current = 0;
+                  await setDoc(docRef, { phase: 0, phaseVersion: lastKnownPhaseVersionRef.current, environment: null, archetype: null, trigger: null }, { merge: true });
                 } catch (e) {
                   console.error("Error resetting phase to world select", e);
                 }

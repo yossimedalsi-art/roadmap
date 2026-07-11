@@ -33,7 +33,14 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
       await updateDoc(doc(db, "hc_live_sessions", sessionId), {
         status: "completed",
         completedAt: serverTimestamp(),
-        phase: activePhases.length + 1
+        phase: activePhases.length + 1,
+        // Round 9 (QA fix — phase write race): every write that changes
+        // `phase` also bumps `phaseVersion` so the trainee's snapshot guard
+        // (TraineeJourney) can tell a fresh write from a stale one even when
+        // the raw phase numbers disagree — see that file's comment for the
+        // full invariant. Based on the live sessionState we're already
+        // subscribed to, so it's never far behind the doc's true value.
+        phaseVersion: (sessionState?.phaseVersion || 0) + 1
       });
     } catch (e) {
       console.error("Error ending journey", e);
@@ -809,7 +816,10 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                             if (sessionId) {
                               try {
                                 await updateDoc(doc(db, "hc_live_sessions", sessionId), {
-                                  phase: sessionState.phase + 1
+                                  phase: sessionState.phase + 1,
+                                  // See handleEndJourney's comment above — every phase-changing
+                                  // write bumps phaseVersion.
+                                  phaseVersion: (sessionState?.phaseVersion || 0) + 1
                                 });
                               } catch (e) {
                                 console.error("Error advancing phase", e);
