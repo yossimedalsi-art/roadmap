@@ -793,6 +793,17 @@ export default function TraineeJourney() {
               setSelectedEnv(null);
               setActiveCard(null);
               setSelectedTrigger(null);
+              // Round 9 (QA fix): a full reset back to world selection should
+              // also drop the answers/resource/intensity ratings collected
+              // for the encounter being abandoned — otherwise picking a new
+              // world reuses stale answers keyed by step id (e.g. a
+              // leftover step_2b_touched from the discarded run) and stale
+              // "before" intensity numbers from a card that's no longer the
+              // active one.
+              setStructuredAnswers({});
+              setActiveResourceCard(null);
+              setBlockerStrengthBefore(null);
+              setBlockerStrengthAfter(null);
               if (sessionId) {
                 try {
                   const docRef = doc(db, "hc_live_sessions", sessionId);
@@ -802,7 +813,15 @@ export default function TraineeJourney() {
                   // this component.
                   lastKnownPhaseVersionRef.current += 1;
                   lastVersionedPhaseRef.current = 0;
-                  await setDoc(docRef, { phase: 0, phaseVersion: lastKnownPhaseVersionRef.current, environment: null, archetype: null, trigger: null }, { merge: true });
+                  await setDoc(docRef, {
+                    phase: 0,
+                    phaseVersion: lastKnownPhaseVersionRef.current,
+                    environment: null,
+                    archetype: null,
+                    trigger: null,
+                    answers: {},
+                    resourceArchetype: null
+                  }, { merge: true });
                 } catch (e) {
                   console.error("Error resetting phase to world select", e);
                 }
@@ -862,7 +881,28 @@ export default function TraineeJourney() {
 
                   {/* Back */}
                   <div className="absolute inset-0 bg-[#171a23] border border-amber-500/50 shadow-[0_0_40px_rgba(245,158,11,0.1)] rounded-[2rem] p-6 flex flex-col" style={{ transform: "rotateY(180deg)", backfaceVisibility: "hidden" }}>
-                    <button onClick={(e) => { e.stopPropagation(); setActiveCard(null); setSelectedTrigger(null); }} className="text-neutral-500 text-sm hover:text-white mb-6 text-right">✕ חזור לקלפים</button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveCard(null);
+                        setSelectedTrigger(null);
+                        // Round 9 (QA fix): also clear the answers/resource
+                        // collected for the archetype being abandoned —
+                        // otherwise flipping a different card next reuses
+                        // stale answers/resource left over from this one.
+                        // All four setters below are saveState-effect
+                        // dependencies, so the reset propagates to Firestore
+                        // (answers: {}, resourceArchetype: null included)
+                        // via that effect — no separate write needed here.
+                        setStructuredAnswers({});
+                        setActiveResourceCard(null);
+                        setBlockerStrengthBefore(null);
+                        setBlockerStrengthAfter(null);
+                      }}
+                      className="text-neutral-500 text-sm hover:text-white mb-6 text-right"
+                    >
+                      ✕ חזור לקלפים
+                    </button>
                     <h4 className="font-bold text-xl mb-6 text-white text-center">
                       {journeyStage === 4 ? `איך ${arc.name} חוסמת את דרכך למטרה?` : `מה העיר את ${arc.name}?`}
                     </h4>
