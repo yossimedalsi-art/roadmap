@@ -206,12 +206,17 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                   return (
                     <div key={key} className="text-sm border-b border-white/5 pb-3">
                       <span className="text-neutral-500 block mb-1 text-xs">
+                        {/* Round 9 (QA fix): reuse the same resolved values as
+                            the main mirror below (currentStep.traineeTitle's
+                            replace chain) instead of generic placeholder
+                            words, so the sidebar recap actually matches what
+                            the coach sees in the live question panel. */}
                         {phase.traineeTitle
-                          .replace(/\[ארכיטיפ\]/g, 'הדמות')
-                          .replace(/\[משאב\]/g, 'המשאב')
-                          .replace(/\[רווח\]/g, 'הרווח')
-                          .replace(/\[משפט_מטרה\]/g, 'המשפט שלך')
-                          .replace(/\[חוזה\]/g, 'החוזה שלך')}
+                          .replace(/\[ארכיטיפ\]/g, chosenArchetype?.name || 'הדמות')
+                          .replace(/\[משאב\]/g, resourceCard?.name || 'המשאב')
+                          .replace(/\[רווח\]/g, s3ConsentGainText)
+                          .replace(/\[משפט_מטרה\]/g, composeGoalSentence(sessionState?.answers || {}) || 'המשפט שלך')
+                          .replace(/\[חוזה\]/g, composeContractText(sessionState?.answers || {}, chosenArchetype?.name, resourceCard?.name))}
                       </span>
                       <span className="text-white font-medium break-words whitespace-pre-wrap">{value as string}</span>
                     </div>
