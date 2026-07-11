@@ -77,11 +77,18 @@ const TRIGGER_INSIGHT =
 
 // Shared per-world trigger option lists (round 7) — previously copy-pasted
 // verbatim across journeyPhases' step_2_trigger, stage2Phases'
-// s2_step_2_trigger, and now also stage3Phases' s3_step_1_trigger. Defined
-// once here so all three trigger steps can't drift apart, and so
-// stage3Phases' trigger step (round 7: selection instead of free typing)
-// reuses the exact same wording trainees already saw described in the task.
-const worldTriggerOptions = {
+// s2_step_2_trigger, and now also stage3Phases' s3_step_1_trigger.
+//
+// Round 9 (QA fix — ghost trigger steps): the trigger is now actually chosen
+// on the card back in the UI (see the archetype-selector card-flip screen in
+// TraineeJourney), not through a structured-dialogue step with these
+// options — the trainee never saw this list rendered as a live question, but
+// the coach mirror rendered it anyway, desyncing the two screens. All three
+// trigger steps below were converted to placeholder-style
+// "archetype-selector" entries, so these lists are no longer read anywhere.
+// Exported (not deleted) — reserved for a future round that splits the
+// card-back trigger choices themselves by age.
+export const worldTriggerOptions = {
   clouds: [
     "שלחתי הודעה בקבוצה ואף אחד לא הגיב",
     "המורה אמרה \"מחר כל אחד מציג מול הכיתה\"",
@@ -119,7 +126,10 @@ const worldTriggerOptions = {
     "ביקשו ממני להחליט משהו במקום"
   ]
 };
-const worldTriggerOptionsAdult = {
+// See worldTriggerOptions' comment above — reserved for a future card-back
+// age-split, no longer read anywhere now that the trigger steps are
+// placeholders.
+export const worldTriggerOptionsAdult = {
   clouds: [
     "המנהל קבע \"שיחה\" ולא אמר על מה",
     "התבקשתי להציג מול אנשים שאני לא מכיר",
@@ -160,7 +170,10 @@ const worldTriggerOptionsAdult = {
 // Same reasoning as TRIGGER_INSIGHT's comment on step_2_trigger below — one
 // line repeated to array length so it lines up positionally with either
 // worldTriggerOptions or worldTriggerOptionsAdult (both 7 items/world).
-const TRIGGER_PATTERN_REVEALED = {
+// See worldTriggerOptions' comment above — no longer read anywhere now that
+// the trigger steps are placeholders; exported and reserved for the same
+// future card-back age-split.
+export const TRIGGER_PATTERN_REVEALED = {
   clouds: Array(7).fill(TRIGGER_INSIGHT),
   forest: Array(7).fill(TRIGGER_INSIGHT),
   arcade: Array(7).fill(TRIGGER_INSIGHT),
@@ -327,21 +340,24 @@ export const journeyPhases: JourneyStep[] = [
     coachWarning: "לעולם אל תשפוט או תבקר את הדמות. שמור על שפה פתוחה."
   },
   {
+    // Round 9 (QA fix — ghost trigger steps desync coach vs trainee): this
+    // used to be a full structured-dialogue step with its own options, but
+    // the trainee never sees it rendered that way — phases 1-2 render the
+    // world/card-flip UI, and the trigger is actually chosen on the card
+    // back (see TraineeJourney's archetype-selector screen, worlds.ts
+    // archetype `triggers`/`goalTriggers`). The coach mirror used to render
+    // this step's options as if the trainee were answering a live question,
+    // which desynced the two screens. Converted to a placeholder-style entry
+    // (like stage 4's s4_placeholder_trigger) so the coach panel shows a
+    // live note instead. Keep the id/order as-is — getCircleData and the
+    // saved-answer fallback (`trigger` field, written from `selectedTrigger`
+    // in TraineeJourney) still resolve the chosen trigger correctly even
+    // though this step no longer writes to `answers.step_2_trigger`.
     id: "step_2_trigger",
     order: 2,
-    traineeTitle: "מה בדיוק קרה? בחר את הרגע (או כתוב אותו)",
-    uiType: "structured-dialogue",
-    options: worldTriggerOptions,
-    optionsAdult: worldTriggerOptionsAdult,
-    coachFraming: "זיהוי הטריגר המיידי — הרגע המצולם, לא הפרשנות עליו. אחרי שאלת חדירה — שתיקה. התשובה האמיתית צפה בשקט.",
-    // Round 6 (נספח א׳2): the insight is the SAME line regardless of which
-    // moment the trainee picked — the point is "the event itself is
-    // neutral". Repeated once per option so it lines up with either the
-    // teen (`options`) or adult (`optionsAdult`) array — both are 7 items
-    // per world, and since every entry is identical, indexing by either
-    // array returns the same correct string (no patternRevealedAdult
-    // needed here).
-    patternRevealed: TRIGGER_PATTERN_REVEALED,
+    traineeTitle: "בחירת דמות וטריגר",
+    uiType: "archetype-selector",
+    coachFraming: "המתאמן הופך קלפים ובוחר את הטריגר מגב הקלף. הטריגר שייבחר יופיע כאן ובמעגל.",
     coachDeepeningQuestions: [
       "מה מתוך הסיפור הזה נמצא ב-100% בשליטה שלך?",
       "הוא סובל בגלל המצב, או בגלל הניסיון להכריח את המציאות להיות משהו אחר?"
@@ -720,15 +736,13 @@ export const stage2Phases: JourneyStep[] = [
     coachWarning: "זהו השלב הראשון בלופ - זיהוי החלק האוטומטי שנדלק."
   },
   {
+    // Round 9 (QA fix — ghost trigger steps) — see step_2_trigger's comment
+    // above; same conversion, same reasoning.
     id: "s2_step_2_trigger",
     order: 2,
-    traineeTitle: "מה בדיוק קרה? בחר את הרגע (או כתוב אותו)",
-    uiType: "structured-dialogue",
-    options: worldTriggerOptions,
-    optionsAdult: worldTriggerOptionsAdult,
-    coachFraming: "זיהוי הטריגר המציאותי — הרגע המצולם, לא הפרשנות עליו. אחרי שאלת חדירה — שתיקה. התשובה האמיתית צפה בשקט.",
-    // See TRIGGER_INSIGHT's comment on step_2_trigger — same reasoning here.
-    patternRevealed: TRIGGER_PATTERN_REVEALED,
+    traineeTitle: "בחירת דמות וטריגר",
+    uiType: "archetype-selector",
+    coachFraming: "המתאמן הופך קלפים ובוחר את הטריגר מגב הקלף. הטריגר שייבחר יופיע כאן ובמעגל.",
     coachDeepeningQuestions: [
       "מה מתוך הסיפור הזה נמצא ב-100% בשליטה שלך?",
       "הוא סובל בגלל המצב, או בגלל הניסיון להכריח את המציאות להיות משהו אחר?"
@@ -1162,18 +1176,15 @@ export const stage3Phases: JourneyStep[] = [
     coachWarning: "אל תנסה לשכנע את המתאמן או להתווכח, רק תן לדפוס ולצורך לעלות."
   },
   {
+    // Round 9 (QA fix — ghost trigger steps) — see step_2_trigger's comment
+    // above (journeyPhases); same conversion, same reasoning. Round 7's
+    // switch from free-typing to chip selection is moot now — the choice
+    // happens on the card back, same as stages 1-2.
     id: "s3_step_1_trigger",
     order: 2,
-    traineeTitle: "מה בדיוק קרה? בחר את הרגע (או כתוב אותו)",
-    uiType: "structured-dialogue",
-    // Round 7: was free-typing ("מה העיר את ההגנה הזו?") — flooded trainees
-    // (and overwhelmed adults) shouldn't have to type mid-process. Reuses
-    // the exact same per-world moment list as step_2_trigger/s2_step_2_trigger
-    // (see worldTriggerOptions' comment above) so the wording can't drift.
-    options: worldTriggerOptions,
-    optionsAdult: worldTriggerOptionsAdult,
-    coachFraming: "זיהוי הטריגר - המתאמן בוחר כעת מה הפעיל את הדפוס. שים לב לנקודת התורפה שהתעוררה. אחרי שאלת חדירה — שתיקה. התשובה האמיתית צפה בשקט.",
-    patternRevealed: TRIGGER_PATTERN_REVEALED,
+    traineeTitle: "בחירת דמות וטריגר",
+    uiType: "archetype-selector",
+    coachFraming: "המתאמן הופך קלפים ובוחר את הטריגר מגב הקלף. הטריגר שייבחר יופיע כאן ובמעגל.",
     coachDeepeningQuestions: [
       "מה מתוך הסיפור הזה נמצא ב-100% בשליטה שלך?",
       "הוא סובל בגלל המצב, או בגלל הניסיון להכריח את המציאות להיות משהו אחר?"

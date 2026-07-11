@@ -540,8 +540,18 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     </div>
                   </div>
 
-                  {/* Options Mirror */}
-                  {currentStep.uiType === "structured-dialogue" && (
+                  {/* Options Mirror. Defense in depth (round 9 QA fix): the
+                      trigger steps (step_2_trigger / s2_step_2_trigger /
+                      s3_step_1_trigger) used to be structured-dialogue steps
+                      whose options the trainee never actually saw — the real
+                      UI for choosing a trigger is the card-back screen in
+                      TraineeJourney. They're now "archetype-selector"
+                      placeholders with no `options` at all, so requiring
+                      `options` here (not just the uiType tag) guards against
+                      a future "archetype-selector" step accidentally
+                      rendering a live-question mirror if it ever grows an
+                      `options` field. */}
+                  {currentStep.uiType === "structured-dialogue" && currentStep.options && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {activeOptions?.[sessionState?.environment as keyof typeof activeOptions]?.map((option, idx) => {
                       const traineeAnswer = sessionState?.answers?.[currentStep.id];
