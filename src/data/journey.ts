@@ -1121,6 +1121,37 @@ export const stage2Phases: JourneyStep[] = [
   }
 ];
 
+// ── Round 8 (docs/content-draft-rounds2-4.md, נספח ב'3) — coach insight
+// lines for stage-3 ramp steps whose options are identical across all 4
+// worlds. Defined once here, positionally aligned to each step's `options`
+// array, and repeated per world below so indexing by any world key returns
+// the same correct string.
+const PRICE_PATTERN_REVEALED = [
+  "מחיר חברתי — ההגנה קונה שקט ומשלמת בקשר. זה הלב של הביינד.",
+  "מסכה. הבדידות שמאחוריה היא הדלק של הלופ.",
+  "מחיר של חלומות — חבר את זה לעבודת המטרות בשלב 4.",
+  "עייפות המערכת — הגוף כבר מבקש את השחרור. סימן בשלות.",
+  "כמיהה לנראות אמיתית — הצורך העמוק חשוף כאן."
+];
+
+const CURRENT_PATTERN_REVEALED = [
+  "עצור. אם האיום חי — לא משחררים, מעדכנים את ההגנה. ברר: מה בדיוק עדיין קורה, ובאיזו עוצמה לעומת אז?",
+  "ההגנה רצה על תוכנה ישנה — זה הסדק. הדגש את הפער.",
+  "רגע האהה. שקף: 'ההגנה עוד לא קיבלה את העדכון'.",
+  "בקש דוגמה מהשבוע האחרון ובחנו יחד אם האיום ממשי או זיכרון."
+];
+
+// s3_ramp_consent — the trainee picks the closing word of the consent
+// sentence; the insight names the need behind it (ב3: "המילה שבחר = הצורך
+// שהמדיטציה צריכה למלא. השתמש בה מילולית בהנחיה.") for each of the 5 words.
+const CONSENT_PATTERN_REVEALED = [
+  "הצורך: ויסות. המילה שבחר = הצורך שהמדיטציה צריכה למלא — השתמש בה מילולית בהנחיה.",
+  "הצורך: שייכות. המילה שבחר = הצורך שהמדיטציה צריכה למלא — השתמש בה מילולית בהנחיה.",
+  "הצורך: אותנטיות. המילה שבחר = הצורך שהמדיטציה צריכה למלא — השתמש בה מילולית בהנחיה.",
+  "הצורך: אוטונומיה. המילה שבחר = הצורך שהמדיטציה צריכה למלא — השתמש בה מילולית בהנחיה.",
+  "הצורך: מסוגלות. המילה שבחר = הצורך שהמדיטציה צריכה למלא — השתמש בה מילולית בהנחיה."
+];
+
 export const stage3Phases: JourneyStep[] = [
   {
     id: "s3_step_0_encounter",
@@ -1294,6 +1325,14 @@ export const stage3Phases: JourneyStep[] = [
       arcade: ["אנשים שהתרחקו / דברים שפספסתי", "אני נראה 'בסדר' אבל לבד בפנים", "ויתרתי על דברים שרציתי באמת", "אני עייף מלהחזיק את זה", "מכירים את ההגנה, לא אותי"],
       fairies: ["אנשים שהתרחקו / דברים שפספסתי", "אני נראה 'בסדר' אבל לבד בפנים", "ויתרתי על דברים שרציתי באמת", "אני עייף מלהחזיק את זה", "מכירים את ההגנה, לא אותי"]
     },
+    // Round 8 (נספח ב', ב3) — identical insight per option, repeated across
+    // all 4 worlds since the options themselves are world-agnostic here.
+    patternRevealed: {
+      clouds: PRICE_PATTERN_REVEALED,
+      forest: PRICE_PATTERN_REVEALED,
+      arcade: PRICE_PATTERN_REVEALED,
+      fairies: PRICE_PATTERN_REVEALED
+    },
     coachFraming: "אדלר: לפני שממשיכים, לוודא שהמחיר נשמע בקול רם ולא רק מבפנים.",
     coachDeepeningQuestions: [
       "דוגמה מהחודש האחרון?",
@@ -1311,6 +1350,12 @@ export const stage3Phases: JourneyStep[] = [
       forest: ["כן, עדיין", "הרבה פחות ממה שהוא חושב", "כבר לא — אבל הוא לא שם לב", "לא בטוח"],
       arcade: ["כן, עדיין", "הרבה פחות ממה שהוא חושב", "כבר לא — אבל הוא לא שם לב", "לא בטוח"],
       fairies: ["כן, עדיין", "הרבה פחות ממה שהוא חושב", "כבר לא — אבל הוא לא שם לב", "לא בטוח"]
+    },
+    patternRevealed: {
+      clouds: CURRENT_PATTERN_REVEALED,
+      forest: CURRENT_PATTERN_REVEALED,
+      arcade: CURRENT_PATTERN_REVEALED,
+      fairies: CURRENT_PATTERN_REVEALED
     },
     coachFraming: "רגע ה'אהה' של הביינד — ההגנה רצה על תוכנה ישנה.",
     coachWarning: "'כן, עדיין' → לעצור ולחקור; אולי עובדים על עדכון ההגנה, לא שחרור."
@@ -1343,6 +1388,12 @@ export const stage3Phases: JourneyStep[] = [
       forest: ["שקט בלב", "קרבה אמיתית", "להיות אני", "חופש לבחור", "ביטחון מבפנים"],
       arcade: ["שקט בלב", "קרבה אמיתית", "להיות אני", "חופש לבחור", "ביטחון מבפנים"],
       fairies: ["שקט בלב", "קרבה אמיתית", "להיות אני", "חופש לבחור", "ביטחון מבפנים"]
+    },
+    patternRevealed: {
+      clouds: CONSENT_PATTERN_REVEALED,
+      forest: CONSENT_PATTERN_REVEALED,
+      arcade: CONSENT_PATTERN_REVEALED,
+      fairies: CONSENT_PATTERN_REVEALED
     },
     coachFraming: "המשפט המלא — הדמות + הרווח שהוא עצמו זיהה + הבחירה החדשה — הוא פתיח המדיטציה. הקרא לו אותו במילותיו."
   },
@@ -1462,6 +1513,68 @@ export const stage3Phases: JourneyStep[] = [
   }
 ];
 
+// ── Round 8 (docs/content-draft-rounds2-4.md, נספח ב'1 + ב'3) — stage-4
+// coach insight lines for steps whose options are identical across all 4
+// worlds. Positionally aligned to each step's `options` array.
+const VISION_PATTERN_REVEALED = [
+  "הצורך: ויסות ושקט. המערכת הסימפתטית שלו על אוברדרייב — המטרה היא דרך לנוח.",
+  "הצורך: ערך. חפש איפה הערך שלו נמדד רק בתוצאות.",
+  "הצורך: נראות ושייכות. המטרה היא במה — מי הקהל שהוא צריך?",
+  "הצורך: אוטונומיה. בדוק מי מחזיק היום בזמן ובכוח שלו.",
+  "הצורך: מסוגלות. חפש את ההוכחה ההפוכה שהוא אוסף על עצמו.",
+  "הצורך סומטי — הגוף נושא את המשא. עבודת שחרור גוף תתמוך במטרה."
+];
+
+const GOAL_TIME_PATTERN_REVEALED = [
+  "שבועיים — שאפתני; ודא שזה צעד אמיתי ולא פנטזיה של מוטיבציה רגעית.",
+  "חודש — טווח בריא לרוב המטרות; פרקו לאבני דרך שבועיות.",
+  "שלושה חודשים — ודא שיש נקודת ביניים ב-30 יום, אחרת הדחיינות תנצח."
+];
+
+const GOAL_PROOF_PATTERN_REVEALED = [
+  "מדד חיצוני — חזק ומדיד; ודא שהוא בשליטתו (הציון תלוי גם באחרים).",
+  "מדד חברתי — הצורך בנראות פעיל; טוב, ושים לב שלא יהפוך לתלות באישור.",
+  "מדד התנהגותי — הכי חזק לטווח ארוך; זה בניית זהות חדשה.",
+  "מדד סומטי — עמוק; עזור לו לזהות את התחושה כבר עכשיו לרגע."
+];
+
+const WHY_PATTERN_REVEALED = [
+  "דלק 'בריחה מ־' — חזק להתחלה, נחלש בדרך. חבר אותו גם ל'לקראת מה'.",
+  "ה'קול שאומר שלא' הוא החסם בעצמו — שים לב אליו במפגשים הבאים.",
+  "דלק של שליחות (פרנקל) — יציב מאוד. ודא שהוא לא מוותר על עצמו בשבילם.",
+  "כאב הסטגנציה — השתמש: 'תאר לי את היום שלך בעוד שנה אם כלום לא זז'.",
+  "הוכחה עצמית — לפני מי בפנים הוא עומד למשפט? זו דלת לאמונת הליבה."
+];
+
+const CONTRACT_PATTERN_REVEALED = [
+  "חתם — יש בעלות. קבעו יחד את רגע הדיווח על הצעד (מתי בדיוק הוא שולח לך אימוג'י?).",
+  "'כמעט' זו תשובה מצוינת — משהו בו מדייק. שאל: איזו מילה בחוזה לא שלך?"
+];
+
+const GAP_PATTERN_REVEALED = [
+  "הימנעות לפני קו הזינוק — הפחד גדול מהכאב. חפש את 'אני לא מספיק טוב'.",
+  "דפוס ה'שנייה לפני' — בדוק 'לא מגיע לי' וחבלה עצמית.",
+  "המטרה לא שלו — ריצוי. חזרו לבירור למי המטרה.",
+  "מיקוד שליטה חיצוני — שאלת המילימטר של פרנקל: איפה בכל זאת יש לו בחירה?"
+];
+
+// s4_goal_domain lists 10 chips (a teen+adult union — see the comment at the
+// step itself); the spec (ב3) only groups them into 5 insight categories, so
+// each chip below is mapped to its nearest category:
+// לימודים/קריירה, חברים/זוגיות, בית/משפחה, ספורט/יצירה/פרויקט, אני מול עצמי.
+const GOAL_DOMAIN_PATTERN_REVEALED = [
+  "בדוק אם המטרה שלו או של הסביבה", // לימודים ומבחנים
+  "הצורך בשייכות פעיל — עדין", // חברים וזוגיות
+  "עבודה על גבולות תצוץ", // בית ומשפחה
+  "מגרש בטוח יחסית — טוב להצלחה ראשונה", // ספורט/יצירה/תחביב
+  "המטרה הכי אמיצה — תן כבוד", // אני מול עצמי (ביטחון, שינה, מסכים)
+  "בדוק אם המטרה שלו או של הסביבה", // קריירה ופרנסה
+  "הצורך בשייכות פעיל — עדין", // זוגיות ומשפחה
+  "מגרש בטוח יחסית — טוב להצלחה ראשונה", // בריאות ואנרגיה
+  "מגרש בטוח יחסית — טוב להצלחה ראשונה", // פרויקט אישי/חלום
+  "המטרה הכי אמיצה — תן כבוד" // אני מול עצמי
+];
+
 export const stage4Phases: JourneyStep[] = [
   // [0] placeholder — phases 1-2 handle world & archetype selection in the UI
   {
@@ -1497,6 +1610,12 @@ export const stage4Phases: JourneyStep[] = [
       arcade: ["לימודים ומבחנים", "חברים וזוגיות", "בית ומשפחה", "ספורט/יצירה/תחביב", "אני מול עצמי (ביטחון, שינה, מסכים)", "קריירה ופרנסה", "זוגיות ומשפחה", "בריאות ואנרגיה", "פרויקט אישי/חלום", "אני מול עצמי"],
       fairies: ["לימודים ומבחנים", "חברים וזוגיות", "בית ומשפחה", "ספורט/יצירה/תחביב", "אני מול עצמי (ביטחון, שינה, מסכים)", "קריירה ופרנסה", "זוגיות ומשפחה", "בריאות ואנרגיה", "פרויקט אישי/חלום", "אני מול עצמי"]
     },
+    patternRevealed: {
+      clouds: GOAL_DOMAIN_PATTERN_REVEALED,
+      forest: GOAL_DOMAIN_PATTERN_REVEALED,
+      arcade: GOAL_DOMAIN_PATTERN_REVEALED,
+      fairies: GOAL_DOMAIN_PATTERN_REVEALED
+    },
     coachFraming: "בחירת המגרש שעליו נעבוד היום. שים לב אם הבחירה מגיעה מהמתאמן עצמו או מתחום 'בטוח' שנועד להימנע מהתחום שבאמת בוער.",
     coachDeepeningQuestions: [
       "האם זה התחום שהכי בוער לך, או התחום שהכי קל לדבר עליו?"
@@ -1506,9 +1625,24 @@ export const stage4Phases: JourneyStep[] = [
   {
     id: "s4_vision",
     order: 2,
-    traineeTitle: `עצום עיניים לרגע. עברו שלושה חודשים והמטרה קרתה. תאר בוקר אחד בחיים האלה — מה אתה עושה? מי לידך? מה ההרגשה בגוף? (לשון הווה; אם קשה — "תתחיל מ'אני קם בבוקר ו...'")`,
-    uiType: "text-input",
-    coachFraming: "חזון בהווה מפעיל את רשת החוויה, לא את רשת הביקורת. מה שמופיע ראשון = הצורך האמיתי.",
+    // Round 8 (ב1): was free-typing a whole vision paragraph — replaced with
+    // selection so a flooded/blocked trainee only picks the strongest image
+    // instead of composing prose. Options are identical across all 4 worlds.
+    traineeTitle: "עצום עיניים לרגע. עברו שלושה חודשים והמטרה קרתה. איזו תמונה הכי חזקה?",
+    uiType: "structured-dialogue",
+    options: {
+      clouds: ["רוגע — הראש שקט, בלי הלחץ הזה", "גאווה — עשיתי משהו ששווה", "רואים אותי — מסתכלים עליי אחרת", "חופש — הזמן והכוח שלי חוזרים אליי", "ביטחון — אני סומך על עצמי", "קלילות בגוף — הכובד ירד"],
+      forest: ["רוגע — הראש שקט, בלי הלחץ הזה", "גאווה — עשיתי משהו ששווה", "רואים אותי — מסתכלים עליי אחרת", "חופש — הזמן והכוח שלי חוזרים אליי", "ביטחון — אני סומך על עצמי", "קלילות בגוף — הכובד ירד"],
+      arcade: ["רוגע — הראש שקט, בלי הלחץ הזה", "גאווה — עשיתי משהו ששווה", "רואים אותי — מסתכלים עליי אחרת", "חופש — הזמן והכוח שלי חוזרים אליי", "ביטחון — אני סומך על עצמי", "קלילות בגוף — הכובד ירד"],
+      fairies: ["רוגע — הראש שקט, בלי הלחץ הזה", "גאווה — עשיתי משהו ששווה", "רואים אותי — מסתכלים עליי אחרת", "חופש — הזמן והכוח שלי חוזרים אליי", "ביטחון — אני סומך על עצמי", "קלילות בגוף — הכובד ירד"]
+    },
+    patternRevealed: {
+      clouds: VISION_PATTERN_REVEALED,
+      forest: VISION_PATTERN_REVEALED,
+      arcade: VISION_PATTERN_REVEALED,
+      fairies: VISION_PATTERN_REVEALED
+    },
+    coachFraming: "חזון בהווה מפעיל את רשת החוויה, לא את רשת הביקורת. מה שנבחר ראשון = הצורך האמיתי.",
     coachDeepeningQuestions: [
       "מי הוא בוחר להיות בזמן שהוא חי את הבוקר הזה?",
       "איזה סיפור גבורה ירצה לספר על התקופה שהובילה לרגע הזה?"
@@ -1526,6 +1660,12 @@ export const stage4Phases: JourneyStep[] = [
       arcade: ["אני אפילו לא מתחיל", "מתחיל ונעצר באמצע", "עושה אבל בלי לב, רק שיירדו ממני", "מחכה שמשהו ישתנה מעצמו"],
       fairies: ["אני אפילו לא מתחיל", "מתחיל ונעצר באמצע", "עושה אבל בלי לב, רק שיירדו ממני", "מחכה שמשהו ישתנה מעצמו"]
     },
+    patternRevealed: {
+      clouds: GAP_PATTERN_REVEALED,
+      forest: GAP_PATTERN_REVEALED,
+      arcade: GAP_PATTERN_REVEALED,
+      fairies: GAP_PATTERN_REVEALED
+    },
     coachFraming: "זו התנהגות אוטומטית, לא עצלנות. אחרי שאלת חדירה — שתיקה. לא להסביר, לא לרכך. התשובה האמיתית צפה בשקט.",
     coachDeepeningQuestions: [
       "מה ההתנהגות הזו מאפשרת לו?",
@@ -1533,20 +1673,60 @@ export const stage4Phases: JourneyStep[] = [
       "אם היה מפסיק עכשיו — עם מה היה נאלץ להתמודד?"
     ]
   },
-  // [5] Step 4 — משפט המטרה, בתבנית קבועה
+  // [5] Step 4a — משפט המטרה, חלק 1: מסגרת הזמן
+  // Round 8 (ב1): s4_goal_sentence (one free-typed template sentence) split
+  // into two selection screens — the composed sentence is now built
+  // automatically from s4_goal_time + s4_goal_domain + s4_goal_proof (see
+  // composeGoalSentence below) and shown on the s4_excitement screen and
+  // inside the s4_contract confirmation.
   {
-    id: "s4_goal_sentence",
+    id: "s4_goal_time",
     order: 4,
-    traineeTitle: "'בעוד ___ (זמן) אני ___ (עושה מה) ואני יודע שהצלחתי כי ___ (מה רואים בפועל)'",
-    uiType: "text-input",
-    coachFraming: "עוזר לנסח את המטרה כתבנית התנהגותית מדידה — לא תחושה מעורפלת.",
+    traineeTitle: "כמה זמן ניקח לזה?",
+    uiType: "structured-dialogue",
+    options: {
+      clouds: ["שבועיים", "חודש", "שלושה חודשים"],
+      forest: ["שבועיים", "חודש", "שלושה חודשים"],
+      arcade: ["שבועיים", "חודש", "שלושה חודשים"],
+      fairies: ["שבועיים", "חודש", "שלושה חודשים"]
+    },
+    patternRevealed: {
+      clouds: GOAL_TIME_PATTERN_REVEALED,
+      forest: GOAL_TIME_PATTERN_REVEALED,
+      arcade: GOAL_TIME_PATTERN_REVEALED,
+      fairies: GOAL_TIME_PATTERN_REVEALED
+    },
+    coachFraming: "קביעת טווח זמן ריאלי למטרה — מחויבות מדידה, לא רק תשוקה רגעית."
+  },
+  // [6] Step 4b — משפט המטרה, חלק 2: ההוכחה
+  {
+    id: "s4_goal_proof",
+    order: 5,
+    traineeTitle: "ואיך תדע שהצלחת? מה יהיה שונה שאפשר לראות?",
+    uiType: "structured-dialogue",
+    options: {
+      clouds: ["תוצאה שרואים — ציון, תוצר, אישור", "אנשים קרובים ישימו לב ויגידו משהו", "הרגל שכבר קורה בלי מאמץ", "הרגשה בגוף — רוגע במקום כיווץ"],
+      forest: ["תוצאה שרואים — ציון, תוצר, אישור", "אנשים קרובים ישימו לב ויגידו משהו", "הרגל שכבר קורה בלי מאמץ", "הרגשה בגוף — רוגע במקום כיווץ"],
+      arcade: ["תוצאה שרואים — ציון, תוצר, אישור", "אנשים קרובים ישימו לב ויגידו משהו", "הרגל שכבר קורה בלי מאמץ", "הרגשה בגוף — רוגע במקום כיווץ"],
+      fairies: ["תוצאה שרואים — ציון, תוצר, אישור", "אנשים קרובים ישימו לב ויגידו משהו", "הרגל שכבר קורה בלי מאמץ", "הרגשה בגוף — רוגע במקום כיווץ"]
+    },
+    patternRevealed: {
+      clouds: GOAL_PROOF_PATTERN_REVEALED,
+      forest: GOAL_PROOF_PATTERN_REVEALED,
+      arcade: GOAL_PROOF_PATTERN_REVEALED,
+      fairies: GOAL_PROOF_PATTERN_REVEALED
+    },
+    coachFraming: "עוזר להגדיר מדד הצלחה קונקרטי וניתן לראייה — לא תחושה מעורפלת אלא תבנית התנהגותית מדידה.",
     coachWarning: "ניסוח 'להפסיק/לא לפחד' → לעזור להפוך לחיובי (לאן כן)."
   },
-  // [6] Step 5 — מד ההתלהבות (scale 1-100)
+  // [7] Step 5 — מד ההתלהבות (scale 1-100)
   {
     id: "s4_excitement",
-    order: 5,
-    traineeTitle: "כשאתה אומר את המשפט בקול — כמה אתה נדלק? ושים לב לגוף: מתרחב או מתכווץ?",
+    order: 6,
+    // Round 8 (ב1): [משפט_מטרה] is expanded by getReplacedTitle (TraineeJourney)
+    // / the equivalent replace() chain (CoachLiveSession) into the composed
+    // goal sentence from composeGoalSentence.
+    traineeTitle: `המשפט שלך: "[משפט_מטרה]" — אמור אותו בקול. כמה אתה נדלק? ושים לב לגוף: מתרחב או מתכווץ?`,
     uiType: "scale",
     scaleConfig: { min: 1, max: 100, threshold: 95, teenThreshold: 90 },
     coachFraming: "עוצמת ההתלהבות היא מדד גוף, לא רק מספר. מתחת לסף — המטרה כנראה גדולה/קטנה/לא-שלו מדי, וצריך לדייק אותה לפני שממשיכים."
@@ -1555,7 +1735,7 @@ export const stage4Phases: JourneyStep[] = [
   // (existing id/content kept for backward compat with completed sessions)
   {
     id: "s4_step_3_blocker_impact",
-    order: 6,
+    order: 7,
     traineeTitle: "זוכר את [ארכיטיפ] מהכניסה? עכשיו כשהמטרה על השולחן — מה הוא לוחש לך עליה?",
     uiType: "structured-dialogue",
     options: {
@@ -1579,7 +1759,7 @@ export const stage4Phases: JourneyStep[] = [
   // [8] Step 7 — על מה הוא שומר (existing id/content kept for backward compat)
   {
     id: "s4_step_4_secondary_gain",
-    order: 7,
+    order: 8,
     traineeTitle: "על מה [ארכיטיפ] בעצם שומר עכשיו?",
     uiType: "structured-dialogue",
     options: {
@@ -1603,9 +1783,23 @@ export const stage4Phases: JourneyStep[] = [
   // [9] Step 8 — WHY: בשביל מה שווה להתמודד עם הדמות החוסמת
   {
     id: "s4_why",
-    order: 8,
+    order: 9,
+    // Round 8 (ב1): was free-typing — replaced with selection. Title
+    // unchanged per spec ("כותרת נשארת").
     traineeTitle: "למה המטרה הזאת שווה להתמודד עם [ארכיטיפ]? מה יקרה אם תשיג אותה — ומה אם עוד שנה הכול יישאר אותו דבר?",
-    uiType: "text-input",
+    uiType: "structured-dialogue",
+    options: {
+      clouds: ["כי אני עייף מלחיות ככה", "כי מגיע לי יותר — גם אם קול אחד בפנים אומר שלא", "בשביל האנשים שאני אוהב", "כי אם לא עכשיו — עוד שנה אני בדיוק באותו מקום", "כי אני רוצה להוכיח לעצמי שאני יכול"],
+      forest: ["כי אני עייף מלחיות ככה", "כי מגיע לי יותר — גם אם קול אחד בפנים אומר שלא", "בשביל האנשים שאני אוהב", "כי אם לא עכשיו — עוד שנה אני בדיוק באותו מקום", "כי אני רוצה להוכיח לעצמי שאני יכול"],
+      arcade: ["כי אני עייף מלחיות ככה", "כי מגיע לי יותר — גם אם קול אחד בפנים אומר שלא", "בשביל האנשים שאני אוהב", "כי אם לא עכשיו — עוד שנה אני בדיוק באותו מקום", "כי אני רוצה להוכיח לעצמי שאני יכול"],
+      fairies: ["כי אני עייף מלחיות ככה", "כי מגיע לי יותר — גם אם קול אחד בפנים אומר שלא", "בשביל האנשים שאני אוהב", "כי אם לא עכשיו — עוד שנה אני בדיוק באותו מקום", "כי אני רוצה להוכיח לעצמי שאני יכול"]
+    },
+    patternRevealed: {
+      clouds: WHY_PATTERN_REVEALED,
+      forest: WHY_PATTERN_REVEALED,
+      arcade: WHY_PATTERN_REVEALED,
+      fairies: WHY_PATTERN_REVEALED
+    },
     coachFraming: "מחברים את המטרה למשמעות עמוקה יותר מרצון רגעי. אחרי שאלת חדירה — שתיקה. לא להסביר, לא לרכך.",
     coachDeepeningQuestions: [
       "בשביל מי/מה שווה לך לקום בבוקר ולהתמודד עם הקושי הזה?",
@@ -1615,7 +1809,7 @@ export const stage4Phases: JourneyStep[] = [
   // [10] Step 9a — קלף כוח (existing id/content kept as-is)
   {
     id: "s4_step_5_resource_help",
-    order: 9,
+    order: 10,
     traineeTitle: "איזה קלף כוח יעזור לך להרגיע את הדמות הזו?",
     uiType: "good-powers",
     coachFraming: "בחירת משאב פנימי שיאפשר למתאמן להתגבר על החסם ולפעול לעבר המטרה.",
@@ -1627,7 +1821,7 @@ export const stage4Phases: JourneyStep[] = [
   // [11] Step 9b — צעד 72 השעות (existing id kept; text updated per spec, incl. the "film test")
   {
     id: "s4_step_6_action",
-    order: 10,
+    order: 11,
     traineeTitle: "מה הצעד הכי קטן שאתה עושה עד מחרתיים בערב? מבחן: אפשר לצלם אותך עושה אותו?",
     uiType: "structured-dialogue",
     options: {
@@ -1651,9 +1845,26 @@ export const stage4Phases: JourneyStep[] = [
   // [12] Step 10 — חוזה וסיכום
   {
     id: "s4_contract",
-    order: 11,
-    traineeTitle: "החוזה שלי: המטרה — ___. הצעד עד מחרתיים — ___. הכוח שאיתי — ___. כש[ארכיטיפ] יופיע אזכור ש___.",
-    uiType: "text-input",
+    order: 12,
+    // Round 8 (ב1): was free-typing the whole contract — the game now
+    // composes it from the trainee's own prior answers (goal sentence +
+    // 72-hour step + resource card + WHY) and the trainee only confirms it.
+    // [חוזה] is expanded by getReplacedTitle (TraineeJourney) / the
+    // equivalent replace() chain (CoachLiveSession) via composeContractText.
+    traineeTitle: "החוזה שלי — קרא ואשר: [חוזה]",
+    uiType: "structured-dialogue",
+    options: {
+      clouds: ["✍️ אני חותם — זה שלי", "כמעט — משהו עוד לא מדויק"],
+      forest: ["✍️ אני חותם — זה שלי", "כמעט — משהו עוד לא מדויק"],
+      arcade: ["✍️ אני חותם — זה שלי", "כמעט — משהו עוד לא מדויק"],
+      fairies: ["✍️ אני חותם — זה שלי", "כמעט — משהו עוד לא מדויק"]
+    },
+    patternRevealed: {
+      clouds: CONTRACT_PATTERN_REVEALED,
+      forest: CONTRACT_PATTERN_REVEALED,
+      arcade: CONTRACT_PATTERN_REVEALED,
+      fairies: CONTRACT_PATTERN_REVEALED
+    },
     coachFraming: "סגירת החוזה. בדוח: המעגל עם החץ היוצא מהסדק ישר אל המטרה."
   }
 ];
@@ -2012,6 +2223,32 @@ export function getCircleData(
     belief: answers.step_2b_touched || pick("step_6_thought"),
     agreement: pick("step_10_integration"),
   };
+}
+
+// ── Round 8 (docs/content-draft-rounds2-4.md, נספח ב'1) — the stage-4 goal
+// sentence and contract, composed from the trainee's own selection answers
+// instead of one free-typed sentence. Shared by TraineeJourney (screen
+// titles) and CoachLiveSession (mirrored titles + coach panel) via the
+// [משפט_מטרה] / [חוזה] placeholder tokens, so the two views can't drift.
+export function composeGoalSentence(answers: Record<string, string>): string {
+  const time = answers.s4_goal_time?.trim();
+  const domain = answers.s4_goal_domain?.trim();
+  const proof = answers.s4_goal_proof?.trim();
+  if (!time || !domain || !proof) return "";
+  return `בעוד ${time} אני ${domain}, ואדע שהצלחתי כי ${proof}`;
+}
+
+export function composeContractText(
+  answers: Record<string, string>,
+  archetypeName?: string | null,
+  resourceName?: string | null
+): string {
+  const goal = composeGoalSentence(answers) || "___";
+  const action = answers.s4_step_6_action?.trim() || "___";
+  const resource = (resourceName || "").trim() || "___";
+  const why = answers.s4_why?.trim() || "___";
+  const archetype = (archetypeName || "").trim() || "הדמות";
+  return `המטרה — ${goal}. הצעד עד מחרתיים — ${action}. הכוח שאיתי — ${resource}. כש${archetype} יופיע, אזכור ש${why}.`;
 }
 
 // ── Loop-feed lines (round 5, chapter 1) ───────────────────────────────
