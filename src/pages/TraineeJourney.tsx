@@ -134,9 +134,18 @@ export default function TraineeJourney() {
   // Prevents saveState from writing null/empty values to Firestore during the
   // window between mount and when fetchSession or onSnapshot restore the session data.
   const dataInitializedRef = useRef(false);
+  // State twin of dataInitializedRef — a plain ref flip doesn't cause a
+  // re-render/effect re-run by itself, but the traineeScreen sync effect
+  // below needs to fire the moment initialization completes even when no
+  // other tracked value changed (e.g. a brand-new session that's still
+  // sitting on phase 0 / world-select).
+  const [dataReadyTick, setDataReadyTick] = useState(0);
   // Surfaces Firestore write failures to the trainee (remote devices may hit
   // permission/network errors silently — without this the coach sees a frozen screen).
   const [syncError, setSyncError] = useState(false);
+  // Tracks the last `traineeScreen` value written to Firestore, so the sync
+  // effect below only writes when the descriptor actually changes.
+  const lastSyncedScreenRef = useRef<string | null>(null);
 
   // ── phaseVersion invariant (round 9 QA fix — phase write race) ──────────
   // Two independent writers can change `phase` on the same session doc: the
@@ -184,6 +193,46 @@ export default function TraineeJourney() {
 
   const activePhases = journeyStage === 4 ? stage4Phases : journeyStage === 3 ? stage3Phases : journeyStage === 2 ? stage2Phases : journeyPhases;
 
+  // ── traineeScreen descriptor ─────────────────────────────────────────
+  // Mirrors exactly which JSX branch below is actually on screen, for
+  // states that aren't represented by the numbered `activePhases` array
+  // (and are therefore otherwise invisible to the coach — see
+  // CoachLiveSession's guidance banner). Every early-return branch further
+  // down this component must have a matching case here; keep the two in
+  // sync when adding a new screen.
+  const computeTraineeScreen = (): string => {
+    if (currentPhase === 0) return "world-select";
+    if (currentPhase === 1 || currentPhase === 2) {
+      // Matches the overlay/flip logic in the currentPhase === 1 || 2
+      // render block below: the intensity overlay sits on top of the
+      // flipped (trigger-select) card, which sits on top of the
+      // unflipped (card-select) grid.
+      if (showIntensityBefore) return "strength-before";
+      if (activeCard) return "trigger-select";
+      return "card-select";
+    }
+    if (currentPhase >= 3 && currentPhase <= activePhases.length) {
+      const step = activePhases[currentPhase - 1];
+      if (step?.uiType === "meditation") return "meditation-hold";
+      return "question";
+    }
+    // currentPhase > activePhases.length: mirrors the showChoiceMoment /
+    // summary logic further down (kept in sync manually — that logic lives
+    // after several early returns, so it can't be reused directly here).
+    const oldReactionAnswer = structuredAnswers['step_5_urge'] || structuredAnswers['s2_step_5_reaction'];
+    const newAgreementAnswer = structuredAnswers['step_10_integration'] || structuredAnswers['s2_step_9_agreement'];
+    const isChoiceMomentScreen =
+      (journeyStage === 1 || journeyStage === 2) &&
+      !!oldReactionAnswer && !!newAgreementAnswer &&
+      !structuredAnswers['choice_moment'];
+    if (isChoiceMomentScreen) return "choice-moment";
+    // Inside the summary screen, the "after" intensity picker is its own
+    // meaningful state for the coach (still rating vs. done and reviewing
+    // the rest of the summary together).
+    if (blockerStrengthAfter == null) return "strength-after";
+    return "summary";
+  };
+
   // Persistence
   useEffect(() => {
     if (!sessionId) return;
@@ -219,6 +268,7 @@ export default function TraineeJourney() {
         console.error("Error loading session:", e);
       } finally {
         dataInitializedRef.current = true;
+        setDataReadyTick(t => t + 1);
       }
     };
     fetchSession();
@@ -262,7 +312,29 @@ export default function TraineeJourney() {
       };
       saveState();
     }
-  }, [sessionId, currentPhase, selectedEnv, activeCard, activeResourceCard, selectedTrigger, structuredAnswers]);
+  }, [sessionId, currentPhase, selectedEnv, activeCard, activeResourceCard, selectedTrigger, structuredAnswers, blockerStrengthBefore, blockerStrengthAfter]);
+
+  // Publish which screen the trainee is actually looking at — several UI
+  // states (world-select, the pre-journey/post-journey intensity pickers,
+  // the choice-moment interstitial, the summary) aren't steps in
+  // `activePhases`, so the coach has no other way to see them. Only writes
+  // when the computed descriptor actually changes.
+  useEffect(() => {
+    if (!sessionId || !dataInitializedRef.current) return;
+    const screen = computeTraineeScreen();
+    if (screen === lastSyncedScreenRef.current) return;
+    lastSyncedScreenRef.current = screen;
+    const docRef = doc(db, "hc_live_sessions", sessionId);
+    updateDoc(docRef, { traineeScreen: screen }).catch(async (e) => {
+      console.error("Error syncing trainee screen, retrying with setDoc:", e);
+      try {
+        await setDoc(docRef, { traineeScreen: screen }, { merge: true });
+      } catch (e2) {
+        console.error("Error syncing trainee screen (setDoc fallback):", e2);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, currentPhase, showIntensityBefore, activeCard, journeyStage, structuredAnswers, blockerStrengthAfter, dataReadyTick]);
 
   // Listen for Coach Commands
   // injectedResourceRef is used instead of injectedResource in deps to avoid recreating

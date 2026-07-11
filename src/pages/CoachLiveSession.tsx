@@ -133,6 +133,77 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
         : `אני מוכן לשחרר את ${chosenArchetype?.name || "הדמות"} כי אני כבר לא צריך ש${s3ConsentGainText}. במקום זה אני בוחר ${s3ConsentRaw}`)
     : null;
 
+  // Shared placeholder-resolution chain for a step's traineeTitle — same
+  // substitutions as TraineeJourney's getReplacedTitle, kept in sync so the
+  // coach sees exactly the wording the trainee sees. Used by the sidebar
+  // recap below and by the guidance banner's "question" label.
+  const resolveAnswerTitle = (title: string) =>
+    title
+      .replace(/\[ארכיטיפ\]/g, chosenArchetype?.name || 'הדמות')
+      .replace(/\[משאב\]/g, resourceCard?.name || 'המשאב')
+      .replace(/\[רווח\]/g, s3ConsentGainText)
+      .replace(/\[משפט_מטרה\]/g, composeGoalSentence(sessionState?.answers || {}) || 'המשפט שלך')
+      .replace(/\[חוזה\]/g, composeContractText(sessionState?.answers || {}, chosenArchetype?.name, resourceCard?.name));
+
+  // ── Coach guidance banner ────────────────────────────────────────────
+  // Always-visible "what is the trainee looking at right now, and what do I
+  // do about it" strip. Primarily driven by TraineeJourney's published
+  // `traineeScreen` field (see that file), which covers every render branch
+  // including ones that aren't steps in `activePhases` (world-select, the
+  // before/after intensity pickers, the choice-moment interstitial, the
+  // summary). Legacy/missing field: best-effort fallback derived from
+  // `phase` alone — never crashes, never blank.
+  const SCREEN_GUIDANCE: Record<string, { label: string; hint: string }> = {
+    "world-select": { label: "בחירת עולם", hint: "בקש ממנו לבחור את העולם שהכי מדבר אליו — אין תשובה נכונה." },
+    "card-select": { label: "מול קלפי הדמויות", hint: "הזמן אותו להפוך את הקלף שהכי מושך את העין." },
+    "trigger-select": { label: "גב הקלף — בחירת טריגר", hint: "שיבחר את המשפט שהכי מדויק לו, או יכתוב בעצמו ב'אחר', ואז ללחוץ 'התחל חקירה'." },
+    "strength-before": { label: "דירוג עוצמת החסם (לפני)", hint: "בקש ממנו לדרג 1–10 כמה החסם חזק עכשיו, וללחוץ המשך. הערך יופיע אצלך מיד." },
+    "meditation-hold": { label: "מסך מדיטציה (סטטי)", hint: "המסך שלו קבוע — אתה מנחה בקול. התקדם בצעדי המדיטציה בכפתור שלך." },
+    "choice-moment": { label: "רגע הבחירה", hint: "הנחה אותו: 'כשאתה מוכן — לחץ על התגובה הישנה כדי לשרוף אותה ולבחור בהסכם החדש'." },
+    "strength-after": { label: "דירוג עוצמת החסם (אחרי)", hint: "בקש דירוג 1–10 עכשיו, אחרי המסע — ההשוואה ללפני תוצג לשניכם." },
+    "summary": { label: "מסך הסיכום והמעגל", hint: "עברו יחד על השורה התחתונה והמעגל. מכאן אפשר להדפיס PDF." },
+  };
+
+  const traineePhase = sessionState?.phase ?? 0;
+  const publishedScreen = sessionState?.traineeScreen as string | undefined;
+  // Best-effort fallback for sessions from before traineeScreen existed (or
+  // any write race that leaves it momentarily stale) — as precise as
+  // `phase` alone allows.
+  const fallbackScreen = !sessionState
+    ? "world-select"
+    : traineePhase <= 0
+    ? "world-select"
+    : traineePhase > activePhases.length
+    ? "summary"
+    : traineePhase === 1
+    ? "card-select"
+    : traineePhase === 2
+    ? "trigger-select"
+    : currentStep?.uiType === "meditation"
+    ? "meditation-hold"
+    : "question";
+  const resolvedScreen = publishedScreen || fallbackScreen;
+
+  const coachGuidance: { label: string; hint: string; liveValue?: string } = (() => {
+    if (resolvedScreen === "question") {
+      const title = currentStep ? resolveAnswerTitle(currentStep.traineeTitle) : "";
+      return {
+        label: `שאלה ${traineePhase} מתוך ${activePhases.length}${title ? `: ${title}` : ""}`,
+        hint: "ממתין לבחירת תשובה. אם הוא מתלבט — הקרא לו את האפשרויות בקול.",
+      };
+    }
+    const base = SCREEN_GUIDANCE[resolvedScreen] ?? SCREEN_GUIDANCE["summary"];
+    let liveValue: string | undefined;
+    if (resolvedScreen === "strength-before") {
+      liveValue = sessionState?.blockerStrengthBefore != null ? `${sessionState.blockerStrengthBefore}/10` : "טרם דורג";
+    } else if (resolvedScreen === "strength-after") {
+      liveValue = sessionState?.blockerStrengthAfter != null ? `${sessionState.blockerStrengthAfter}/10` : "טרם דורג";
+    } else if (resolvedScreen === "choice-moment") {
+      liveValue = sessionState?.answers?.choice_moment ? "נלחץ — הבחירה נרשמה" : "טרם נלחץ";
+    }
+    return { ...base, liveValue };
+  })();
+
   const handlePrint = () => {
     window.print();
   };
@@ -211,12 +282,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                             replace chain) instead of generic placeholder
                             words, so the sidebar recap actually matches what
                             the coach sees in the live question panel. */}
-                        {phase.traineeTitle
-                          .replace(/\[ארכיטיפ\]/g, chosenArchetype?.name || 'הדמות')
-                          .replace(/\[משאב\]/g, resourceCard?.name || 'המשאב')
-                          .replace(/\[רווח\]/g, s3ConsentGainText)
-                          .replace(/\[משפט_מטרה\]/g, composeGoalSentence(sessionState?.answers || {}) || 'המשפט שלך')
-                          .replace(/\[חוזה\]/g, composeContractText(sessionState?.answers || {}, chosenArchetype?.name, resourceCard?.name))}
+                        {resolveAnswerTitle(phase.traineeTitle)}
                       </span>
                       <span className="text-white font-medium break-words whitespace-pre-wrap">{value as string}</span>
                     </div>
@@ -321,6 +387,26 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
 
         {/* Center Panel: Live Flow */}
         <section className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar print:overflow-visible">
+
+          {/* Coach guidance banner — always-visible "where is the trainee /
+              what do I do now" strip, driven by traineeScreen (see
+              coachGuidance above). Covers UI states that live outside the
+              numbered activePhases array and are otherwise invisible here. */}
+          <div className="print:hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl px-5 py-3 flex flex-col gap-1 shrink-0" dir="rtl">
+            <div className="flex items-center flex-wrap gap-2">
+              <span className="text-amber-400 font-bold text-sm">
+                המתאמן נמצא עכשיו: {coachGuidance.label}
+              </span>
+              {coachGuidance.liveValue && (
+                <span className="text-xs font-bold text-amber-300 bg-amber-500/15 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                  {coachGuidance.liveValue}
+                </span>
+              )}
+            </div>
+            <p className="text-neutral-300 text-xs leading-relaxed">
+              כדי להתקדם: {coachGuidance.hint}
+            </p>
+          </div>
 
           <div className="bg-[#11131a] rounded-2xl p-6 border border-white/5 shadow-2xl flex items-center justify-between print:hidden">
             <div>
