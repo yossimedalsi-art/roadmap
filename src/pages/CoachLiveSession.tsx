@@ -5,7 +5,7 @@ import HeartCompassLogo from "../components/HeartCompassLogo";
 import BlockerCircle from "../components/BlockerCircle";
 import BottomLine from "../components/BottomLine";
 import { worldsData, goodPowersData } from "../data/worlds";
-import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans } from "../data/journey";
+import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans, composeGoalSentence, composeContractText } from "../data/journey";
 import { db } from "../lib/firebase";
 import { doc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
@@ -193,7 +193,12 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                   return (
                     <div key={key} className="text-sm border-b border-white/5 pb-3">
                       <span className="text-neutral-500 block mb-1 text-xs">
-                        {phase.traineeTitle.replace(/\[ארכיטיפ\]/g, 'הדמות').replace(/\[משאב\]/g, 'המשאב').replace(/\[רווח\]/g, 'הרווח')}
+                        {phase.traineeTitle
+                          .replace(/\[ארכיטיפ\]/g, 'הדמות')
+                          .replace(/\[משאב\]/g, 'המשאב')
+                          .replace(/\[רווח\]/g, 'הרווח')
+                          .replace(/\[משפט_מטרה\]/g, 'המשפט שלך')
+                          .replace(/\[חוזה\]/g, 'החוזה שלך')}
                       </span>
                       <span className="text-white font-medium break-words whitespace-pre-wrap">{value as string}</span>
                     </div>
@@ -523,7 +528,12 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                 <div className="bg-[#11131a] rounded-2xl border border-blue-500/20 shadow-lg p-8">
                   <div className="flex justify-between items-center mb-8">
                     <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight">
-                      {currentStep.traineeTitle.replace(/\[ארכיטיפ\]/g, `"${chosenArchetype?.name || ''}"`).replace(/\[משאב\]/g, `"${sessionState?.resourceArchetype ? worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype)?.name : 'הכוח החדש'}"`).replace(/\[רווח\]/g, `"${s3ConsentGainText}"`)}
+                      {currentStep.traineeTitle
+                        .replace(/\[ארכיטיפ\]/g, `"${chosenArchetype?.name || ''}"`)
+                        .replace(/\[משאב\]/g, `"${sessionState?.resourceArchetype ? worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype)?.name : 'הכוח החדש'}"`)
+                        .replace(/\[רווח\]/g, `"${s3ConsentGainText}"`)
+                        .replace(/\[משפט_מטרה\]/g, composeGoalSentence(sessionState?.answers || {}) || "המטרה שלי")
+                        .replace(/\[חוזה\]/g, composeContractText(sessionState?.answers || {}, chosenArchetype?.name, resourceCard?.name))}
                     </h3>
                     <div className="flex items-center gap-2 text-xs font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full">
                       <span className="w-2 h-2 rounded-full bg-blue-500"></span> {`שלב ${sessionState?.phase ?? 0} מתוך ${activePhases.length}`}
@@ -558,8 +568,12 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       </div>
                     )}
 
-                    {/* Pattern Revealed (Mirror of what the trainee sees) */}
-                    {sessionState?.answers?.[currentStep.id] && (currentStep.patternRevealed || currentStep.patternRevealedAdult) && (
+                    {/* Pattern Revealed (Mirror of what the trainee sees). Round 8 (ב4):
+                        this box no longer disappears for an answered step just because the
+                        step has no patternRevealed, or the answer doesn't match any option
+                        (e.g. a custom "אחר" answer) — it falls back to the step's coachFraming
+                        instead of hiding. */}
+                    {sessionState?.answers?.[currentStep.id] && (
                       <div className="col-span-1 md:col-span-2 mt-2 p-5 rounded-2xl border bg-blue-500/10 border-blue-500/20 flex items-start gap-4">
                         <span className="w-8 h-8 shrink-0 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg">💧</span>
                         <div>
@@ -578,9 +592,9 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                                 const useAdult = sessionState?.ageGroup === "adult" && currentStep.patternRevealedAdult;
                                 const patternSource = useAdult ? currentStep.patternRevealedAdult : currentStep.patternRevealed;
                                 const patterns = patternSource?.[sessionState.environment as keyof typeof patternSource];
-                                return patterns ? patterns[answerIdx] : "";
+                                if (patterns?.[answerIdx]) return patterns[answerIdx];
                               }
-                              return "מדהים שהצלחת לנסח את זה בעצמך. הדפוס מנסה להגן עליך, אבל עכשיו אתה מתחיל לראות אותו מבחוץ.";
+                              return currentStep.coachFraming || "מדהים שהצלחת לנסח את זה בעצמך. הדפוס מנסה להגן עליך, אבל עכשיו אתה מתחיל לראות אותו מבחוץ.";
                             })()}
                           </p>
                         </div>
@@ -629,6 +643,21 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                             )}
                           </div>
                         )}
+                        {/* Round 8 (ב3) — s3_ramp_choice's own insight, based on the stored
+                            choice value (never disappears once a choice was made — ב4). */}
+                        {!!choiceState && (
+                          <div className="p-5 rounded-2xl border bg-blue-500/10 border-blue-500/20 flex items-start gap-4">
+                            <span className="w-8 h-8 shrink-0 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg">💧</span>
+                            <div>
+                              <h4 className="text-blue-400 font-bold text-sm tracking-widest uppercase mb-1">תובנה קלינית על התשובה (לשימוש המאמן)</h4>
+                              <p className="text-blue-100 font-medium text-lg">
+                                {choiceState === "ready"
+                                  ? "הסכמה. עברו למשפט ההסכמה — ותן לו לשמוע את עצמו אומר אותו."
+                                  : "כבד את הקצב. ההתנגדות היא ההגנה עצמה — עבדו איתה, לא נגדה."}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
@@ -651,6 +680,25 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                           מסך דיוק — המתאמן בחר: "{sessionState.answers[`${currentStep.id}_refine`]}"
                         </div>
                       )}
+                      {/* Round 8 (ב3) — s4_excitement has no options to index into, so its
+                          coach insight is computed straight from the numeric score's range. */}
+                      {currentStep.id === "s4_excitement" && sessionState?.answers?.[currentStep.id] != null && (() => {
+                        const score = Number(sessionState.answers[currentStep.id]);
+                        const insight = score >= 95
+                          ? "המטרה בוערת — נצל את החלון."
+                          : score >= 70
+                          ? "חם אבל לא בוער — משהו במשפט לא מדויק. אל תתקדם בלי לדייק."
+                          : "המטרה כנראה לא שלו או מפחידה מכדי להודות — חזור לתחום או לחזון.";
+                        return (
+                          <div className="w-full mt-2 p-5 rounded-2xl border bg-blue-500/10 border-blue-500/20 flex items-start gap-4">
+                            <span className="w-8 h-8 shrink-0 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg">💧</span>
+                            <div>
+                              <h4 className="text-blue-400 font-bold text-sm tracking-widest uppercase mb-1">תובנה קלינית על התשובה (לשימוש המאמן)</h4>
+                              <p className="text-blue-100 font-medium text-lg">{insight}</p>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
