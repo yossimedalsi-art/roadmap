@@ -380,7 +380,13 @@ export default function TraineeJourney() {
 
   useEffect(() => {
     const step = activePhases[currentPhase - 1];
-    const isFreeTextStep = step && (step.uiType === "text-input" || step.uiType === "structured-dialogue");
+    // Round 9 (QA fix): the trigger steps (step_2_trigger / s2_step_2_trigger
+    // / s3_step_1_trigger / s4_placeholder_trigger — all four end in
+    // "_trigger") are now archetype-selector placeholders, not
+    // structured-dialogue, but the card-back "אחר" custom-trigger textbox is
+    // still free text and should still live-sync to the coach's draft
+    // preview, so it's explicitly included here alongside the two uiTypes.
+    const isFreeTextStep = step && (step.uiType === "text-input" || step.uiType === "structured-dialogue" || step.id.endsWith("_trigger"));
     if (draftTimeoutRef.current) {
       clearTimeout(draftTimeoutRef.current);
       draftTimeoutRef.current = null;
@@ -865,7 +871,7 @@ export default function TraineeJourney() {
                       {(journeyStage === 4 && arc.goalTriggers ? arc.goalTriggers : arc.triggers).map((trigger, idx) => (
                         <button
                           key={idx}
-                          onClick={(e) => { e.stopPropagation(); setSelectedTrigger(trigger); }}
+                          onClick={(e) => { e.stopPropagation(); setSelectedTrigger(trigger); clearDraft(); }}
                           className={`text-right p-4 rounded-xl border text-sm transition-all ${selectedTrigger === trigger ? 'bg-amber-500/10 text-amber-400 border-amber-500 font-bold' : 'bg-black/20 border-white/5 hover:border-white/20 text-neutral-300'}`}
                         >
                           {trigger}
@@ -887,7 +893,10 @@ export default function TraineeJourney() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (customInput.trim()) setSelectedTrigger(customInput);
+                              if (customInput.trim()) {
+                                setSelectedTrigger(customInput);
+                                clearDraft();
+                              }
                             }}
                             className="text-xs bg-amber-500/20 text-amber-500 font-bold px-3 py-1 rounded hover:bg-amber-500 hover:text-black transition"
                           >
