@@ -7,7 +7,7 @@ import BlockerCircle from "../components/BlockerCircle";
 import BottomLine from "../components/BottomLine";
 import { useParams } from "react-router-dom";
 import { worldsData, goodPowersData } from "../data/worlds";
-import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans } from "../data/journey";
+import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans, composeGoalSentence, composeContractText } from "../data/journey";
 import { db } from "../lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
@@ -409,11 +409,31 @@ export default function TraineeJourney() {
     setCurrentPhase(prev => prev + 2);
   };
 
-  const handleRampFollowupSave = (answerKey: string) => {
-    if (!rampFollowupInput.trim()) return;
-    setStructuredAnswers(prev => ({ ...prev, [answerKey]: rampFollowupInput }));
+  // Round 8 (ב2): the two "עוד לא" follow-up questions were free-typing —
+  // replaced with chip selection (+ a custom "אחר" fallback that still
+  // writes to the same answer keys) so a flooded trainee doesn't have to type.
+  const rampNotyetFearOptions = [
+    "שאשאר חשוף בלי שום הגנה",
+    "שאנשים ינצלו את זה",
+    "שאני לא יודע מי אני בלעדיו",
+    "שהכאב הישן יחזור",
+  ];
+  const rampNotyetTrustOptions = [
+    "שאני כבר לא ילד — יש לי כוחות של היום",
+    "שיש לי אנשים להישען עליהם",
+    "שאני יודע לעצור לפני שנפגעים",
+    "שאני מסוגל לבקש עזרה",
+  ];
+
+  const handleRampFollowupSelect = (answerKey: string, value: string) => {
+    if (!value.trim()) return;
+    setStructuredAnswers(prev => ({ ...prev, [answerKey]: value }));
     setRampFollowupInput("");
     clearDraft();
+  };
+
+  const handleRampFollowupSave = (answerKey: string) => {
+    handleRampFollowupSelect(answerKey, rampFollowupInput);
   };
 
   // The excitement-scale "accuracy screen" (מסך דיוק) — shown once when the
@@ -428,7 +448,12 @@ export default function TraineeJourney() {
   ];
 
   const handleExcitementRefine = (stepId: string, option: string) => {
-    const goalSentenceIdx = activePhases.findIndex(p => p.id === "s4_goal_sentence");
+    // Round 8 (ב1): the goal sentence is now built from two selection steps
+    // (s4_goal_time + s4_goal_proof) instead of one free-typed
+    // s4_goal_sentence — route the refine loop back to the first of the
+    // two, and clear both so the trainee re-answers the whole composed
+    // sentence, not just half of it.
+    const goalTimeIdx = activePhases.findIndex(p => p.id === "s4_goal_time");
     setStructuredAnswers(prev => {
       const next: Record<string, string> = {
         ...prev,
@@ -436,13 +461,16 @@ export default function TraineeJourney() {
         [`${stepId}_refined`]: "1",
       };
       delete next[stepId];
+      delete next["s4_goal_time"];
+      delete next["s4_goal_proof"];
+      // Legacy key from before the split — harmless to also clear.
       delete next["s4_goal_sentence"];
       return next;
     });
     setCustomInput("");
     clearDraft();
-    if (goalSentenceIdx !== -1) {
-      setCurrentPhase(goalSentenceIdx + 1);
+    if (goalTimeIdx !== -1) {
+      setCurrentPhase(goalTimeIdx + 1);
     }
   };
 
@@ -454,6 +482,11 @@ export default function TraineeJourney() {
     // them to retype it.
     const gainAnswer = structuredAnswers.s3_step_2_secondary_gain?.trim();
     replaced = replaced.replace(/\[רווח\]/g, gainAnswer || "ההגנה הישנה");
+    // Round 8 (ב1): the stage-4 composed goal sentence — built from three
+    // selection answers (time + domain + proof) instead of one free-typed
+    // sentence — quoted on the excitement screen and inside the contract.
+    replaced = replaced.replace(/\[משפט_מטרה\]/g, composeGoalSentence(structuredAnswers) || "המטרה שלי");
+    replaced = replaced.replace(/\[חוזה\]/g, composeContractText(structuredAnswers, chosenArchetype?.name, resourceArchetype?.name));
     return replaced;
   };
 
@@ -1119,26 +1152,40 @@ export default function TraineeJourney() {
                       <h3 className="text-white font-bold text-xl text-center leading-relaxed">
                         מה הכי מפחיד בלחיות בלעדיו?
                       </h3>
-                      <div className="p-5 rounded-2xl border bg-black/30 border-white/5 flex flex-col gap-3">
-                        <input
-                          type="text"
-                          placeholder="הקלד את התשובה שלך כאן..."
-                          value={rampFollowupInput}
-                          onChange={(e) => setRampFollowupInput(e.target.value)}
-                          className="bg-transparent flex-1 outline-none text-sm text-white placeholder-neutral-600"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && rampFollowupInput.trim()) {
-                              handleRampFollowupSave("s3_ramp_notyet_fear");
-                            }
-                          }}
-                        />
-                        <button
-                          onClick={() => handleRampFollowupSave("s3_ramp_notyet_fear")}
-                          disabled={!rampFollowupInput.trim()}
-                          className="self-end bg-amber-500/20 text-amber-500 px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-500 hover:text-black transition disabled:opacity-30"
-                        >
-                          שמור והמשך
-                        </button>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {rampNotyetFearOptions.map((option, idx) => (
+                          <motion.button
+                            key={idx}
+                            onClick={() => handleRampFollowupSelect("s3_ramp_notyet_fear", option)}
+                            className="p-5 rounded-2xl border text-right transition-all duration-300 bg-black/30 border-white/5 hover:border-amber-500/50 text-neutral-300 hover:text-amber-400"
+                          >
+                            {option}
+                          </motion.button>
+                        ))}
+                      </div>
+                      <div className="p-5 rounded-2xl border bg-black/30 border-white/5 flex flex-col gap-2">
+                        <div className="text-xs text-neutral-500 flex items-center gap-2">✎ אחר - נסח במילים שלך</div>
+                        <div className="flex gap-3 items-center">
+                          <input
+                            type="text"
+                            placeholder="הקלד את התשובה שלך כאן..."
+                            value={rampFollowupInput}
+                            onChange={(e) => setRampFollowupInput(e.target.value)}
+                            className="bg-transparent flex-1 outline-none text-sm text-white placeholder-neutral-600"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && rampFollowupInput.trim()) {
+                                handleRampFollowupSave("s3_ramp_notyet_fear");
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={() => handleRampFollowupSave("s3_ramp_notyet_fear")}
+                            disabled={!rampFollowupInput.trim()}
+                            className="self-end bg-amber-500/20 text-amber-500 px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-500 hover:text-black transition disabled:opacity-30"
+                          >
+                            שמור והמשך
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1151,26 +1198,40 @@ export default function TraineeJourney() {
                       <h3 className="text-white font-bold text-xl text-center leading-relaxed">
                         מה הוא צריך לדעת עליך היום כדי להרשות לעצמו לנוח?
                       </h3>
-                      <div className="p-5 rounded-2xl border bg-black/30 border-white/5 flex flex-col gap-3">
-                        <input
-                          type="text"
-                          placeholder="הקלד את התשובה שלך כאן..."
-                          value={rampFollowupInput}
-                          onChange={(e) => setRampFollowupInput(e.target.value)}
-                          className="bg-transparent flex-1 outline-none text-sm text-white placeholder-neutral-600"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && rampFollowupInput.trim()) {
-                              handleRampFollowupSave("s3_ramp_notyet_trust");
-                            }
-                          }}
-                        />
-                        <button
-                          onClick={() => handleRampFollowupSave("s3_ramp_notyet_trust")}
-                          disabled={!rampFollowupInput.trim()}
-                          className="self-end bg-amber-500/20 text-amber-500 px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-500 hover:text-black transition disabled:opacity-30"
-                        >
-                          שמור והמשך
-                        </button>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {rampNotyetTrustOptions.map((option, idx) => (
+                          <motion.button
+                            key={idx}
+                            onClick={() => handleRampFollowupSelect("s3_ramp_notyet_trust", option)}
+                            className="p-5 rounded-2xl border text-right transition-all duration-300 bg-black/30 border-white/5 hover:border-amber-500/50 text-neutral-300 hover:text-amber-400"
+                          >
+                            {option}
+                          </motion.button>
+                        ))}
+                      </div>
+                      <div className="p-5 rounded-2xl border bg-black/30 border-white/5 flex flex-col gap-2">
+                        <div className="text-xs text-neutral-500 flex items-center gap-2">✎ אחר - נסח במילים שלך</div>
+                        <div className="flex gap-3 items-center">
+                          <input
+                            type="text"
+                            placeholder="הקלד את התשובה שלך כאן..."
+                            value={rampFollowupInput}
+                            onChange={(e) => setRampFollowupInput(e.target.value)}
+                            className="bg-transparent flex-1 outline-none text-sm text-white placeholder-neutral-600"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && rampFollowupInput.trim()) {
+                                handleRampFollowupSave("s3_ramp_notyet_trust");
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={() => handleRampFollowupSave("s3_ramp_notyet_trust")}
+                            disabled={!rampFollowupInput.trim()}
+                            className="self-end bg-amber-500/20 text-amber-500 px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-500 hover:text-black transition disabled:opacity-30"
+                          >
+                            שמור והמשך
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
