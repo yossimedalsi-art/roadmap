@@ -927,7 +927,7 @@ export default function TraineeJourney() {
             </button>
           </div>
         </header>
-        {showMap && <JourneyMap currentPhase={currentPhase} phases={activePhases} onClose={() => setShowMap(false)} />}
+        {showMap && <JourneyMap currentPhase={currentPhase} phases={activePhases} onClose={() => setShowMap(false)} resolveTitle={getReplacedTitle} />}
 
         <main className="flex-1 w-full max-w-3xl flex flex-col items-center relative z-10">
           <AnimatePresence mode="wait">

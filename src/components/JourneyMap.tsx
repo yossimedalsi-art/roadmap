@@ -6,9 +6,15 @@ interface JourneyMapProps {
   currentPhase: number;
   phases: JourneyStep[];
   onClose: () => void;
+  // Resolves raw placeholder tokens ([ארכיטיפ], [משאב], [משפט_מטרה], [חוזה],
+  // [רווח]) in a phase's traineeTitle into the trainee's actual answers —
+  // TraineeJourney already has getReplacedTitle for this. Defaults to
+  // identity so callers that don't pass it still render (just with the raw
+  // tokens, same as before this prop existed).
+  resolveTitle?: (title: string) => string;
 }
 
-export default function JourneyMap({ currentPhase, phases, onClose }: JourneyMapProps) {
+export default function JourneyMap({ currentPhase, phases, onClose, resolveTitle = (title) => title }: JourneyMapProps) {
   return (
     <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6" dir="rtl">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-black to-black"></div>
@@ -66,7 +72,7 @@ export default function JourneyMap({ currentPhase, phases, onClose }: JourneyMap
                   <div className={`mt-4 text-center md:absolute md:top-full md:mt-6 md:w-32 transition-colors duration-300
                     ${isCurrent ? 'text-amber-500 font-bold' : isCompleted ? 'text-neutral-300' : 'text-neutral-600'}`}>
                     <div className="text-xs uppercase tracking-widest opacity-50 mb-1">תחנה {phase.order}</div>
-                    <div className="text-sm line-clamp-2 leading-tight">{phase.traineeTitle.split('/')[0]}</div>
+                    <div className="text-sm line-clamp-2 leading-tight">{resolveTitle(phase.traineeTitle).split('/')[0]}</div>
                   </div>
                 </div>
               );
