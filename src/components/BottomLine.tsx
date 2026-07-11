@@ -1,4 +1,4 @@
-import { stage3Phases, loopFeedLines } from "../data/journey";
+import { stage3Phases, loopFeedLines, composeGoalSentence } from "../data/journey";
 
 interface BottomLineProps {
   journeyStage: number;
@@ -58,7 +58,13 @@ function resolveCost(journeyStage: number, answers: Record<string, string>): str
 function resolveDecision(journeyStage: number, answers: Record<string, string>): string {
   if (journeyStage === 1) return pick(answers, "step_9b_asimon") ?? DASH;
   if (journeyStage === 2) return pick(answers, "s2_step_8b_asimon") ?? DASH;
-  if (journeyStage === 4) return pick(answers, "s4_contract") ?? DASH;
+  // Round 8 (ב1): s4_contract is now a short confirmation ("✍️ אני חותם...")
+  // rather than the free-typed contract sentence — the composed goal
+  // sentence (built from s4_goal_time + s4_goal_domain + s4_goal_proof) is
+  // the more meaningful recap here. Falls back to the raw s4_contract value
+  // for sessions completed before this round (when it held the whole
+  // free-typed contract).
+  if (journeyStage === 4) return composeGoalSentence(answers) || pick(answers, "s4_contract") || DASH;
   if (journeyStage === 3) {
     const choice = answers.s3_ramp_choice;
     const consent = pick(answers, "s3_ramp_consent");
