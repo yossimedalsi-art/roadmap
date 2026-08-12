@@ -3,13 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Compass, TreePine, Cloud, Gamepad2, Music, ArrowLeft, Download, Map, Sparkles } from "lucide-react";
 import Backpack from "../components/Backpack";
 import JourneyMap from "../components/JourneyMap";
-import BlockerCircle from "../components/BlockerCircle";
-import BottomLine from "../components/BottomLine";
 import { useParams } from "react-router-dom";
 import { worldsData, goodPowersData } from "../data/worlds";
-import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans, composeGoalSentence, composeContractText } from "../data/journey";
+import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans } from "../data/journey";
 import { db } from "../lib/firebase";
-import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
 
 
 const FALLBACK_IMAGE = "/images/guardian.png";
@@ -114,63 +112,29 @@ export default function TraineeJourney() {
   const [previousAgreement, setPreviousAgreement] = useState<string | null>(null);
   const [sessionNumber, setSessionNumber] = useState<number>(1);
   const [journeyStage, setJourneyStage] = useState<number>(1);
-  // Age tagging (coach sets this on the trainee card — mechanism lands in a
-  // later round). Only read here to drive the excitement-scale threshold;
-  // defaults to 'adult' whenever the field hasn't been set yet.
-  const [ageGroup, setAgeGroup] = useState<"adult" | "teen">("adult");
-  const [scaleValue, setScaleValue] = useState<number>(50);
-  // Free-text draft for the two "not yet" follow-up questions on the
-  // consent-ramp choice screen (s3_ramp_choice) — kept separate from
-  // customInput so it doesn't collide with the structured-dialogue/text-input
-  // draft-sync effect below, which only watches those two uiTypes.
-  const [rampFollowupInput, setRampFollowupInput] = useState<string>("");
   const [blockerStrengthBefore, setBlockerStrengthBefore] = useState<number | null>(null);
   const [blockerStrengthAfter, setBlockerStrengthAfter] = useState<number | null>(null);
   const [showIntensityBefore, setShowIntensityBefore] = useState(false);
   const [coachWhisper, setCoachWhisper] = useState<string | null>(null);
   const [oldCardBurning, setOldCardBurning] = useState(false);
+  const [isYouthMode, setIsYouthMode] = useState(false);
   const injectedResourceRef = useRef<string | null>(null);
   injectedResourceRef.current = injectedResource;
   // Prevents saveState from writing null/empty values to Firestore during the
   // window between mount and when fetchSession or onSnapshot restore the session data.
   const dataInitializedRef = useRef(false);
-  // State twin of dataInitializedRef — a plain ref flip doesn't cause a
-  // re-render/effect re-run by itself, but the traineeScreen sync effect
-  // below needs to fire the moment initialization completes even when no
-  // other tracked value changed (e.g. a brand-new session that's still
-  // sitting on phase 0 / world-select).
-  const [dataReadyTick, setDataReadyTick] = useState(0);
+  const choiceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resourceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (choiceTimeoutRef.current) clearTimeout(choiceTimeoutRef.current);
+      if (resourceTimeoutRef.current) clearTimeout(resourceTimeoutRef.current);
+    };
+  }, []);
   // Surfaces Firestore write failures to the trainee (remote devices may hit
   // permission/network errors silently — without this the coach sees a frozen screen).
   const [syncError, setSyncError] = useState(false);
-  // Tracks the last `traineeScreen` value written to Firestore, so the sync
-  // effect below only writes when the descriptor actually changes.
-  const lastSyncedScreenRef = useRef<string | null>(null);
-
-  // ── phaseVersion invariant (round 9 QA fix — phase write race) ──────────
-  // Two independent writers can change `phase` on the same session doc: the
-  // trainee (this file's saveState effect, on every local phase change —
-  // forward navigation, the excitement-refine loop's backward jump, the
-  // consent-ramp's +2 skip) and the coach (CoachLiveSession's meditation
-  // "advance" button and end-journey action). A plain "reject remote phase
-  // <= my current phase" guard breaks the moment the trainee jumps
-  // *backward* locally (refine loop): a stale, already-in-flight remote
-  // write with a numerically higher phase can arrive right after and snap
-  // the trainee forward again, undoing the jump.
-  //
-  // `phaseVersion` fixes this: every write that changes `phase` also writes
-  // a version number one higher than the highest version that writer has
-  // seen so far (missing/undefined is treated as 0). A remote update is
-  // only ever applied locally when its phaseVersion is STRICTLY GREATER
-  // than the highest version this client already knows about — regardless
-  // of which direction the raw phase number moved. `lastKnownPhaseVersionRef`
-  // holds that "highest version seen" value; `lastVersionedPhaseRef` remembers
-  // which `currentPhase` value it was last computed for, so the saveState
-  // effect (which also re-runs for answer/env/card changes that don't touch
-  // phase at all) only bumps the version when the phase itself actually
-  // changed.
-  const lastKnownPhaseVersionRef = useRef<number>(0);
-  const lastVersionedPhaseRef = useRef<number>(0);
 
   const theme = selectedEnv ? (worldThemes[selectedEnv] ?? defaultTheme) : defaultTheme;
 
@@ -193,46 +157,6 @@ export default function TraineeJourney() {
 
   const activePhases = journeyStage === 4 ? stage4Phases : journeyStage === 3 ? stage3Phases : journeyStage === 2 ? stage2Phases : journeyPhases;
 
-  // ── traineeScreen descriptor ─────────────────────────────────────────
-  // Mirrors exactly which JSX branch below is actually on screen, for
-  // states that aren't represented by the numbered `activePhases` array
-  // (and are therefore otherwise invisible to the coach — see
-  // CoachLiveSession's guidance banner). Every early-return branch further
-  // down this component must have a matching case here; keep the two in
-  // sync when adding a new screen.
-  const computeTraineeScreen = (): string => {
-    if (currentPhase === 0) return "world-select";
-    if (currentPhase === 1 || currentPhase === 2) {
-      // Matches the overlay/flip logic in the currentPhase === 1 || 2
-      // render block below: the intensity overlay sits on top of the
-      // flipped (trigger-select) card, which sits on top of the
-      // unflipped (card-select) grid.
-      if (showIntensityBefore) return "strength-before";
-      if (activeCard) return "trigger-select";
-      return "card-select";
-    }
-    if (currentPhase >= 3 && currentPhase <= activePhases.length) {
-      const step = activePhases[currentPhase - 1];
-      if (step?.uiType === "meditation") return "meditation-hold";
-      return "question";
-    }
-    // currentPhase > activePhases.length: mirrors the showChoiceMoment /
-    // summary logic further down (kept in sync manually — that logic lives
-    // after several early returns, so it can't be reused directly here).
-    const oldReactionAnswer = structuredAnswers['step_5_urge'] || structuredAnswers['s2_step_5_reaction'];
-    const newAgreementAnswer = structuredAnswers['step_10_integration'] || structuredAnswers['s2_step_9_agreement'];
-    const isChoiceMomentScreen =
-      (journeyStage === 1 || journeyStage === 2) &&
-      !!oldReactionAnswer && !!newAgreementAnswer &&
-      !structuredAnswers['choice_moment'];
-    if (isChoiceMomentScreen) return "choice-moment";
-    // Inside the summary screen, the "after" intensity picker is its own
-    // meaningful state for the coach (still rating vs. done and reviewing
-    // the rest of the summary together).
-    if (blockerStrengthAfter == null) return "strength-after";
-    return "summary";
-  };
-
   // Persistence
   useEffect(() => {
     if (!sessionId) return;
@@ -240,21 +164,16 @@ export default function TraineeJourney() {
       try {
         const docRef = doc(db, "hc_live_sessions", sessionId);
         const docSnap = await getDoc(docRef);
-        if (docSnap.exists() && currentPhase === 0) {
+        if (docSnap.exists() && currentPhase === 0 && !dataInitializedRef.current) {
           const parsed = docSnap.data();
           // Always load continuation fields
           if (parsed.previousAgreement) setPreviousAgreement(parsed.previousAgreement);
           if (parsed.sessionNumber) setSessionNumber(parsed.sessionNumber);
           if (parsed.journeyStage) setJourneyStage(parsed.journeyStage);
-          if (parsed.ageGroup === "teen" || parsed.ageGroup === "adult") setAgeGroup(parsed.ageGroup);
+          if (parsed.isYouthMode) setIsYouthMode(parsed.isYouthMode);
           // Restore in-progress session
           if (parsed.phase > 0) {
             setCurrentPhase(parsed.phase);
-            // Seed the phaseVersion invariant from the doc we just loaded —
-            // old sessions predating this fix simply have no phaseVersion
-            // field, which is exactly the "missing == 0" case.
-            lastKnownPhaseVersionRef.current = parsed.phaseVersion || 0;
-            lastVersionedPhaseRef.current = parsed.phase;
             setSelectedEnv(parsed.environment);
             setActiveCard(parsed.archetype);
             setActiveResourceCard(parsed.resourceArchetype || null);
@@ -268,7 +187,6 @@ export default function TraineeJourney() {
         console.error("Error loading session:", e);
       } finally {
         dataInitializedRef.current = true;
-        setDataReadyTick(t => t + 1);
       }
     };
     fetchSession();
@@ -276,25 +194,12 @@ export default function TraineeJourney() {
 
   useEffect(() => {
     if (currentPhase > 0 && sessionId && dataInitializedRef.current) {
-      // Bump phaseVersion only when this run's currentPhase actually differs
-      // from the phase our last write/accepted-update already carried a
-      // version for — this effect also re-runs for answer/env/card changes
-      // that leave `phase` untouched, and those shouldn't inflate the
-      // version counter. Computed synchronously (not inside the async
-      // saveState below) so a rapid double-fire of this effect can't race
-      // on the refs.
-      if (currentPhase !== lastVersionedPhaseRef.current) {
-        lastKnownPhaseVersionRef.current += 1;
-        lastVersionedPhaseRef.current = currentPhase;
-      }
-      const phaseVersionToWrite = lastKnownPhaseVersionRef.current;
       const saveState = async () => {
         try {
           const docRef = doc(db, "hc_live_sessions", sessionId);
           const isJourneyComplete = currentPhase > activePhases.length;
           await setDoc(docRef, {
             phase: currentPhase,
-            phaseVersion: phaseVersionToWrite,
             environment: selectedEnv,
             archetype: activeCard,
             resourceArchetype: activeResourceCard,
@@ -312,29 +217,7 @@ export default function TraineeJourney() {
       };
       saveState();
     }
-  }, [sessionId, currentPhase, selectedEnv, activeCard, activeResourceCard, selectedTrigger, structuredAnswers, blockerStrengthBefore, blockerStrengthAfter]);
-
-  // Publish which screen the trainee is actually looking at — several UI
-  // states (world-select, the pre-journey/post-journey intensity pickers,
-  // the choice-moment interstitial, the summary) aren't steps in
-  // `activePhases`, so the coach has no other way to see them. Only writes
-  // when the computed descriptor actually changes.
-  useEffect(() => {
-    if (!sessionId || !dataInitializedRef.current) return;
-    const screen = computeTraineeScreen();
-    if (screen === lastSyncedScreenRef.current) return;
-    lastSyncedScreenRef.current = screen;
-    const docRef = doc(db, "hc_live_sessions", sessionId);
-    updateDoc(docRef, { traineeScreen: screen }).catch(async (e) => {
-      console.error("Error syncing trainee screen, retrying with setDoc:", e);
-      try {
-        await setDoc(docRef, { traineeScreen: screen }, { merge: true });
-      } catch (e2) {
-        console.error("Error syncing trainee screen (setDoc fallback):", e2);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, currentPhase, showIntensityBefore, activeCard, journeyStage, structuredAnswers, blockerStrengthAfter, dataReadyTick]);
+  }, [sessionId, currentPhase, selectedEnv, activeCard, activeResourceCard, selectedTrigger, structuredAnswers, blockerStrengthAfter]);
 
   // Listen for Coach Commands
   // injectedResourceRef is used instead of injectedResource in deps to avoid recreating
@@ -352,9 +235,6 @@ export default function TraineeJourney() {
         if (parsed.coachWhisper && parsed.coachWhisper !== null) {
           setCoachWhisper(parsed.coachWhisper);
         }
-        if (parsed.ageGroup === "teen" || parsed.ageGroup === "adult") {
-          setAgeGroup(parsed.ageGroup);
-        }
         // Restore full session state from the first snapshot, before fetchSession's
         // async getDoc resolves — prevents saveState from writing nulls to Firestore.
         if (!dataInitializedRef.current && parsed.environment) {
@@ -367,268 +247,37 @@ export default function TraineeJourney() {
           if (parsed.previousAgreement) setPreviousAgreement(parsed.previousAgreement);
           if (parsed.sessionNumber) setSessionNumber(parsed.sessionNumber);
         }
+        // Sync youth mode flag from coach dashboard in real-time
+        if (parsed.isYouthMode !== undefined) setIsYouthMode(!!parsed.isYouthMode);
         // Listen for Coach advancing the phase.
         // During meditation sub-steps, keep the trainee on the first meditation screen
         // so the audio player keeps playing — only advance when moving to a non-meditation step.
-        //
-        // Round 9 (QA fix — phase write race): accept this remote phase only
-        // if its phaseVersion is strictly greater than the highest version
-        // this client already knows about (missing phaseVersion == 0, so old
-        // sessions/writes keep working). A plain numeric "parsed.phase <=
-        // prev" guard would let a stale, higher-numbered write from before a
-        // local backward jump (the excitement-refine loop) snap the trainee
-        // forward again after the jump — phaseVersion tells stale and fresh
-        // writes apart regardless of which direction the phase number moved.
         if (parsed.phase && parsed.phase > 0) {
-          const remoteVersion = parsed.phaseVersion ?? 0;
-          if (remoteVersion > lastKnownPhaseVersionRef.current) {
-            const jStage = parsed.journeyStage || 1;
-            const phases = jStage === 4 ? stage4Phases : jStage === 3 ? stage3Phases : jStage === 2 ? stage2Phases : journeyPhases;
-            const newStep = phases[parsed.phase - 1];
-            setCurrentPhase(prev => {
-              const currStep = phases[prev - 1];
-              const resolved =
-                newStep?.uiType === "meditation" && currStep?.uiType === "meditation"
-                  ? prev // stay on current meditation screen
-                  : parsed.phase;
-              // Keep the version bookkeeping in sync with whatever phase we
-              // actually end up representing locally (meditation sub-steps
-              // collapse to `prev`, i.e. no phase change at all) — otherwise
-              // the next saveState effect run would think the phase changed
-              // when it didn't (or didn't when it did) and mis-bump the
-              // version. Plain assignment (not +=), so it's safe even if
-              // React invokes this updater more than once (StrictMode).
-              lastKnownPhaseVersionRef.current = remoteVersion;
-              lastVersionedPhaseRef.current = resolved;
-              return resolved;
-            });
-          }
+          const jStage = parsed.journeyStage || 1;
+          const phases = jStage === 4 ? stage4Phases : jStage === 3 ? stage3Phases : jStage === 2 ? stage2Phases : journeyPhases;
+          const newStep = phases[parsed.phase - 1];
+          setCurrentPhase(prev => {
+            if (parsed.phase <= prev) return prev;
+            const currStep = phases[prev - 1];
+            if (newStep?.uiType === "meditation" && currStep?.uiType === "meditation") {
+              return prev; // stay on current meditation screen
+            }
+            setCustomInput("");
+            return parsed.phase;
+          });
         }
       }
-    }, (e) => {
-      console.error("Error listening to session:", e);
-      setSyncError(true);
     });
     return () => unsubscribe();
   }, [sessionId]);
 
-  // Presence heartbeat — lets the coach's live view know the trainee is
-  // actively connected. Writes on mount and then every 20s.
-  useEffect(() => {
-    if (!sessionId) return;
-    const docRef = doc(db, "hc_live_sessions", sessionId);
-    const sendHeartbeat = async () => {
-      try {
-        await updateDoc(docRef, { traineeLastSeen: serverTimestamp() });
-      } catch {
-        try {
-          await setDoc(docRef, { traineeLastSeen: serverTimestamp() }, { merge: true });
-        } catch (e2) {
-          console.error("Error sending presence heartbeat:", e2);
-        }
-      }
-    };
-    sendHeartbeat();
-    const interval = setInterval(sendHeartbeat, 20000);
-    return () => clearInterval(interval);
-  }, [sessionId]);
-
-  // Live draft sync — mirrors the free-text inputs (text-input steps and the
-  // "אחר" custom option in structured-dialogue steps) to Firestore while the
-  // trainee is typing, debounced so the coach sees near-real-time progress
-  // without a write on every keystroke.
-  const draftTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearDraft = () => {
-    if (draftTimeoutRef.current) {
-      clearTimeout(draftTimeoutRef.current);
-      draftTimeoutRef.current = null;
-    }
-    if (sessionId) {
-      updateDoc(doc(db, "hc_live_sessions", sessionId), { draft: null }).catch((e) => {
-        console.error("Error clearing draft:", e);
-      });
-    }
-  };
-
-  useEffect(() => {
-    const step = activePhases[currentPhase - 1];
-    // Round 9 (QA fix): the trigger steps (step_2_trigger / s2_step_2_trigger
-    // / s3_step_1_trigger / s4_placeholder_trigger — all four end in
-    // "_trigger") are now archetype-selector placeholders, not
-    // structured-dialogue, but the card-back "אחר" custom-trigger textbox is
-    // still free text and should still live-sync to the coach's draft
-    // preview, so it's explicitly included here alongside the two uiTypes.
-    const isFreeTextStep = step && (step.uiType === "text-input" || step.uiType === "structured-dialogue" || step.id.endsWith("_trigger"));
-    if (draftTimeoutRef.current) {
-      clearTimeout(draftTimeoutRef.current);
-      draftTimeoutRef.current = null;
-    }
-    if (!sessionId || !isFreeTextStep || !customInput.trim()) return;
-    draftTimeoutRef.current = setTimeout(async () => {
-      try {
-        await updateDoc(doc(db, "hc_live_sessions", sessionId), {
-          draft: { stepId: step.id, text: customInput }
-        });
-      } catch (e) {
-        console.error("Error syncing draft:", e);
-      }
-    }, 600);
-    return () => {
-      if (draftTimeoutRef.current) {
-        clearTimeout(draftTimeoutRef.current);
-        draftTimeoutRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customInput, currentPhase, sessionId]);
-
-  // Clear the persisted draft whenever the phase changes (submission that
-  // advances the step, or the coach driving the phase forward).
-  const prevPhaseForDraftRef = useRef(currentPhase);
-  useEffect(() => {
-    if (prevPhaseForDraftRef.current !== currentPhase && sessionId && dataInitializedRef.current) {
-      updateDoc(doc(db, "hc_live_sessions", sessionId), { draft: null }).catch((e) => {
-        console.error("Error clearing draft on phase change:", e);
-      });
-    }
-    prevPhaseForDraftRef.current = currentPhase;
-  }, [currentPhase, sessionId]);
-
   const handleDialogueSelect = (stepId: string, option: string) => {
     setStructuredAnswers(prev => ({ ...prev, [stepId]: option }));
-    clearDraft();
-  };
-
-  // Reset the scale slider's local draft value whenever we land on a fresh
-  // "scale" step — either to the previously-saved answer (revisiting) or the
-  // midpoint of its configured range.
-  useEffect(() => {
-    const step = activePhases[currentPhase - 1];
-    if (step?.uiType === "scale") {
-      const saved = structuredAnswers[step.id];
-      const cfg = step.scaleConfig ?? { min: 1, max: 100, threshold: 95 };
-      setScaleValue(saved ? Number(saved) : Math.round((cfg.min + cfg.max) / 2));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPhase]);
-
-  const handleScaleSubmit = (stepId: string, value: number) => {
-    setStructuredAnswers(prev => ({ ...prev, [stepId]: String(value) }));
-    clearDraft();
-  };
-
-  // Reset the ramp follow-up free-text draft whenever we land on a fresh
-  // phase — otherwise leftover text from the "fear" question would bleed
-  // into the "trust" question's input.
-  useEffect(() => {
-    setRampFollowupInput("");
-  }, [currentPhase]);
-
-  // ── The consent-ramp choice (s3_ramp_choice, round 4) ──────────────────
-  // "מוכן" always stores "ready" and advances one step (into the consent
-  // sentence). "עוד לא" the first time parks on this same phase and walks
-  // the trainee through two follow-up questions before re-offering the same
-  // two buttons; "עוד לא" a second time (i.e. once both follow-ups are
-  // answered) stores "not_yet_final" and skips the consent screen entirely
-  // (advance by 2) straight into meditation prep — matching the spec's "no
-  // consent given" branch.
-  const handleRampReady = (stepId: string) => {
-    setStructuredAnswers(prev => ({ ...prev, [stepId]: "ready" }));
-    clearDraft();
-    setCustomInput("");
-    setCurrentPhase(prev => prev + 1);
-  };
-
-  const handleRampNotYet = (stepId: string, alreadyLoopedOnce: boolean) => {
-    if (!alreadyLoopedOnce) {
-      setStructuredAnswers(prev => ({ ...prev, [stepId]: "not_yet_1" }));
-      clearDraft();
-      return;
-    }
-    setStructuredAnswers(prev => ({ ...prev, [stepId]: "not_yet_final" }));
-    clearDraft();
-    setCustomInput("");
-    setCurrentPhase(prev => prev + 2);
-  };
-
-  // Round 8 (ב2): the two "עוד לא" follow-up questions were free-typing —
-  // replaced with chip selection (+ a custom "אחר" fallback that still
-  // writes to the same answer keys) so a flooded trainee doesn't have to type.
-  const rampNotyetFearOptions = [
-    "שאשאר חשוף בלי שום הגנה",
-    "שאנשים ינצלו את זה",
-    "שאני לא יודע מי אני בלעדיו",
-    "שהכאב הישן יחזור",
-  ];
-  const rampNotyetTrustOptions = [
-    "שאני כבר לא ילד — יש לי כוחות של היום",
-    "שיש לי אנשים להישען עליהם",
-    "שאני יודע לעצור לפני שנפגעים",
-    "שאני מסוגל לבקש עזרה",
-  ];
-
-  const handleRampFollowupSelect = (answerKey: string, value: string) => {
-    if (!value.trim()) return;
-    setStructuredAnswers(prev => ({ ...prev, [answerKey]: value }));
-    setRampFollowupInput("");
-    clearDraft();
-  };
-
-  const handleRampFollowupSave = (answerKey: string) => {
-    handleRampFollowupSelect(answerKey, rampFollowupInput);
-  };
-
-  // The excitement-scale "accuracy screen" (מסך דיוק) — shown once when the
-  // trainee's score lands below the round-3 threshold. Routes back to the
-  // goal-sentence step so they can re-word it, and marks the loop as used so
-  // a second low score just proceeds forward (per spec — "coach handles it").
-  const excitementRefineOptions = [
-    "גדולה מדי — נקטין",
-    "קטנה מדי — לא מרגש",
-    "זו מטרה של ההורים/בוס/בן זוג, לא שלי",
-    "המילים לא מדויקות",
-  ];
-
-  const handleExcitementRefine = (stepId: string, option: string) => {
-    // Round 8 (ב1): the goal sentence is now built from two selection steps
-    // (s4_goal_time + s4_goal_proof) instead of one free-typed
-    // s4_goal_sentence — route the refine loop back to the first of the
-    // two, and clear both so the trainee re-answers the whole composed
-    // sentence, not just half of it.
-    const goalTimeIdx = activePhases.findIndex(p => p.id === "s4_goal_time");
-    setStructuredAnswers(prev => {
-      const next: Record<string, string> = {
-        ...prev,
-        [`${stepId}_refine`]: option,
-        [`${stepId}_refined`]: "1",
-      };
-      delete next[stepId];
-      delete next["s4_goal_time"];
-      delete next["s4_goal_proof"];
-      // Legacy key from before the split — harmless to also clear.
-      delete next["s4_goal_sentence"];
-      return next;
-    });
-    setCustomInput("");
-    clearDraft();
-    if (goalTimeIdx !== -1) {
-      setCurrentPhase(goalTimeIdx + 1);
-    }
   };
 
   const getReplacedTitle = (title: string) => {
     let replaced = title.replace(/\[ארכיטיפ\]/g, chosenArchetype?.name || "הדמות");
     replaced = replaced.replace(/\[משאב\]/g, resourceArchetype?.name || "הכוח החדש");
-    // Round 7: the stage-3 consent sentence (s3_ramp_consent) quotes the
-    // trainee's own secondary-gain answer back at them instead of asking
-    // them to retype it.
-    const gainAnswer = structuredAnswers.s3_step_2_secondary_gain?.trim();
-    replaced = replaced.replace(/\[רווח\]/g, gainAnswer || "ההגנה הישנה");
-    // Round 8 (ב1): the stage-4 composed goal sentence — built from three
-    // selection answers (time + domain + proof) instead of one free-typed
-    // sentence — quoted on the excitement screen and inside the contract.
-    replaced = replaced.replace(/\[משפט_מטרה\]/g, composeGoalSentence(structuredAnswers) || "המטרה שלי");
-    replaced = replaced.replace(/\[חוזה\]/g, composeContractText(structuredAnswers, chosenArchetype?.name, resourceArchetype?.name));
     return replaced;
   };
 
@@ -704,7 +353,8 @@ export default function TraineeJourney() {
 
   const handleUseResource = () => {
     setResourcePowerUsed(true);
-    setTimeout(() => setResourcePowerUsed(false), 2500);
+    if (resourceTimeoutRef.current) clearTimeout(resourceTimeoutRef.current);
+    resourceTimeoutRef.current = setTimeout(() => setResourcePowerUsed(false), 2500);
   };
 
 
@@ -754,7 +404,7 @@ export default function TraineeJourney() {
 
               <h2 className="text-3xl font-black mb-4 text-white">{injectedArchetype.name}</h2>
               <p className="text-neutral-300 text-lg leading-relaxed mb-8">
-                {injectedArchetype.description}
+                {isYouthMode && injectedArchetype.youthDescription ? injectedArchetype.youthDescription : injectedArchetype.description}
               </p>
 
               <button
@@ -865,35 +515,10 @@ export default function TraineeJourney() {
               setSelectedEnv(null);
               setActiveCard(null);
               setSelectedTrigger(null);
-              // Round 9 (QA fix): a full reset back to world selection should
-              // also drop the answers/resource/intensity ratings collected
-              // for the encounter being abandoned — otherwise picking a new
-              // world reuses stale answers keyed by step id (e.g. a
-              // leftover step_2b_touched from the discarded run) and stale
-              // "before" intensity numbers from a card that's no longer the
-              // active one.
-              setStructuredAnswers({});
-              setActiveResourceCard(null);
-              setBlockerStrengthBefore(null);
-              setBlockerStrengthAfter(null);
               if (sessionId) {
                 try {
                   const docRef = doc(db, "hc_live_sessions", sessionId);
-                  // This writes `phase` directly (the saveState effect only
-                  // fires for currentPhase > 0), so bump the phaseVersion
-                  // invariant here too — see its comment near the top of
-                  // this component.
-                  lastKnownPhaseVersionRef.current += 1;
-                  lastVersionedPhaseRef.current = 0;
-                  await setDoc(docRef, {
-                    phase: 0,
-                    phaseVersion: lastKnownPhaseVersionRef.current,
-                    environment: null,
-                    archetype: null,
-                    trigger: null,
-                    answers: {},
-                    resourceArchetype: null
-                  }, { merge: true });
+                  await setDoc(docRef, { phase: 0, environment: null, archetype: null, trigger: null }, { merge: true });
                 } catch (e) {
                   console.error("Error resetting phase to world select", e);
                 }
@@ -919,13 +544,6 @@ export default function TraineeJourney() {
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 perspective-1000 pb-20">
           {activeWorld?.archetypes.map(arc => {
             const isFlipped = activeCard === arc.id;
-            // Round 11: adult trainees get the age-matched trigger phrasing
-            // on the card back; stage-4 keeps using goalTriggers regardless
-            // of age group, and archetypes without triggersAdult fall back
-            // to the existing (teen-friendly) triggers.
-            const triggerOptions = journeyStage === 4 && arc.goalTriggers
-              ? arc.goalTriggers
-              : (ageGroup === "adult" && arc.triggersAdult ? arc.triggersAdult : arc.triggers);
 
             return (
               <div key={arc.id} className="relative h-[500px] [perspective:1000px]">
@@ -954,43 +572,25 @@ export default function TraineeJourney() {
                     <div className="p-6 flex-1 flex flex-col justify-start w-full relative -mt-6">
                       <div className="text-amber-500 text-xs font-bold tracking-widest mb-1">הקלף הנוכחי</div>
                       <h3 className="text-2xl font-black mb-2 text-white">{arc.name}</h3>
-                      <p className="text-neutral-400 text-sm leading-relaxed">{arc.description}</p>
+                      <p className="text-neutral-400 text-sm leading-relaxed">{isYouthMode && arc.youthDescription ? arc.youthDescription : arc.description}</p>
                     </div>
                   </div>
 
                   {/* Back */}
                   <div className="absolute inset-0 bg-[#171a23] border border-amber-500/50 shadow-[0_0_40px_rgba(245,158,11,0.1)] rounded-[2rem] p-6 flex flex-col" style={{ transform: "rotateY(180deg)", backfaceVisibility: "hidden" }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveCard(null);
-                        setSelectedTrigger(null);
-                        // Round 9 (QA fix): also clear the answers/resource
-                        // collected for the archetype being abandoned —
-                        // otherwise flipping a different card next reuses
-                        // stale answers/resource left over from this one.
-                        // All four setters below are saveState-effect
-                        // dependencies, so the reset propagates to Firestore
-                        // (answers: {}, resourceArchetype: null included)
-                        // via that effect — no separate write needed here.
-                        setStructuredAnswers({});
-                        setActiveResourceCard(null);
-                        setBlockerStrengthBefore(null);
-                        setBlockerStrengthAfter(null);
-                      }}
-                      className="text-neutral-500 text-sm hover:text-white mb-6 text-right"
-                    >
-                      ✕ חזור לקלפים
-                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); setActiveCard(null); setSelectedTrigger(null); }} className="text-neutral-500 text-sm hover:text-white mb-6 text-right">✕ חזור לקלפים</button>
                     <h4 className="font-bold text-xl mb-6 text-white text-center">
                       {journeyStage === 4 ? `איך ${arc.name} חוסמת את דרכך למטרה?` : `מה העיר את ${arc.name}?`}
                     </h4>
 
                     <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
-                      {triggerOptions.map((trigger, idx) => (
+                      {(isYouthMode
+                        ? (journeyStage === 4 && arc.youthGoalTriggers ? arc.youthGoalTriggers : arc.youthTriggers || arc.triggers)
+                        : (journeyStage === 4 && arc.goalTriggers ? arc.goalTriggers : arc.triggers)
+                      ).map((trigger, idx) => (
                         <button
                           key={idx}
-                          onClick={(e) => { e.stopPropagation(); setSelectedTrigger(trigger); clearDraft(); }}
+                          onClick={(e) => { e.stopPropagation(); setSelectedTrigger(trigger); }}
                           className={`text-right p-4 rounded-xl border text-sm transition-all ${selectedTrigger === trigger ? 'bg-amber-500/10 text-amber-400 border-amber-500 font-bold' : 'bg-black/20 border-white/5 hover:border-white/20 text-neutral-300'}`}
                         >
                           {trigger}
@@ -1012,10 +612,7 @@ export default function TraineeJourney() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (customInput.trim()) {
-                                setSelectedTrigger(customInput);
-                                clearDraft();
-                              }
+                              if (customInput.trim()) setSelectedTrigger(customInput);
                             }}
                             className="text-xs bg-amber-500/20 text-amber-500 font-bold px-3 py-1 rounded hover:bg-amber-500 hover:text-black transition"
                           >
@@ -1085,23 +682,7 @@ export default function TraineeJourney() {
   if (currentPhase >= 3 && currentPhase <= activePhases.length) {
     const currentStep = activePhases[currentPhase - 1];
     const answer = structuredAnswers[currentStep.id];
-
-    // Scale ("excitement slider") steps route to a one-time refinement
-    // screen when the score is below threshold — suppress the generic
-    // "next step" footer button while that screen is showing.
-    const isScaleStep = currentStep.uiType === "scale";
-    const scaleCfg = currentStep.scaleConfig ?? { min: 1, max: 100, threshold: 95 };
-    const scaleNumeric = isScaleStep && answer != null ? Number(answer) : null;
-    const scaleThreshold = ageGroup === "teen" && scaleCfg.teenThreshold != null ? scaleCfg.teenThreshold : scaleCfg.threshold;
-    const scaleAlreadyRefined = structuredAnswers[`${currentStep.id}_refined`] === "1";
-    const needsExcitementRefine =
-      isScaleStep && scaleNumeric != null && scaleNumeric < scaleThreshold && !scaleAlreadyRefined;
-
-    // Choice ("consent ramp") steps drive their own advancement inline —
-    // the generic "next step" footer button never applies to them.
-    const isChoiceStep = currentStep.uiType === "choice";
-
-    const isAnswered = !!answer && !needsExcitementRefine && !isChoiceStep;
+    const isAnswered = !!answer;
 
     return (
       <div className={`min-h-screen ${theme.bg} text-white flex flex-col items-center p-6 relative overflow-hidden`} dir="rtl">
@@ -1125,7 +706,7 @@ export default function TraineeJourney() {
             </button>
           </div>
         </header>
-        {showMap && <JourneyMap currentPhase={currentPhase} phases={activePhases} onClose={() => setShowMap(false)} resolveTitle={getReplacedTitle} />}
+        {showMap && <JourneyMap currentPhase={currentPhase} phases={activePhases} onClose={() => setShowMap(false)} />}
 
         <main className="flex-1 w-full max-w-3xl flex flex-col items-center relative z-10">
           <AnimatePresence mode="wait">
@@ -1175,18 +756,12 @@ export default function TraineeJourney() {
               </div>
 
               <h2 className="text-2xl md:text-3xl font-black mb-10 text-center text-white/90 leading-relaxed">
-                {getReplacedTitle(currentStep.traineeTitle)}
+                {getReplacedTitle(isYouthMode && currentStep.youthTraineeTitle ? currentStep.youthTraineeTitle : currentStep.traineeTitle)}
               </h2>
 
-              {currentStep.uiType === "structured-dialogue" && currentStep.options && selectedEnv && (() => {
-                // Round 5 age layer: adult-tagged trainees read from
-                // optionsAdult when the step has one; everyone else (and
-                // steps without a split) keep using options (teen wording
-                // where a split exists, the only wording otherwise).
-                const activeOptions = (ageGroup === "adult" && currentStep.optionsAdult) ? currentStep.optionsAdult : currentStep.options;
-                return (
+              {currentStep.uiType === "structured-dialogue" && currentStep.options && selectedEnv && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                  {activeOptions[selectedEnv as keyof typeof activeOptions]?.map((option, idx) => {
+                  {((isYouthMode && currentStep.youthOptions ? currentStep.youthOptions : currentStep.options) as any)[selectedEnv as string]?.map((option: string, idx: number) => {
                     const isSelected = answer === option;
                     const letter = String.fromCharCode(65 + idx); // A, B, C, D
 
@@ -1241,8 +816,7 @@ export default function TraineeJourney() {
                     </div>
                   </div>
                 </div>
-                );
-              })()}
+              )}
 
               {/* Text Input Block */}
               {currentStep.uiType === "text-input" && (
@@ -1279,197 +853,6 @@ export default function TraineeJourney() {
                 </div>
               )}
 
-              {/* Scale Block — the excitement slider (1-100) */}
-              {isScaleStep && (
-                <div className="mb-8 w-full">
-                  {needsExcitementRefine ? (
-                    <div className="flex flex-col gap-4">
-                      <div className="p-5 rounded-2xl border border-amber-500/40 bg-amber-500/5 text-center">
-                        <p className="text-amber-400 font-black text-3xl mb-1">{scaleNumeric}<span className="text-base font-bold text-neutral-500">/{scaleCfg.max}</span></p>
-                        <p className="text-neutral-400 text-sm">בוא נדייק את המשפט לפני שממשיכים</p>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {excitementRefineOptions.map((option, idx) => (
-                          <motion.button
-                            key={idx}
-                            onClick={() => handleExcitementRefine(currentStep.id, option)}
-                            className="p-5 rounded-2xl border text-right transition-all duration-300 bg-black/30 border-white/5 hover:border-amber-500/50 text-neutral-300 hover:text-amber-400"
-                          >
-                            {option}
-                          </motion.button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-3 p-6 rounded-2xl border border-white/5 bg-black/30">
-                      <div className={`text-7xl font-black tabular-nums ${answer ? 'text-amber-400' : 'text-amber-500'}`}>
-                        {answer ? scaleNumeric : scaleValue}
-                      </div>
-                      <input
-                        type="range"
-                        min={scaleCfg.min}
-                        max={scaleCfg.max}
-                        value={answer ? (scaleNumeric ?? scaleValue) : scaleValue}
-                        disabled={!!answer}
-                        onChange={(e) => setScaleValue(Number(e.target.value))}
-                        dir="rtl"
-                        className="w-full accent-amber-500 h-3 cursor-pointer disabled:cursor-default disabled:opacity-70"
-                      />
-                      <div className="flex justify-between w-full text-xs font-bold text-neutral-500 px-1">
-                        <span>בקושי</span>
-                        <span>בוער בי 🔥</span>
-                      </div>
-                      {!answer && (
-                        <button
-                          onClick={() => handleScaleSubmit(currentStep.id, scaleValue)}
-                          className="mt-2 px-8 py-3 bg-amber-500/20 text-amber-500 font-bold rounded-xl hover:bg-amber-500 hover:text-black transition"
-                        >
-                          שמור
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Choice Block — the consent-ramp "מוכן / עוד לא" moment (s3_ramp_choice) */}
-              {isChoiceStep && currentStep.choiceConfig && (() => {
-                const choiceState = structuredAnswers[currentStep.id];
-                const fearAnswer = structuredAnswers["s3_ramp_notyet_fear"];
-                const trustAnswer = structuredAnswers["s3_ramp_notyet_trust"];
-                const isResolved = choiceState === "ready" || choiceState === "not_yet_final";
-                const inNotYetLoop = choiceState === "not_yet_1" && !isResolved;
-
-                // Sub-step: "מה הכי מפחיד בלחיות בלעדיו?"
-                if (inNotYetLoop && !fearAnswer) {
-                  return (
-                    <div className="mb-8 w-full flex flex-col gap-4">
-                      <div className="p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 text-amber-300/90 text-sm text-center">
-                        לגמרי בסדר — הוא שמר עליך שנים.
-                      </div>
-                      <h3 className="text-white font-bold text-xl text-center leading-relaxed">
-                        מה הכי מפחיד בלחיות בלעדיו?
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {rampNotyetFearOptions.map((option, idx) => (
-                          <motion.button
-                            key={idx}
-                            onClick={() => handleRampFollowupSelect("s3_ramp_notyet_fear", option)}
-                            className="p-5 rounded-2xl border text-right transition-all duration-300 bg-black/30 border-white/5 hover:border-amber-500/50 text-neutral-300 hover:text-amber-400"
-                          >
-                            {option}
-                          </motion.button>
-                        ))}
-                      </div>
-                      <div className="p-5 rounded-2xl border bg-black/30 border-white/5 flex flex-col gap-2">
-                        <div className="text-xs text-neutral-500 flex items-center gap-2">✎ אחר - נסח במילים שלך</div>
-                        <div className="flex gap-3 items-center">
-                          <input
-                            type="text"
-                            placeholder="הקלד את התשובה שלך כאן..."
-                            value={rampFollowupInput}
-                            onChange={(e) => setRampFollowupInput(e.target.value)}
-                            className="bg-transparent flex-1 outline-none text-sm text-white placeholder-neutral-600"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && rampFollowupInput.trim()) {
-                                handleRampFollowupSave("s3_ramp_notyet_fear");
-                              }
-                            }}
-                          />
-                          <button
-                            onClick={() => handleRampFollowupSave("s3_ramp_notyet_fear")}
-                            disabled={!rampFollowupInput.trim()}
-                            className="self-end bg-amber-500/20 text-amber-500 px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-500 hover:text-black transition disabled:opacity-30"
-                          >
-                            שמור והמשך
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Sub-step: "מה הוא צריך לדעת עליך היום כדי להרשות לעצמו לנוח?"
-                if (inNotYetLoop && fearAnswer && !trustAnswer) {
-                  return (
-                    <div className="mb-8 w-full flex flex-col gap-4">
-                      <h3 className="text-white font-bold text-xl text-center leading-relaxed">
-                        מה הוא צריך לדעת עליך היום כדי להרשות לעצמו לנוח?
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {rampNotyetTrustOptions.map((option, idx) => (
-                          <motion.button
-                            key={idx}
-                            onClick={() => handleRampFollowupSelect("s3_ramp_notyet_trust", option)}
-                            className="p-5 rounded-2xl border text-right transition-all duration-300 bg-black/30 border-white/5 hover:border-amber-500/50 text-neutral-300 hover:text-amber-400"
-                          >
-                            {option}
-                          </motion.button>
-                        ))}
-                      </div>
-                      <div className="p-5 rounded-2xl border bg-black/30 border-white/5 flex flex-col gap-2">
-                        <div className="text-xs text-neutral-500 flex items-center gap-2">✎ אחר - נסח במילים שלך</div>
-                        <div className="flex gap-3 items-center">
-                          <input
-                            type="text"
-                            placeholder="הקלד את התשובה שלך כאן..."
-                            value={rampFollowupInput}
-                            onChange={(e) => setRampFollowupInput(e.target.value)}
-                            className="bg-transparent flex-1 outline-none text-sm text-white placeholder-neutral-600"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && rampFollowupInput.trim()) {
-                                handleRampFollowupSave("s3_ramp_notyet_trust");
-                              }
-                            }}
-                          />
-                          <button
-                            onClick={() => handleRampFollowupSave("s3_ramp_notyet_trust")}
-                            disabled={!rampFollowupInput.trim()}
-                            className="self-end bg-amber-500/20 text-amber-500 px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-500 hover:text-black transition disabled:opacity-30"
-                          >
-                            שמור והמשך
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Resolved — brief confirmation while the phase advances.
-                if (isResolved) {
-                  return (
-                    <div className="mb-8 w-full p-6 rounded-2xl border border-amber-500/30 bg-amber-500/5 text-center">
-                      <p className="text-amber-400 font-bold text-lg">
-                        {choiceState === "ready" ? "✓ הבחירה נרשמה — ממשיכים" : "✓ הבחירה נרשמה — ממשיכים למדיטציית היכרות והרגעה"}
-                      </p>
-                    </div>
-                  );
-                }
-
-                // Initial offering, or the re-offer after both follow-ups were answered.
-                const alreadyLoopedOnce = !!fearAnswer && !!trustAnswer;
-                return (
-                  <div className="mb-8 w-full grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <motion.button
-                      whileHover={{ y: -3 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleRampReady(currentStep.id)}
-                      className="p-8 rounded-2xl border-2 border-amber-500/50 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 text-center transition-all shadow-[0_0_20px_rgba(245,158,11,0.08)]"
-                    >
-                      <span className="block text-white font-bold text-lg leading-relaxed">{currentStep.choiceConfig!.yes}</span>
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ y: -3 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleRampNotYet(currentStep.id, alreadyLoopedOnce)}
-                      className="p-8 rounded-2xl border-2 border-amber-500/50 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 text-center transition-all shadow-[0_0_20px_rgba(245,158,11,0.08)]"
-                    >
-                      <span className="block text-white font-bold text-lg leading-relaxed">{currentStep.choiceConfig!.notYet}</span>
-                    </motion.button>
-                  </div>
-                );
-              })()}
-
               {/* Good Powers Block */}
               {currentStep.uiType === "good-powers" && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -1501,11 +884,11 @@ export default function TraineeJourney() {
                           )}
                         </div>
                         <span className={`font-bold ${isSelected ? 'text-amber-400' : 'text-neutral-300'}`}>{power.name}</span>
-                        <span className="text-xs text-neutral-500">{power.description}</span>
+                        <span className="text-xs text-neutral-500">{isYouthMode && power.youthDescription ? power.youthDescription : power.description}</span>
                         {isSelected && power.triggers.length > 0 && (
                           <div className="w-full mt-1 pt-2 border-t border-amber-500/20 text-right">
                             <span className="text-[10px] text-amber-500/80 font-bold block mb-1">מתי הכוח הזה עוזר:</span>
-                            {power.triggers.map((t, i) => (
+                            {(isYouthMode && power.youthTriggers ? power.youthTriggers : power.triggers).map((t: string, i: number) => (
                               <span key={i} className="text-[11px] text-neutral-400 block leading-relaxed">• {t}</span>
                             ))}
                           </div>
@@ -1628,7 +1011,7 @@ export default function TraineeJourney() {
               onClick={() => {
                 if (oldCardBurning) return;
                 setOldCardBurning(true);
-                setTimeout(() => {
+                choiceTimeoutRef.current = setTimeout(() => {
                   handleDialogueSelect('choice_moment', 'new');
                 }, 1600);
               }}
@@ -1758,37 +1141,68 @@ export default function TraineeJourney() {
             )}
           </div>
 
-          <BottomLine journeyStage={journeyStage} answers={structuredAnswers} />
-
           <div className="w-full bg-[#11131a] border border-white/10 rounded-2xl p-6 mb-8">
             <h3 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-6 text-center">
               {journeyStage === 4 ? 'מפת המטרה שלנו' : 'מעגל החסם שזיהינו'}
             </h3>
-            <BlockerCircle
-              journeyStage={journeyStage}
-              answers={structuredAnswers}
-              trigger={selectedTrigger ?? undefined}
-              resourceName={resourceArchetype?.name ?? null}
-              agreementText={
-                structuredAnswers[
-                  journeyStage === 4
-                    ? 's4_step_6_action'
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-center">
+              <div className="flex flex-col items-center bg-black/40 p-4 rounded-xl border border-white/5 flex-1 w-full">
+                <span className="text-xs text-neutral-500 mb-2">
+                  {isYouthMode 
+                    ? (journeyStage === 4 ? 'המטרה שלך' : journeyStage === 3 ? 'מה הקפיץ אותי' : 'הסרט שהרצתי לך בראש')
+                    : (journeyStage === 4 ? 'המטרה שלי' : journeyStage === 3 ? 'הטריגר שהעיר את התגובה' : 'מחשבה (פרשנות)')}
+                </span>
+                <span className="text-white font-bold">
+                  {journeyStage === 4
+                    ? (structuredAnswers['s4_step_1_what_i_want'] || 'לא צוין')
                     : journeyStage === 3
-                    ? 's3_step_9_new_contract'
-                    : journeyStage === 2
-                    ? 's2_step_9_agreement'
-                    : 'step_10_integration'
-                ] ?? null
-              }
-              variant="summary"
-              interactive
-            />
+                    ? (structuredAnswers['s3_step_1_trigger'] || selectedTrigger || 'לא צוין')
+                    : (structuredAnswers['step_6_thought'] || structuredAnswers['s2_step_3_interpretation'] || selectedTrigger || 'לא צוין')}
+                </span>
+              </div>
+              <div className="text-amber-500">→</div>
+              <div className="flex flex-col items-center bg-black/40 p-4 rounded-xl border border-white/5 flex-1 w-full">
+                <span className="text-xs text-neutral-500 mb-2">
+                  {isYouthMode
+                    ? (journeyStage === 4 ? 'הכוחות שכבר יש לך' : journeyStage === 3 ? 'על מה ניסיתי לשמור לך' : 'הנקודה הרגישה שבה נגעתי')
+                    : (journeyStage === 4 ? 'הכוחות שלי' : journeyStage === 3 ? 'מה ניסתה התגובה להשיג' : 'רגש / נקודה רגישה')}
+                </span>
+                <span className="text-white font-bold">
+                  {journeyStage === 4
+                    ? (structuredAnswers['s4_step_2_capability'] || 'לא צוין')
+                    : journeyStage === 3
+                    ? (structuredAnswers['s3_step_2_secondary_gain'] || 'לא צוין')
+                    : (structuredAnswers['step_3_feeling'] || structuredAnswers['s2_step_4_sensitive_spot'] || 'לא צוין')}
+                </span>
+              </div>
+              <div className="text-amber-500">→</div>
+              <div className="flex flex-col items-center bg-black/40 p-4 rounded-xl border border-white/5 flex-1 w-full">
+                <span className="text-xs text-neutral-500 mb-2">
+                  {isYouthMode
+                    ? (journeyStage === 4 ? 'איך אני חוסם אותך' : journeyStage === 3 ? 'מה באמת היית צריך' : 'מה גרמתי לך לעשות')
+                    : (journeyStage === 4 ? 'מה עוצר אותי' : journeyStage === 3 ? 'הצורך האמיתי שהוחמץ' : 'תגובה אוטומטית')}
+                </span>
+                <span className="text-white font-bold">
+                  {journeyStage === 4
+                    ? (structuredAnswers['s4_step_4_secondary_gain'] || 'לא צוין')
+                    : journeyStage === 3
+                    ? (structuredAnswers['s3_step_3_need'] || 'לא צוין')
+                    : (structuredAnswers['step_5_urge'] || structuredAnswers['s2_step_5_reaction'] || 'לא צוין')}
+                </span>
+              </div>
+            </div>
             <p className="text-xs text-neutral-500 text-center mt-4">
-              {journeyStage === 4
-                ? 'זוהי מפת המטרה שלנו — הרצון, הכוחות הקיימים, ומה שעוצר. הצעד הבא נמצא בהסכם מעלה.'
-                : journeyStage === 3
-                ? 'זוהי מפת הביינד שהילד הפנימי בנה. עכשיו כשרואים אותה, אפשר להניח אותה בעדינות ולתת לצורך האמיתי לקבל מענה.'
-                : 'זהו מעגל הפר"ת האוטומטי — הפרשנות שיצרה את הרגש, והרגש שהניע את התגובה. כעת כשאנחנו רואים אותו, אנחנו יכולים לעצור אותו.'}
+              {isYouthMode
+                ? (journeyStage === 4
+                  ? 'זו מפת המטרה שלך. הרצון שלך, הכוחות שכבר יש לך, ואיך אני מנסה לעצור אותך. עכשיו כשיש לך כוח חדש, המשחק השתנה.'
+                  : journeyStage === 3
+                  ? 'זה הלופ שלי. ניסיתי להגן עליך בדרך שלי, אבל בעצם רק היית צריך שמישהו יראה את הצורך האמיתי שלך בלי לברוח.'
+                  : 'זה הלופ שלי. אני מכניס לך סרט לראש, לוחץ לך על הנקודה הרגישה, וגורם לך להגיב על אוטומט. אבל עכשיו שראית אותי — השליטה חוזרת אליך.')
+                : (journeyStage === 4
+                  ? 'זוהי מפת המטרה שלנו — הרצון, הכוחות הקיימים, ומה שעוצר. הצעד הבא נמצא בהסכם מעלה.'
+                  : journeyStage === 3
+                  ? 'זוהי מפת הביינד שהילד הפנימי בנה. עכשיו כשרואים אותה, אפשר להניח אותה בעדינות ולתת לצורך האמיתי לקבל מענה.'
+                  : 'זהו מעגל הפר"ת האוטומטי — הפרשנות שיצרה את הרגש, והרגש שהניע את התגובה. כעת כשאנחנו רואים אותו, אנחנו יכולים לעצור אותו.')}
             </p>
           </div>
 

@@ -2,10 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Copy, Plus, LayoutDashboard, FileText, Target, Ear, HeartPulse, CalendarDays, AlertTriangle, XCircle, Zap, RotateCcw, Music } from "lucide-react";
 import HeartCompassLogo from "../components/HeartCompassLogo";
-import BlockerCircle from "../components/BlockerCircle";
-import BottomLine from "../components/BottomLine";
 import { worldsData, goodPowersData } from "../data/worlds";
-import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans, composeGoalSentence, composeContractText } from "../data/journey";
+import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans } from "../data/journey";
 import { db } from "../lib/firebase";
 import { doc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
@@ -14,8 +12,6 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [whisperText, setWhisperText] = useState("");
-  const [syncError, setSyncError] = useState(false);
-  const [isTraineeOnline, setIsTraineeOnline] = useState(false);
   const magicLink = `${window.location.origin}/journey/${sessionId}`;
 
   const sendWhisper = async (text: string) => {
@@ -28,19 +24,15 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
     }
   };
 
+  const showResourceAlert =
+    (sessionState?.phase ?? 0) >= 7 && !sessionState?.resourceArchetype;
+
   const handleEndJourney = async () => {
     try {
       await updateDoc(doc(db, "hc_live_sessions", sessionId), {
         status: "completed",
         completedAt: serverTimestamp(),
-        phase: activePhases.length + 1,
-        // Round 9 (QA fix — phase write race): every write that changes
-        // `phase` also bumps `phaseVersion` so the trainee's snapshot guard
-        // (TraineeJourney) can tell a fresh write from a stale one even when
-        // the raw phase numbers disagree — see that file's comment for the
-        // full invariant. Based on the live sessionState we're already
-        // subscribed to, so it's never far behind the doc's true value.
-        phaseVersion: (sessionState?.phaseVersion || 0) + 1
+        phase: activePhases.length + 1
       });
     } catch (e) {
       console.error("Error ending journey", e);
@@ -56,153 +48,17 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
     const unsubscribe = onSnapshot(docRef, (docSnap: any) => {
       if (docSnap.exists()) {
         setSessionState(docSnap.data());
-        setSyncError(false);
       } else {
       }
-    }, (e) => {
-      console.error("Error listening to session:", e);
-      setSyncError(true);
     });
     return () => unsubscribe();
   }, [sessionId]);
-
-  // Recompute the presence indicator every 10s (not only on snapshot updates)
-  // so "מנותק" kicks in even if the trainee's tab silently died mid-session.
-  useEffect(() => {
-    const recompute = () => {
-      const lastSeenMs = sessionState?.traineeLastSeen?.toMillis
-        ? sessionState.traineeLastSeen.toMillis()
-        : null;
-      setIsTraineeOnline(lastSeenMs != null && Date.now() - lastSeenMs < 45000);
-    };
-    recompute();
-    const interval = setInterval(recompute, 10000);
-    return () => clearInterval(interval);
-  }, [sessionState?.traineeLastSeen]);
 
   const activeWorld = worldsData.find(w => w.id === sessionState?.environment);
   const chosenArchetype = activeWorld?.archetypes.find(a => a.id === sessionState?.archetype);
   const journeyStage = sessionState?.journeyStage || 1;
   const activePhases = journeyStage === 4 ? stage4Phases : journeyStage === 3 ? stage3Phases : journeyStage === 2 ? stage2Phases : journeyPhases;
   const currentStep = sessionState?.phase > 0 ? activePhases[Math.min(sessionState.phase - 1, activePhases.length - 1)] : null;
-  // Round 5 age layer: mirror the same options the adult-tagged trainee is
-  // actually seeing (optionsAdult), instead of always showing the teen list.
-  // Round 9 (QA fix): legacy sessions written before the ageGroup field
-  // existed have no `ageGroup` at all — TraineeJourney defaults its local
-  // `ageGroup` state to "adult" in that case (see its useState initializer),
-  // so the coach side must default the same way, or the two screens show
-  // different wording/thresholds for the exact same session.
-  const isAdult = (sessionState?.ageGroup ?? "adult") === "adult";
-  const activeOptions = (isAdult && currentStep?.optionsAdult) ? currentStep.optionsAdult : currentStep?.options;
-
-  const resourceIdx = activePhases.findIndex(p => p.uiType === "good-powers");
-  const showResourceAlert =
-    resourceIdx !== -1 &&
-    (sessionState?.phase ?? 0) >= resourceIdx + 1 &&
-    !sessionState?.resourceArchetype;
-
-  // Resolved resource card + the answer key holding the weekly agreement —
-  // shared by the BlockerCircle in the live sidebar and the summary panel.
-  const resourceCard = sessionState?.resourceArchetype
-    ? (goodPowersData.find(p => p.id === sessionState.resourceArchetype) || worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype))
-    : null;
-  const agreementAnswerKey = journeyStage === 4
-    ? 's4_step_6_action'
-    : journeyStage === 3
-    ? 's3_step_9_new_contract'
-    : journeyStage === 2
-    ? 's2_step_9_agreement'
-    : 'step_10_integration';
-
-  // Round 7: s3_ramp_consent is now a selection (the trainee picks the
-  // final "אני בוחר ___" word from a short list) instead of free-typing the
-  // whole template sentence. Compose the full sentence here from the parts
-  // the trainee actually gave us — the archetype name, their own
-  // secondary-gain answer, and their choice — so the coach still gets one
-  // full sentence to read back as the meditation opener. Backward compat: a
-  // session completed before this change stored the whole free-typed
-  // sentence directly in s3_ramp_consent (and, since that's how the old
-  // template quote started, it will already contain this phrase) — show it
-  // as-is instead of re-composing it.
-  const s3ConsentRaw = sessionState?.answers?.s3_ramp_consent as string | undefined;
-  const s3ConsentIsLegacyFreeSentence = !!s3ConsentRaw && s3ConsentRaw.includes("אני מוכן לשחרר");
-  const s3ConsentGainText = (sessionState?.answers?.s3_step_2_secondary_gain || "").trim() || "ההגנה הישנה";
-  const s3ConsentSentence = s3ConsentRaw
-    ? (s3ConsentIsLegacyFreeSentence
-        ? s3ConsentRaw
-        : `אני מוכן לשחרר את ${chosenArchetype?.name || "הדמות"} כי אני כבר לא צריך ש${s3ConsentGainText}. במקום זה אני בוחר ${s3ConsentRaw}`)
-    : null;
-
-  // Shared placeholder-resolution chain for a step's traineeTitle — same
-  // substitutions as TraineeJourney's getReplacedTitle, kept in sync so the
-  // coach sees exactly the wording the trainee sees. Used by the sidebar
-  // recap below and by the guidance banner's "question" label.
-  const resolveAnswerTitle = (title: string) =>
-    title
-      .replace(/\[ארכיטיפ\]/g, chosenArchetype?.name || 'הדמות')
-      .replace(/\[משאב\]/g, resourceCard?.name || 'המשאב')
-      .replace(/\[רווח\]/g, s3ConsentGainText)
-      .replace(/\[משפט_מטרה\]/g, composeGoalSentence(sessionState?.answers || {}) || 'המשפט שלך')
-      .replace(/\[חוזה\]/g, composeContractText(sessionState?.answers || {}, chosenArchetype?.name, resourceCard?.name));
-
-  // ── Coach guidance banner ────────────────────────────────────────────
-  // Always-visible "what is the trainee looking at right now, and what do I
-  // do about it" strip. Primarily driven by TraineeJourney's published
-  // `traineeScreen` field (see that file), which covers every render branch
-  // including ones that aren't steps in `activePhases` (world-select, the
-  // before/after intensity pickers, the choice-moment interstitial, the
-  // summary). Legacy/missing field: best-effort fallback derived from
-  // `phase` alone — never crashes, never blank.
-  const SCREEN_GUIDANCE: Record<string, { label: string; hint: string }> = {
-    "world-select": { label: "בחירת עולם", hint: "בקש ממנו לבחור את העולם שהכי מדבר אליו — אין תשובה נכונה." },
-    "card-select": { label: "מול קלפי הדמויות", hint: "הזמן אותו להפוך את הקלף שהכי מושך את העין." },
-    "trigger-select": { label: "גב הקלף — בחירת טריגר", hint: "שיבחר את המשפט שהכי מדויק לו, או יכתוב בעצמו ב'אחר', ואז ללחוץ 'התחל חקירה'." },
-    "strength-before": { label: "דירוג עוצמת החסם (לפני)", hint: "בקש ממנו לדרג 1–10 כמה החסם חזק עכשיו, וללחוץ המשך. הערך יופיע אצלך מיד." },
-    "meditation-hold": { label: "מסך מדיטציה (סטטי)", hint: "המסך שלו קבוע — אתה מנחה בקול. התקדם בצעדי המדיטציה בכפתור שלך." },
-    "choice-moment": { label: "רגע הבחירה", hint: "הנחה אותו: 'כשאתה מוכן — לחץ על התגובה הישנה כדי לשרוף אותה ולבחור בהסכם החדש'." },
-    "strength-after": { label: "דירוג עוצמת החסם (אחרי)", hint: "בקש דירוג 1–10 עכשיו, אחרי המסע — ההשוואה ללפני תוצג לשניכם." },
-    "summary": { label: "מסך הסיכום והמעגל", hint: "עברו יחד על השורה התחתונה והמעגל. מכאן אפשר להדפיס PDF." },
-  };
-
-  const traineePhase = sessionState?.phase ?? 0;
-  const publishedScreen = sessionState?.traineeScreen as string | undefined;
-  // Best-effort fallback for sessions from before traineeScreen existed (or
-  // any write race that leaves it momentarily stale) — as precise as
-  // `phase` alone allows.
-  const fallbackScreen = !sessionState
-    ? "world-select"
-    : traineePhase <= 0
-    ? "world-select"
-    : traineePhase > activePhases.length
-    ? "summary"
-    : traineePhase === 1
-    ? "card-select"
-    : traineePhase === 2
-    ? "trigger-select"
-    : currentStep?.uiType === "meditation"
-    ? "meditation-hold"
-    : "question";
-  const resolvedScreen = publishedScreen || fallbackScreen;
-
-  const coachGuidance: { label: string; hint: string; liveValue?: string } = (() => {
-    if (resolvedScreen === "question") {
-      const title = currentStep ? resolveAnswerTitle(currentStep.traineeTitle) : "";
-      return {
-        label: `שאלה ${traineePhase} מתוך ${activePhases.length}${title ? `: ${title}` : ""}`,
-        hint: "ממתין לבחירת תשובה. אם הוא מתלבט — הקרא לו את האפשרויות בקול.",
-      };
-    }
-    const base = SCREEN_GUIDANCE[resolvedScreen] ?? SCREEN_GUIDANCE["summary"];
-    let liveValue: string | undefined;
-    if (resolvedScreen === "strength-before") {
-      liveValue = sessionState?.blockerStrengthBefore != null ? `${sessionState.blockerStrengthBefore}/10` : "טרם דורג";
-    } else if (resolvedScreen === "strength-after") {
-      liveValue = sessionState?.blockerStrengthAfter != null ? `${sessionState.blockerStrengthAfter}/10` : "טרם דורג";
-    } else if (resolvedScreen === "choice-moment") {
-      liveValue = sessionState?.answers?.choice_moment ? "נלחץ — הבחירה נרשמה" : "טרם נלחץ";
-    }
-    return { ...base, liveValue };
-  })();
 
   const handlePrint = () => {
     window.print();
@@ -210,23 +66,17 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
 
   return (
     <div className="min-h-screen bg-[#0a0b10] text-neutral-100 flex flex-col font-sans" dir="rtl">
-      {syncError && (
-        <div className="w-full bg-red-600 text-white text-center text-sm font-bold py-1.5 px-4 print:hidden">
-          החיבור לסשן נכשל — רענן את הדף
-        </div>
-      )}
       {/* Header */}
       <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-[#11131a] print:hidden">
         <div className="flex items-center gap-2 text-amber-500">
           <HeartCompassLogo size={30} />
           <span className="font-bold text-base tracking-wide">מצפן הלב</span>
           <span className="text-neutral-500 font-normal text-sm">| ממשק מאמן</span>
-          <span className="flex items-center gap-1.5 mr-2 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
-            <span className={`w-2 h-2 rounded-full ${isTraineeOnline ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]' : 'bg-neutral-500'}`}></span>
-            <span className={`text-xs font-bold ${isTraineeOnline ? 'text-green-400' : 'text-neutral-500'}`}>
-              {isTraineeOnline ? 'מתאמן מחובר' : 'מנותק / ממתין'}
+          {sessionState?.isYouthMode && (
+            <span className="mr-4 px-3 py-1 bg-amber-500/20 text-amber-400 text-xs font-bold rounded-full border border-amber-500/30">
+              😈 מצב נוער
             </span>
-          </span>
+          )}
         </div>
         <div className="flex gap-3">
           {sessionState?.phase > activePhases.length ? (
@@ -257,16 +107,6 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
             <h3 className="text-amber-500 font-bold mb-4 flex items-center gap-2">
               מפת תשובות עד כה
             </h3>
-            {sessionState?.draft?.text && sessionState.draft.stepId === currentStep?.id && (
-              <div className="mb-4 p-3 rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5">
-                <span className="text-[10px] text-amber-500 font-bold uppercase tracking-widest block mb-1.5 animate-pulse">
-                  ✎ מקליד עכשיו...
-                </span>
-                <span className="text-neutral-300 text-sm break-words whitespace-pre-wrap">
-                  {sessionState.draft.text}
-                </span>
-              </div>
-            )}
             <div className="space-y-4">
               {Object.keys(sessionState?.answers || {}).length === 0 ? (
                 <p className="text-neutral-500 text-sm">המתאמן טרם ענה על שאלות בשלב זה.</p>
@@ -277,12 +117,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                   return (
                     <div key={key} className="text-sm border-b border-white/5 pb-3">
                       <span className="text-neutral-500 block mb-1 text-xs">
-                        {/* Round 9 (QA fix): reuse the same resolved values as
-                            the main mirror below (currentStep.traineeTitle's
-                            replace chain) instead of generic placeholder
-                            words, so the sidebar recap actually matches what
-                            the coach sees in the live question panel. */}
-                        {resolveAnswerTitle(phase.traineeTitle)}
+                        {phase.traineeTitle.replace(/\[ארכיטיפ\]/g, 'הדמות').replace(/\[משאב\]/g, 'המשאב')}
                       </span>
                       <span className="text-white font-medium break-words whitespace-pre-wrap">{value as string}</span>
                     </div>
@@ -374,39 +209,45 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
             <h3 className="text-amber-500 font-bold mb-4 text-sm tracking-widest uppercase flex items-center gap-2">
               {journeyStage === 4 ? '🎯 מפת המטרה' : '🔄 מעגל החסם'}
             </h3>
-            <BlockerCircle
-              journeyStage={journeyStage}
-              answers={sessionState?.answers || {}}
-              trigger={sessionState?.trigger ?? undefined}
-              resourceName={resourceCard?.name ?? null}
-              agreementText={sessionState?.answers?.[agreementAnswerKey] ?? null}
-              variant="live"
-            />
+            <div className="flex flex-col gap-2">
+              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
+                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'המטרה' : journeyStage === 3 ? 'הטריגר שהעיר את התגובה' : 'מחשבה (פרשנות)'}</span>
+                <span className="text-white text-sm font-medium break-words">
+                  {journeyStage === 4
+                    ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
+                    : journeyStage === 3
+                    ? (sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')
+                    : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.trigger || '—')}
+                </span>
+              </div>
+              <div className="text-amber-500 text-center text-lg">↓</div>
+              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
+                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'כוחות' : journeyStage === 3 ? 'מה ניסתה התגובה להשיג' : 'רגש / נקודה רגישה'}</span>
+                <span className="text-white text-sm font-medium break-words">
+                  {journeyStage === 4
+                    ? (sessionState?.answers?.['s4_step_2_capability'] || '—')
+                    : journeyStage === 3
+                    ? (sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')
+                    : (sessionState?.answers?.['step_3_feeling'] || sessionState?.answers?.['s2_step_4_sensitive_spot'] || '—')}
+                </span>
+              </div>
+              <div className="text-amber-500 text-center text-lg">↓</div>
+              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
+                <span className="text-xs text-neutral-500 block mb-1">{journeyStage === 4 ? 'חסם' : journeyStage === 3 ? 'הצורך האמיתי שהוחמץ' : 'תגובה אוטומטית'}</span>
+                <span className="text-white text-sm font-medium break-words">
+                  {journeyStage === 4
+                    ? (sessionState?.answers?.['s4_step_4_secondary_gain'] || '—')
+                    : journeyStage === 3
+                    ? (sessionState?.answers?.['s3_step_3_need'] || '—')
+                    : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || '—')}
+                </span>
+              </div>
+            </div>
           </div>
         </section>
 
         {/* Center Panel: Live Flow */}
         <section className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar print:overflow-visible">
-
-          {/* Coach guidance banner — always-visible "where is the trainee /
-              what do I do now" strip, driven by traineeScreen (see
-              coachGuidance above). Covers UI states that live outside the
-              numbered activePhases array and are otherwise invisible here. */}
-          <div className="print:hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl px-5 py-3 flex flex-col gap-1 shrink-0" dir="rtl">
-            <div className="flex items-center flex-wrap gap-2">
-              <span className="text-amber-400 font-bold text-sm">
-                המתאמן נמצא עכשיו: {coachGuidance.label}
-              </span>
-              {coachGuidance.liveValue && (
-                <span className="text-xs font-bold text-amber-300 bg-amber-500/15 border border-amber-500/20 px-2 py-0.5 rounded-full">
-                  {coachGuidance.liveValue}
-                </span>
-              )}
-            </div>
-            <p className="text-neutral-300 text-xs leading-relaxed">
-              כדי להתקדם: {coachGuidance.hint}
-            </p>
-          </div>
 
           <div className="bg-[#11131a] rounded-2xl p-6 border border-white/5 shadow-2xl flex items-center justify-between print:hidden">
             <div>
@@ -486,21 +327,45 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       : `התמה המרכזית: זיהוי החלק השומר (${chosenArchetype?.name}) וחיבורו למשאבים.`}
                   </p>
 
-                  <BottomLine journeyStage={journeyStage} answers={sessionState?.answers || {}} />
-
                   {/* Blocker/Goal Map in Summary */}
                   <div className="bg-black/40 border border-white/10 rounded-2xl p-6 mb-8">
                     <h4 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-4">
                       {journeyStage === 4 ? 'מפת המטרה שסוכמה' : 'מעגל החסם שזוהה'}
                     </h4>
-                    <BlockerCircle
-                      journeyStage={journeyStage}
-                      answers={sessionState?.answers || {}}
-                      trigger={sessionState?.trigger ?? undefined}
-                      resourceName={resourceCard?.name ?? null}
-                      agreementText={sessionState?.answers?.[agreementAnswerKey] ?? null}
-                      variant="summary"
-                    />
+                    <div className="flex flex-col md:flex-row items-center justify-center gap-3">
+                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'המטרה' : journeyStage === 3 ? 'הטריגר שהעיר את התגובה' : 'מחשבה (פרשנות)'}</span>
+                        <span className="text-white font-bold text-sm">
+                          {journeyStage === 4
+                            ? (sessionState?.answers?.['s4_step_1_what_i_want'] || '—')
+                            : journeyStage === 3
+                            ? (sessionState?.answers?.['s3_step_1_trigger'] || sessionState?.trigger || '—')
+                            : (sessionState?.answers?.['step_6_thought'] || sessionState?.answers?.['s2_step_3_interpretation'] || sessionState?.trigger || '—')}
+                        </span>
+                      </div>
+                      <div className="text-amber-500 font-bold">→</div>
+                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'כוחות' : journeyStage === 3 ? 'מה ניסתה התגובה להשיג' : 'רגש / נקודה רגישה'}</span>
+                        <span className="text-white font-bold text-sm">
+                          {journeyStage === 4
+                            ? (sessionState?.answers?.['s4_step_2_capability'] || '—')
+                            : journeyStage === 3
+                            ? (sessionState?.answers?.['s3_step_2_secondary_gain'] || '—')
+                            : (sessionState?.answers?.['step_3_feeling'] || sessionState?.answers?.['s2_step_4_sensitive_spot'] || '—')}
+                        </span>
+                      </div>
+                      <div className="text-amber-500 font-bold">→</div>
+                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
+                        <span className="text-xs text-neutral-500 block mb-2">{journeyStage === 4 ? 'חסם' : journeyStage === 3 ? 'הצורך האמיתי שהוחמץ' : 'תגובה אוטומטית'}</span>
+                        <span className="text-white font-bold text-sm">
+                          {journeyStage === 4
+                            ? (sessionState?.answers?.['s4_step_4_secondary_gain'] || '—')
+                            : journeyStage === 3
+                            ? (sessionState?.answers?.['s3_step_3_need'] || '—')
+                            : (sessionState?.answers?.['step_5_urge'] || sessionState?.answers?.['s2_step_5_reaction'] || '—')}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-10">
@@ -580,84 +445,22 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                   })()}
                 </div>
 
-              {/* Consent-ramp critical flag (round 4) — persists from the choice step
-                  through every meditation phase whenever the trainee declined
-                  release twice in a row. The coach guides the meditation's content
-                  by voice, so this is the signal to keep it to grounding/soothing,
-                  not release work. */}
-              {journeyStage === 3 && currentStep && sessionState?.phase <= activePhases.length &&
-                sessionState?.answers?.s3_ramp_choice === "not_yet_final" &&
-                (currentStep.uiType === "meditation" || currentStep.id === "s3_ramp_choice") && (
-                <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/40 rounded-2xl p-5 shadow-[0_0_20px_rgba(239,68,68,0.15)]">
-                  <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                  <p className="text-red-300 font-bold text-sm md:text-base leading-relaxed">
-                    ⚠️ המתאמן לא נתן הסכמה לשחרור — הנחה מדיטציית היכרות/הרגעה בלבד, לא שחרור
-                  </p>
-                </div>
-              )}
-
-              {/* Consent given — calm confirmation with the opener quote for the meditation. */}
-              {journeyStage === 3 && currentStep && sessionState?.phase <= activePhases.length &&
-                sessionState?.answers?.s3_ramp_choice === "ready" &&
-                sessionState?.answers?.s3_ramp_consent &&
-                currentStep.uiType === "meditation" && (
-                <div className="flex items-start gap-3 bg-green-500/10 border border-green-500/30 rounded-2xl p-5">
-                  <span className="text-green-400 text-xl shrink-0">🟢</span>
-                  <div>
-                    <p className="text-green-300 font-bold text-sm mb-1 tracking-widest uppercase">הסכמה ניתנה — פתיח למדיטציה</p>
-                    <p className="text-white text-lg font-medium leading-relaxed">"{s3ConsentSentence}"</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Round 6 (א'5) — the asimon moment. Once the trainee has answered it,
-                  keep it visible in the live panel (through the remaining steps, not just
-                  while it's the active question) — it's the pivot the coach should keep
-                  the follow-up conversation anchored to. */}
-              {(journeyStage === 1 || journeyStage === 2) &&
-                (sessionState?.answers?.step_9b_asimon || sessionState?.answers?.s2_step_8b_asimon) && (
-                <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/40 rounded-2xl p-5 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
-                  <span className="text-amber-400 text-xl shrink-0">🪙</span>
-                  <div>
-                    <p className="text-amber-400 font-bold text-sm mb-1 tracking-widest uppercase">רגע האסימון</p>
-                    <p className="text-white text-lg font-medium leading-relaxed">
-                      "{sessionState.answers.step_9b_asimon || sessionState.answers.s2_step_8b_asimon}"
-                    </p>
-                  </div>
-                </div>
-              )}
-
               {/* The Active Question (Mirrors Trainee UI) — hidden when journey is complete */}
               {currentStep && sessionState?.phase <= activePhases.length && (
                 <div className="bg-[#11131a] rounded-2xl border border-blue-500/20 shadow-lg p-8">
                   <div className="flex justify-between items-center mb-8">
                     <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight">
-                      {currentStep.traineeTitle
-                        .replace(/\[ארכיטיפ\]/g, `"${chosenArchetype?.name || ''}"`)
-                        .replace(/\[משאב\]/g, `"${sessionState?.resourceArchetype ? worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype)?.name : 'הכוח החדש'}"`)
-                        .replace(/\[רווח\]/g, `"${s3ConsentGainText}"`)
-                        .replace(/\[משפט_מטרה\]/g, composeGoalSentence(sessionState?.answers || {}) || "המטרה שלי")
-                        .replace(/\[חוזה\]/g, composeContractText(sessionState?.answers || {}, chosenArchetype?.name, resourceCard?.name))}
+                      {currentStep.traineeTitle.replace(/\[ארכיטיפ\]/g, `"${chosenArchetype?.name || ''}"`).replace(/\[משאב\]/g, `"${sessionState?.resourceArchetype ? worldsData.flatMap(w => w.archetypes).find(a => a.id === sessionState.resourceArchetype)?.name : 'הכוח החדש'}"`)}
                     </h3>
                     <div className="flex items-center gap-2 text-xs font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full">
                       <span className="w-2 h-2 rounded-full bg-blue-500"></span> {`שלב ${sessionState?.phase ?? 0} מתוך ${activePhases.length}`}
                     </div>
                   </div>
 
-                  {/* Options Mirror. Defense in depth (round 9 QA fix): the
-                      trigger steps (step_2_trigger / s2_step_2_trigger /
-                      s3_step_1_trigger) used to be structured-dialogue steps
-                      whose options the trainee never actually saw — the real
-                      UI for choosing a trigger is the card-back screen in
-                      TraineeJourney. They're now "archetype-selector"
-                      placeholders with no `options` at all, so requiring
-                      `options` here (not just the uiType tag) guards against
-                      a future "archetype-selector" step accidentally
-                      rendering a live-question mirror if it ever grows an
-                      `options` field. */}
-                  {currentStep.uiType === "structured-dialogue" && currentStep.options && (
+                  {/* Options Mirror */}
+                  {currentStep.uiType === "structured-dialogue" && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {activeOptions?.[sessionState?.environment as keyof typeof activeOptions]?.map((option, idx) => {
+                    {currentStep.options?.[sessionState?.environment as keyof typeof currentStep.options]?.map((option, idx) => {
                       const traineeAnswer = sessionState?.answers?.[currentStep.id];
                       const isSelected = traineeAnswer === option;
                       const letter = String.fromCharCode(65 + idx);
@@ -674,7 +477,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                     })}
 
                     {/* Handle Custom Text in Mirror */}
-                    {sessionState?.answers?.[currentStep.id] && !activeOptions?.[sessionState?.environment as keyof typeof activeOptions]?.includes(sessionState.answers[currentStep.id]) && (
+                    {sessionState?.answers?.[currentStep.id] && !currentStep.options?.[sessionState?.environment as keyof typeof currentStep.options]?.includes(sessionState.answers[currentStep.id]) && (
                       <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border bg-amber-500/10 border-amber-500 flex items-center gap-4">
                         <span className="w-8 h-8 shrink-0 rounded-md border bg-amber-500/20 text-amber-500 border-amber-500 flex items-center justify-center text-sm font-bold">✎</span>
                         <span className="flex-1 text-white font-bold text-right">"{sessionState.answers[currentStep.id]}"</span>
@@ -682,12 +485,8 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                       </div>
                     )}
 
-                    {/* Pattern Revealed (Mirror of what the trainee sees). Round 8 (ב4):
-                        this box no longer disappears for an answered step just because the
-                        step has no patternRevealed, or the answer doesn't match any option
-                        (e.g. a custom "אחר" answer) — it falls back to the step's coachFraming
-                        instead of hiding. */}
-                    {sessionState?.answers?.[currentStep.id] && (
+                    {/* Pattern Revealed (Mirror of what the trainee sees) */}
+                    {sessionState?.answers?.[currentStep.id] && currentStep.patternRevealed && (
                       <div className="col-span-1 md:col-span-2 mt-2 p-5 rounded-2xl border bg-blue-500/10 border-blue-500/20 flex items-start gap-4">
                         <span className="w-8 h-8 shrink-0 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg">💧</span>
                         <div>
@@ -695,127 +494,19 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                           <p className="text-blue-100 font-medium text-lg">
                             {(() => {
                               const answer = sessionState.answers[currentStep.id];
-                              const optionsArray = activeOptions?.[sessionState.environment as keyof typeof activeOptions] || [];
+                              const optionsArray = currentStep.options?.[sessionState.environment as keyof typeof currentStep.options] || [];
                               const answerIdx = optionsArray.indexOf(answer);
                               if (answerIdx !== -1) {
-                                // Round 6: when the trainee is tagged "adult" and this step
-                                // has a patternRevealedAdult (the adult option list has a
-                                // different length/order than the teen one — indexing into
-                                // the teen-aligned patternRevealed would be wrong), read the
-                                // insight from the adult-aligned map instead. Round 9: use the
-                                // same isAdult default as activeOptions above (legacy sessions
-                                // with no ageGroup field default to "adult").
-                                const useAdult = isAdult && currentStep.patternRevealedAdult;
-                                const patternSource = useAdult ? currentStep.patternRevealedAdult : currentStep.patternRevealed;
-                                const patterns = patternSource?.[sessionState.environment as keyof typeof patternSource];
-                                if (patterns?.[answerIdx]) return patterns[answerIdx];
+                                const patterns = currentStep.patternRevealed?.[sessionState.environment as keyof typeof currentStep.patternRevealed];
+                                return patterns ? patterns[answerIdx] : "";
                               }
-                              return currentStep.coachFraming || "מדהים שהצלחת לנסח את זה בעצמך. הדפוס מנסה להגן עליך, אבל עכשיו אתה מתחיל לראות אותו מבחוץ.";
+                              return "מדהים שהצלחת לנסח את זה בעצמך. הדפוס מנסה להגן עליך, אבל עכשיו אתה מתחיל לראות אותו מבחוץ.";
                             })()}
                           </p>
                         </div>
                       </div>
                     )}
                   </div>
-                  )}
-
-                  {/* Choice Mirror — the consent-ramp "מוכן / עוד לא" moment (s3_ramp_choice) */}
-                  {currentStep.uiType === "choice" && currentStep.choiceConfig && (() => {
-                    const choiceState = sessionState?.answers?.[currentStep.id];
-                    const fearAnswer = sessionState?.answers?.["s3_ramp_notyet_fear"];
-                    const trustAnswer = sessionState?.answers?.["s3_ramp_notyet_trust"];
-                    const notYetSelected = choiceState === "not_yet_1" || choiceState === "not_yet_final";
-                    return (
-                      <div className="flex flex-col gap-4 py-2">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className={`p-5 rounded-2xl border text-center transition-all ${choiceState === "ready" ? "bg-amber-500/10 border-amber-500" : "bg-black/30 border-white/10"}`}>
-                            <span className={choiceState === "ready" ? "text-white font-bold" : "text-neutral-300"}>{currentStep.choiceConfig.yes}</span>
-                          </div>
-                          <div className={`p-5 rounded-2xl border text-center transition-all ${notYetSelected ? "bg-amber-500/10 border-amber-500" : "bg-black/30 border-white/10"}`}>
-                            <span className={notYetSelected ? "text-white font-bold" : "text-neutral-300"}>{currentStep.choiceConfig.notYet}</span>
-                          </div>
-                        </div>
-                        <p className="text-xs text-blue-300 font-bold text-center tracking-wide">
-                          {!choiceState && "המתאמן טרם בחר."}
-                          {choiceState === "not_yet_1" && !fearAnswer && "בלולאת \"עוד לא\" — ממתין לתשובה: מה הכי מפחיד בלחיות בלעדיו?"}
-                          {choiceState === "not_yet_1" && !!fearAnswer && !trustAnswer && "בלולאת \"עוד לא\" — ממתין לתשובה: מה הוא צריך לדעת עליך היום כדי להרשות לעצמו לנוח?"}
-                          {choiceState === "not_yet_1" && !!fearAnswer && !!trustAnswer && "שתי השאלות נענו — הבחירה מוצעת שוב למתאמן."}
-                          {choiceState === "ready" && "✓ המתאמן בחר להיפרד — עובר למשפט ההסכמה."}
-                          {choiceState === "not_yet_final" && "⚠️ \"עוד לא\" נבחר פעמיים ברציפות — אין הסכמה לשחרור."}
-                        </p>
-                        {(fearAnswer || trustAnswer) && (
-                          <div className="flex flex-col gap-3">
-                            {fearAnswer && (
-                              <div className="p-4 rounded-xl border border-white/10 bg-black/20">
-                                <span className="text-neutral-500 text-xs block mb-1">מה הכי מפחיד בלחיות בלעדיו?</span>
-                                <span className="text-white break-words whitespace-pre-wrap">{fearAnswer}</span>
-                              </div>
-                            )}
-                            {trustAnswer && (
-                              <div className="p-4 rounded-xl border border-white/10 bg-black/20">
-                                <span className="text-neutral-500 text-xs block mb-1">מה הוא צריך לדעת עליך היום כדי להרשות לעצמו לנוח?</span>
-                                <span className="text-white break-words whitespace-pre-wrap">{trustAnswer}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {/* Round 8 (ב3) — s3_ramp_choice's own insight, based on the stored
-                            choice value (never disappears once a choice was made — ב4). */}
-                        {!!choiceState && (
-                          <div className="p-5 rounded-2xl border bg-blue-500/10 border-blue-500/20 flex items-start gap-4">
-                            <span className="w-8 h-8 shrink-0 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg">💧</span>
-                            <div>
-                              <h4 className="text-blue-400 font-bold text-sm tracking-widest uppercase mb-1">תובנה קלינית על התשובה (לשימוש המאמן)</h4>
-                              <p className="text-blue-100 font-medium text-lg">
-                                {choiceState === "ready"
-                                  ? "הסכמה. עברו למשפט ההסכמה — ותן לו לשמוע את עצמו אומר אותו."
-                                  : "כבד את הקצב. ההתנגדות היא ההגנה עצמה — עבדו איתה, לא נגדה."}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Scale Mirror — the excitement slider (1-100) */}
-                  {currentStep.uiType === "scale" && (
-                    <div className="flex flex-col items-center gap-3 py-8">
-                      {sessionState?.answers?.[currentStep.id] != null ? (
-                        <>
-                          <span className="text-8xl font-black text-amber-400 tabular-nums leading-none">
-                            {sessionState.answers[currentStep.id]}
-                          </span>
-                          <span className="text-neutral-500 text-sm">מתוך {currentStep.scaleConfig?.max ?? 100}</span>
-                        </>
-                      ) : (
-                        <span className="text-neutral-500 text-sm">המתאמן טרם הזיז את המחוון</span>
-                      )}
-                      {sessionState?.answers?.[`${currentStep.id}_refine`] && (
-                        <div className="mt-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-sm font-bold">
-                          מסך דיוק — המתאמן בחר: "{sessionState.answers[`${currentStep.id}_refine`]}"
-                        </div>
-                      )}
-                      {/* Round 8 (ב3) — s4_excitement has no options to index into, so its
-                          coach insight is computed straight from the numeric score's range. */}
-                      {currentStep.id === "s4_excitement" && sessionState?.answers?.[currentStep.id] != null && (() => {
-                        const score = Number(sessionState.answers[currentStep.id]);
-                        const insight = score >= 95
-                          ? "המטרה בוערת — נצל את החלון."
-                          : score >= 70
-                          ? "חם אבל לא בוער — משהו במשפט לא מדויק. אל תתקדם בלי לדייק."
-                          : "המטרה כנראה לא שלו או מפחידה מכדי להודות — חזור לתחום או לחזון.";
-                        return (
-                          <div className="w-full mt-2 p-5 rounded-2xl border bg-blue-500/10 border-blue-500/20 flex items-start gap-4">
-                            <span className="w-8 h-8 shrink-0 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg">💧</span>
-                            <div>
-                              <h4 className="text-blue-400 font-bold text-sm tracking-widest uppercase mb-1">תובנה קלינית על התשובה (לשימוש המאמן)</h4>
-                              <p className="text-blue-100 font-medium text-lg">{insight}</p>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
                   )}
                 </div>
               )}
@@ -907,10 +598,7 @@ export default function CoachLiveSession({ sessionId, onBack }: { sessionId: str
                             if (sessionId) {
                               try {
                                 await updateDoc(doc(db, "hc_live_sessions", sessionId), {
-                                  phase: sessionState.phase + 1,
-                                  // See handleEndJourney's comment above — every phase-changing
-                                  // write bumps phaseVersion.
-                                  phaseVersion: (sessionState?.phaseVersion || 0) + 1
+                                  phase: sessionState.phase + 1
                                 });
                               } catch (e) {
                                 console.error("Error advancing phase", e);
