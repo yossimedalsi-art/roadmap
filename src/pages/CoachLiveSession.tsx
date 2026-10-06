@@ -100,6 +100,7 @@ export default function CoachLiveSession({
         status: "completed",
         completedAt: serverTimestamp(),
         phase: activePhases.length + 1,
+        "answers.participant_screen": "summary",
       });
     } catch (e) {
       console.error("Error ending journey", e);
@@ -148,6 +149,28 @@ export default function CoachLiveSession({
         : journeyStage === 2
           ? stage2Phases
           : journeyPhases;
+  const participantScreen =
+    sessionState?.answers?.participant_screen ||
+    (sessionState?.status === "completed"
+      ? "summary"
+      : (sessionState?.phase ?? 0) === 0
+        ? "welcome"
+        : sessionState?.phase === 1
+          ? "archetype"
+          : sessionState?.phase === 2
+            ? "event"
+            : (sessionState?.phase ?? 0) > activePhases.length
+              ? "choice"
+              : "question");
+  const openingScreen = ["welcome", "world", "archetype", "event"].includes(
+    participantScreen,
+  );
+  const openingTitles: Record<string, string> = {
+    welcome: "מה יכול לעזור לך להיות כאן היום?",
+    world: "איזה מרחב מתאים לך?",
+    archetype: "איזו דמות יכולה לייצג את מה שמעכב?",
+    event: "איזה אירוע מתאים לברר יחד?",
+  };
   const currentStep =
     sessionState &&
     sessionState.status !== "completed" &&
@@ -296,8 +319,8 @@ export default function CoachLiveSession({
       )}
       {sessionState?.participantPause && (
         <div
-          role="status"
-          className="bg-teal-950 border-y border-teal-300/30 text-teal-100 p-4 text-center"
+          role="alert"
+          className="fixed bottom-4 left-4 right-4 z-40 max-w-4xl mx-auto rounded-2xl bg-[#123e3c] border-2 border-teal-200 text-white p-4 text-center shadow-2xl print:hidden"
         >
           המשתתף ביקש לעצור. עצרו את ההתקדמות, בררו מה מתאים לו וחזרו למשאב או
           לסביבה. ההמשך בידיו.
@@ -684,6 +707,129 @@ export default function CoachLiveSession({
                 />
               ) : (
                 <div className="print:hidden flex flex-col gap-8">
+                  {openingScreen && (
+                    <section
+                      aria-label="המסך הנוכחי של המשתתף"
+                      className="rounded-3xl border border-teal-200/40 bg-[#183e43] p-6 md:p-8"
+                    >
+                      <p className="text-xs text-teal-100 mb-3">
+                        פתיחת המפגש · מסך המשתתף מסונכרן
+                      </p>
+                      <h2 className="text-2xl font-bold text-white mb-3">
+                        {openingTitles[participantScreen]}
+                      </h2>
+                      <p className="text-sm text-teal-50 mb-5">
+                        הבחירה בידיו. המסך הזה מציג את מה שהוא רואה ואת הבחירות
+                        שנשלחו, בלי לקדם אותו אוטומטית.
+                      </p>
+                      {participantScreen === "welcome" && (
+                        <>
+                          <p className="mb-5 text-white">
+                            אפשר לבחור משאב להתחלה. אין צורך להרגיש אותו מיד.
+                          </p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {goodPowersData.map((power) => (
+                              <article
+                                key={power.id}
+                                className={`rounded-xl border p-3 text-center ${selectedResource?.id === power.id ? "border-teal-200 bg-teal-200/20" : "border-white/25 bg-black/15"}`}
+                              >
+                                <span className="text-2xl">{power.icon}</span>
+                                <h3 className="font-bold text-white mt-2">
+                                  {power.name}
+                                </h3>
+                                <p className="text-xs text-teal-50 mt-1">
+                                  {power.role}
+                                </p>
+                                {selectedResource?.id === power.id && (
+                                  <p className="text-xs text-white font-bold mt-2">
+                                    נבחר בידי המשתתף
+                                  </p>
+                                )}
+                              </article>
+                            ))}
+                          </div>
+                          {!selectedResource && (
+                            <p className="text-sm text-teal-50 mt-4">
+                              עדיין לא נבחר משאב; אפשר לבחור בהמשך.
+                            </p>
+                          )}
+                        </>
+                      )}
+                      {participantScreen === "world" && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {worldsData.map((world) => (
+                            <article
+                              key={world.id}
+                              className={`rounded-xl border p-4 ${activeWorld?.id === world.id ? "border-teal-200 bg-teal-200/20" : "border-white/25 bg-black/15"}`}
+                            >
+                              <span className="text-3xl">
+                                {
+                                  {
+                                    clouds: "☁️",
+                                    forest: "🌿",
+                                    arcade: "◈",
+                                    fairies: "✦",
+                                  }[world.theme]
+                                }
+                              </span>
+                              <h3 className="font-bold mt-3 text-white">
+                                {world.title}
+                              </h3>
+                              <p className="text-xs text-teal-50 mt-2">
+                                בחירת סגנון, לא אבחון
+                              </p>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+                      {participantScreen === "archetype" && (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {activeWorld?.archetypes
+                            .filter(
+                              (character) => character.kind !== "resource",
+                            )
+                            .map((character) => (
+                              <article
+                                key={character.id}
+                                className={`rounded-xl overflow-hidden border ${chosenArchetype?.id === character.id ? "border-teal-200 bg-teal-200/20" : "border-white/25 bg-black/15"}`}
+                              >
+                                {character.imageUrl && (
+                                  <img
+                                    src={character.imageUrl}
+                                    alt={character.name}
+                                    className="w-full h-36 object-cover"
+                                  />
+                                )}
+                                <h3 className="font-bold p-3 text-white">
+                                  {character.name}
+                                </h3>
+                                <p className="px-3 pb-3 text-sm text-teal-50">
+                                  {sessionState.isYouthMode &&
+                                  character.youthDescription
+                                    ? character.youthDescription
+                                    : character.description}
+                                </p>
+                              </article>
+                            ))}
+                        </div>
+                      )}
+                      {participantScreen === "event" && (
+                        <div className="rounded-xl border border-white/25 bg-black/15 p-4">
+                          <p className="text-sm text-teal-50 mb-2">
+                            {chosenArchetype?.name || "אפשר להתבונן בלי דמות"}
+                          </p>
+                          <p className="text-white whitespace-pre-wrap">
+                            {sessionState.trigger ||
+                              "ממתינים לאירוע שהמשתתף יבחר או ינסח."}
+                          </p>
+                          <p className="mt-3 text-sm text-teal-50">
+                            נבחר רגע אחד ונפריד בין מה שנאמר או נעשה לבין
+                            המשמעות שניתנה לו.
+                          </p>
+                        </div>
+                      )}
+                    </section>
+                  )}
                   {/* Archetype Card Display */}
                   <div className="flex flex-col md:flex-row justify-center gap-6">
                     {chosenArchetype && (
@@ -747,7 +893,8 @@ export default function CoachLiveSession({
                   </div>
 
                   {/* The Active Question (Mirrors Trainee UI) — hidden when journey is complete */}
-                  {currentStep &&
+                  {!openingScreen &&
+                    currentStep &&
                     sessionState?.phase <= activePhases.length && (
                       <div className="bg-[#11131a] rounded-2xl border border-blue-500/20 shadow-lg p-8">
                         <div className="flex justify-between items-center mb-8">
@@ -862,9 +1009,9 @@ export default function CoachLiveSession({
                       </div>
                     )}
 
-                  {insight && (
+                  {!openingScreen && insight && (
                     <section
-                      className="rounded-2xl border border-indigo-300/25 bg-indigo-400/5 p-6"
+                      className="rounded-2xl border-2 border-indigo-200/50 bg-[#263954] shadow-lg p-6"
                       aria-label="הבנה מקצועית לבירור"
                     >
                       <p className="text-xs text-indigo-200 mb-2">
@@ -877,11 +1024,11 @@ export default function CoachLiveSession({
                       <h3 className="font-bold text-xl mb-3">
                         {insight.title}
                       </h3>
-                      <p className="text-indigo-100 leading-relaxed">
+                      <p className="text-white leading-relaxed">
                         {insight.explanation}
                       </p>
                       {insight.evidence && (
-                        <p className="mt-3 text-sm text-neutral-300 whitespace-pre-wrap">
+                        <p className="mt-3 text-sm text-indigo-50 whitespace-pre-wrap">
                           מתוך התשובות שנמסרו: {insight.evidence}
                         </p>
                       )}
@@ -892,7 +1039,8 @@ export default function CoachLiveSession({
                     </section>
                   )}
                   {/* Coach Clinical Deep Dive (Only visible if step is active) */}
-                  {currentStep &&
+                  {!openingScreen &&
+                    currentStep &&
                     sessionState?.phase <= activePhases.length && (
                       <div className="bg-[#11131a] rounded-2xl border border-amber-500/20 shadow-lg p-8">
                         <div className="flex items-center mb-6 border-b border-white/5 pb-4">
@@ -1032,6 +1180,10 @@ export default function CoachLiveSession({
                                   try {
                                     await persistSession({
                                       phase: conversationPhase,
+                                      "answers.participant_screen":
+                                        conversationPhase > activePhases.length
+                                          ? "choice"
+                                          : "question",
                                       "answers.experiential_path":
                                         "בחרנו להמשיך בשיחה ולבחור תמיכה, בלי התרגיל החווייתי",
                                     });
@@ -1059,6 +1211,11 @@ export default function CoachLiveSession({
                                     try {
                                       await persistSession({
                                         phase: sessionState.phase + 1,
+                                        "answers.participant_screen":
+                                          sessionState.phase + 1 >
+                                          activePhases.length
+                                            ? "choice"
+                                            : "question",
                                       });
                                     } catch (e) {
                                       console.error("Error advancing phase", e);

@@ -24,6 +24,20 @@ service cloud.firestore {
       function validIntensity(value) {
         return value == null || (value is number && value >= 1 && value <= 10);
       }
+      function validWeeklyAgreement(nextAnswers, previousAnswers) {
+        let changed = nextAnswers.diff(previousAnswers).affectedKeys();
+        let proposal = nextAnswers.get('homework_proposal', '');
+        let proposalId = nextAnswers.get('homework_proposal_id', '');
+        let approvedText = nextAnswers.get('homework_approved_text', '');
+        let approvedId = nextAnswers.get('homework_approved_id', '');
+        let confirmation = nextAnswers.get('homework_confirmation', '');
+        return !changed.hasAny(['homework_approved_text', 'homework_approved_id', 'homework_confirmation'])
+          || (confirmation == 'approved' && proposal is string && proposal.size() > 0
+              && proposalId is string && proposalId.size() > 0
+              && approvedText == proposal && approvedId == proposalId)
+          || (confirmation == 'none' && approvedText == '' && approvedId is string
+              && (approvedId == '' || approvedId == proposalId));
+      }
       function participantProgress() {
         let next = request.resource.data;
         let changed = next.diff(resource.data).affectedKeys();
@@ -35,6 +49,11 @@ service cloud.firestore {
           && next.phase is int && next.phase >= 0 && next.phase <= 20
           && next.get('participantPause', false) is bool
           && next.get('answers', {}) is map
+          && next.get('answers', {}).get('participant_screen', 'welcome')
+             in ['welcome', 'world', 'archetype', 'event', 'question', 'choice', 'summary']
+          && !next.get('answers', {}).diff(resource.data.get('answers', {})).affectedKeys()
+             .hasAny(['summary_pattern_id'])
+          && validWeeklyAgreement(next.get('answers', {}), resource.data.get('answers', {}))
           && (next.get('environment', null) == null || next.environment is string)
           && (next.get('archetype', null) == null || next.archetype is string)
           && (next.get('resourceArchetype', null) == null || next.resourceArchetype is string)
@@ -54,7 +73,10 @@ service cloud.firestore {
           && validIntensity(next.get('blockerStrengthAfter', null))
           && next.get('answers', {}) is map
           && next.get('answers', {}).diff(resource.data.get('answers', {})).affectedKeys()
-             .hasOnly(['homework', 'resource_reflection']);
+             .hasOnly(['homework', 'resource_reflection', 'homework_proposal', 'homework_proposal_id',
+                       'homework_approved_text', 'homework_approved_id', 'homework_confirmation',
+                       'loop_consequence', 'loop_result_meaning', 'session_takeaway'])
+          && validWeeklyAgreement(next.get('answers', {}), resource.data.get('answers', {}));
       }
       allow update: if participantProgress() || participantSummaryAmendment();
       match /private/{documentId} {

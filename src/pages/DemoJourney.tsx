@@ -77,7 +77,7 @@ export default function DemoJourney() {
       : "border-white/10 bg-white/[0.03] hover:border-white/30");
   return (
     <div className="hc-shell" dir="rtl">
-      <header className="hc-site-header border-b border-white/10">
+      <header className="hc-site-header sticky top-0 z-30 bg-[#0b161b] border-b border-white/10">
         <Link
           to="/"
           className="flex items-center gap-3 text-amber-200"
@@ -135,8 +135,8 @@ export default function DemoJourney() {
               <>
                 <p className="text-slate-300 max-w-2xl mb-7 leading-relaxed">
                   נפגוש סיפור דמיוני על אורי. הדמות שנבחר תייצג מחסום בדרך שלו,
-                  ותישאר נפרדת ממנו. נתחיל בכוח שיוכל לתמוך באורי. זו היכרות קצרה;
-                  מסע העומק מתקיים עם מנחה.
+                  ותישאר נפרדת ממנו. נתחיל בכוח שיוכל לתמוך באורי. זו היכרות
+                  קצרה; מסע העומק מתקיים עם מנחה.
                 </p>
                 <div className="grid sm:grid-cols-2 gap-3">
                   {goodPowersData.map((power) => (
@@ -189,7 +189,9 @@ export default function DemoJourney() {
                   />
                 </div>
                 <p role="status" className="text-xs text-slate-400 mb-4">
-                  {results.length === 1 ? "כיוון אחד אפשרי" : `${results.length} כיוונים אפשריים`}
+                  {results.length === 1
+                    ? "כיוון אחד אפשרי"
+                    : `${results.length} כיוונים אפשריים`}
                 </p>
                 <div className="grid sm:grid-cols-2 gap-3">
                   {results.map((item) => {
@@ -238,8 +240,8 @@ export default function DemoJourney() {
             {step === 2 && (
               <>
                 <p className="text-slate-300 mb-7">
-                  אורי מספר את האירוע במילים שלו. נבחר סיפור אחד לבדיקה;
-                  אותה סיטואציה יכולה לעורר משמעויות ומנגנונים שונים.
+                  אורי מספר את האירוע במילים שלו. נבחר סיפור אחד לבדיקה; אותה
+                  סיטואציה יכולה לעורר משמעויות ומנגנונים שונים.
                 </p>
                 <div className="space-y-3">
                   {mechanism?.scenarios.map((scenario) => (
@@ -270,11 +272,33 @@ export default function DemoJourney() {
                   {event}
                 </blockquote>
                 <p className="text-slate-300 mb-5">
-                  מה אורי עשוי להבין מהאירוע? הוא נפרד מדמות המחסום.
-                  אין משמעות אחת שחייבת להתאים.
+                  האירוע הוא מה שקרה. המשמעות היא המחשבה שאורי נותן למה שקרה: מה
+                  זה אומר מבחינתו עליו או על המצב? אותה עובדה יכולה לקבל כמה
+                  משמעויות.
                 </p>
+                <fieldset className="space-y-3 mb-6">
+                  <legend className="text-sm text-amber-200 mb-3">
+                    אפשר לבחור מחשבה אפשרית, או לנסח אחרת
+                  </legend>
+                  {[
+                    "אולי לא יהיה לי מקום כאן",
+                    "אולי מצפים ממני ואאכזב אותם",
+                    "זו הזדמנות לנסות משהו, גם אם עדיין לא ברור איך",
+                    "עדיין לא ברור מה אורי מבין מזה",
+                  ].map((option) => (
+                    <button
+                      type="button"
+                      key={option}
+                      aria-pressed={meaning === option}
+                      className={selected(meaning === option) + " w-full"}
+                      onClick={() => setMeaning(option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </fieldset>
                 <label htmlFor="demo-meaning" className="block text-sm mb-2">
-                  אפשרות אחת למשמעות
+                  המשמעות במילים שלך
                 </label>
                 <textarea
                   id="demo-meaning"

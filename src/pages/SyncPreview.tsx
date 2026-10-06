@@ -17,7 +17,8 @@ const seed: GuidedSession = {
   mechanismId: "people-pleasing",
   answers: {
     step_6_thought: "אולי יכעסו אם לא אסכים",
-    step_7_secondary_gain: "לשמור על קשר או קבלה",
+    step_7_protection: "לשמור על קשר או קבלה",
+    participant_screen: "question",
   },
 };
 export default function SyncPreview() {
@@ -53,6 +54,21 @@ export default function SyncPreview() {
         <strong>בדיקת שני מסכים · סיפור בדיוני בזיכרון · ללא Firebase</strong>
         <button
           className="hc-button-secondary"
+          onClick={() =>
+            setSession({
+              ...seed,
+              phase: 0,
+              environment: null,
+              archetype: null,
+              resourceArchetype: null,
+              answers: { participant_screen: "welcome" },
+            })
+          }
+        >
+          מסכי הפתיחה
+        </button>
+        <button
+          className="hc-button-secondary"
           onClick={() => setSession(seed)}
         >
           בחירת כוח
@@ -67,6 +83,7 @@ export default function SyncPreview() {
               answers: {
                 ...current.answers,
                 choice_moment: "",
+                participant_screen: "choice",
                 step_9_resource_action: "לבדוק מה אני רוצה לפני שאסכים",
               },
             }))

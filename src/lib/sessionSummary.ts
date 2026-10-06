@@ -7,6 +7,7 @@ export type SummarySession = {
   phase?: number;
   status?: string;
   answers?: Record<string, string>;
+  trigger?: string | null;
   mechanismId?: string | null;
   resourceArchetype?: string | null;
   blockerStrengthAfter?: number | null;
@@ -93,8 +94,89 @@ export function buildSessionSummary(session: SummarySession) {
     ...goodPowersData,
     ...worldsData.flatMap((world) => world.archetypes),
   ].find((item) => item.id === session.resourceArchetype);
-  const homework = answers.homework?.trim();
-  const noTask = homework?.startsWith("בינתיים בלי משימה");
+  const proposal =
+    answers.homework_proposal?.trim() || answers.homework?.trim();
+  const proposalId = answers.homework_proposal_id || "";
+  const approvedText = answers.homework_approved_text?.trim();
+  const approvalMatches =
+    Boolean(proposalId) && answers.homework_approved_id === proposalId;
+  const homeworkApproved =
+    approvalMatches &&
+    answers.homework_confirmation === "approved" &&
+    Boolean(proposal) &&
+    approvedText === proposal;
+  const noTask =
+    answers.homework_confirmation === "none" &&
+    answers.homework_approved_id === proposalId;
+  const homework = homeworkApproved ? approvedText : undefined;
+  const stage = session.journeyStage || 1;
+  const firstRecorded = (...values: Array<string | null | undefined>) =>
+    values.find((value) => value?.trim())?.trim();
+  const eventKeys: Record<number, string> = {
+    1: "step_2_trigger",
+    2: "s2_step_2_trigger",
+    3: "s3_step_1_trigger",
+    4: "s4_placeholder_trigger",
+  };
+  const meaningKeys: Record<number, string | undefined> = {
+    1: "step_6_thought",
+    2: "s2_step_3_interpretation",
+    3: undefined,
+    4: undefined,
+  };
+  const reactionKeys: Record<number, string | undefined> = {
+    1: "step_5_urge",
+    2: "s2_step_5_reaction",
+    3: "s3_step_2b_reaction",
+    4: undefined,
+  };
+  const meaningKey = meaningKeys[stage];
+  const reactionKey = reactionKeys[stage];
+  const loop = [
+    {
+      id: "event",
+      label: "מה קרה",
+      value: firstRecorded(answers[eventKeys[stage]], session.trigger),
+    },
+    {
+      id: "meaning",
+      label: "מה הבנתי מזה",
+      value: firstRecorded(
+        answers.loop_meaning,
+        meaningKey ? answers[meaningKey] : undefined,
+      ),
+    },
+    {
+      id: "emotion",
+      label: "מה הרגשתי",
+      value: firstRecorded(
+        answers.loop_emotion,
+        stage === 1 ? answers.step_3_feeling : undefined,
+      ),
+    },
+    {
+      id: "reaction",
+      label: "מה עשיתי או רציתי לעשות",
+      value: firstRecorded(
+        answers.loop_reaction,
+        reactionKey ? answers[reactionKey] : undefined,
+      ),
+    },
+    {
+      id: "consequence",
+      label: "מה קרה בעקבות התגובה",
+      value: firstRecorded(answers.loop_consequence),
+    },
+    {
+      id: "resultMeaning",
+      label: "מה התוצאה גרמה לי לחשוב",
+      value: firstRecorded(answers.loop_result_meaning),
+    },
+  ];
+  const takeaway = firstRecorded(
+    answers.session_takeaway,
+    stage === 2 ? answers.s2_step_10_closure : undefined,
+  );
   return {
     pattern,
     patternConfirmed: Boolean(confirmedPattern),
@@ -102,7 +184,12 @@ export function buildSessionSummary(session: SummarySession) {
     choice: answers.choice_moment,
     resourceName: resource?.name,
     homework,
+    homeworkApproved,
+    proposal: noTask ? undefined : proposal,
+    proposalId,
     noTask,
+    loop,
+    takeaway,
     taskSuggestion: pattern ? weeklyExperiments[pattern.id] : undefined,
     afterIntensity: session.blockerStrengthAfter,
     status:

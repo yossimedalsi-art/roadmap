@@ -96,6 +96,11 @@ test("shared takeaway never identifies a person by character and retains actual 
       s2_step_9_agreement: "רוצה להמשיך",
       choice_moment: "בינתיים רוצה רק להתבונן",
       homework: "פעמיים השבוע אבדוק מה אני רוצה לפני שאסכים",
+      homework_proposal: "פעמיים השבוע אבדוק מה אני רוצה לפני שאסכים",
+      homework_proposal_id: "proposal-1",
+      homework_approved_text: "פעמיים השבוע אבדוק מה אני רוצה לפני שאסכים",
+      homework_approved_id: "proposal-1",
+      homework_confirmation: "approved",
     },
     blockerStrengthAfter: 6,
   };
@@ -114,7 +119,7 @@ test("shared takeaway never identifies a person by character and retains actual 
   assert.equal(
     buildSessionSummary({
       ...fixture,
-      answers: { homework: "בינתיים בלי משימה — נברר יחד" },
+      answers: { homework_confirmation: "none", homework_approved_id: "" },
     }).noTask,
     true,
   );

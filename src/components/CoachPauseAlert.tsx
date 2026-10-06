@@ -15,7 +15,7 @@ export default function CoachPauseAlert({
     <section
       role="alert"
       aria-label="בקשות לעצירה"
-      className="rounded-2xl border-2 border-amber-300 bg-amber-300/10 p-5 mb-6"
+      className="sticky top-3 z-40 rounded-2xl border-2 border-amber-300 bg-[#38290c] shadow-2xl p-5 mb-6 print:hidden"
       dir="rtl"
     >
       <h2 className="font-bold text-xl text-amber-200 mb-2">

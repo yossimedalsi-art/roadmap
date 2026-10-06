@@ -181,6 +181,7 @@ export default function CoachDashboard({ user }: { user: User }) {
         coachId: user.uid,
         traineeId: selectedTrainee.id,
         phase: 0,
+        answers: { participant_screen: "welcome" },
         status: "active",
         journeyStage: selectedStage,
         mechanismId: selectedMechanismId || null,

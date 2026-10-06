@@ -111,8 +111,6 @@ export default function TraineeJourney({
   const [dismissedResource, setDismissedResource] = useState<string | null>(
     null,
   );
-  const [initialResource, setInitialResource] = useState<string | null>(null);
-  const [welcomeReady, setWelcomeReady] = useState(false);
   const [pendingWrite, setPendingWrite] = useState<DocumentData | null>(null);
   const [editingAction, setEditingAction] = useState(false);
   const [actionDraft, setActionDraft] = useState("");
@@ -142,8 +140,6 @@ export default function TraineeJourney({
           setDraft("");
           setShowMap(false);
           setShowResource(false);
-          setWelcomeReady(false);
-          setInitialResource(null);
           setEditingAction(false);
         }
         if (next.phase !== sessionRef.current?.phase) setDraft("");
@@ -165,6 +161,27 @@ export default function TraineeJourney({
   // Only user actions write patches. Receiving a coach snapshot never writes it back.
   // Dot paths preserve answers written concurrently by the coach.
   async function save(patch: DocumentData) {
+    // Screen metadata travels with the explicit navigation action. It is never
+    // replayed from snapshots, so the coach can mirror the opening faithfully.
+    if (
+      typeof patch.phase === "number" &&
+      !patch["answers.participant_screen"]
+    ) {
+      const nextPhase = patch.phase;
+      patch = {
+        ...patch,
+        "answers.participant_screen":
+          nextPhase === 0
+            ? "world"
+            : nextPhase === 1
+              ? "archetype"
+              : nextPhase === 2
+                ? "event"
+                : nextPhase > phasesFor(session?.journeyStage).length
+                  ? "choice"
+                  : "question",
+      };
+    }
     if (preview && suppliedPreviewSession && onPreviewSave) {
       setSaving(true);
       try {
@@ -212,10 +229,12 @@ export default function TraineeJourney({
   }
   const answers = session?.answers || {};
   const phase = session?.phase || 0;
+  const welcomeReady = answers.participant_screen === "world";
+  const initialResource = session?.resourceArchetype || null;
   const loaded = session !== null && (preview || loadedSessionId === sessionId);
   useEffect(() => {
     if (loaded) contentRef.current?.focus();
-  }, [phase, loaded]);
+  }, [phase, loaded, welcomeReady]);
   const stage = session?.journeyStage || 1;
   const phases = phasesFor(stage);
   const step = phases[phase - 1];
@@ -284,6 +303,7 @@ export default function TraineeJourney({
     writeAnswer("choice_moment", choice, {
       status: "completed",
       completedAt: serverTimestamp(),
+      "answers.participant_screen": "summary",
     });
 
   if (loadError || !session || !loaded)
@@ -329,7 +349,7 @@ export default function TraineeJourney({
             "radial-gradient(ellipse at 80% 0%,rgba(45,212,191,.1),transparent 55%),radial-gradient(ellipse at 0% 80%,rgba(129,140,248,.08),transparent 50%)",
         }}
       />
-      <header className="relative mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-5 border-b border-white/10 print:hidden">
+      <header className="sticky top-0 z-50 bg-[#0a1321]/95 backdrop-blur-md mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-5 border-b border-white/10 print:hidden">
         <div className="flex items-center gap-3">
           <Compass className="h-8 w-8 text-teal-300" />
           <div>
@@ -394,7 +414,6 @@ export default function TraineeJourney({
                     journeyStage: value,
                   };
                   setSession(sessionRef.current);
-                  setWelcomeReady(false);
                   setDraft("");
                 }}
                 className="underline"
@@ -426,68 +445,92 @@ export default function TraineeJourney({
 
         {phase === 0 && (
           <section className="mx-auto max-w-4xl">
-            <div className="mb-9 max-w-2xl">
-              <p className="mb-3 text-sm text-teal-300">מתחילים בקשר ובבחירה</p>
-              <h1 className="text-4xl md:text-5xl font-bold leading-tight">
-                יש מקום למה שמעסיק אותך.
-                <br />
-                <span className="text-slate-400">ואפשר להתחיל לאט.</span>
-              </h1>
-              <p className="mt-5 text-slate-300 leading-7">
-                זה מפגש משותף עם המנחה. הדמויות מציעות דרך להתבונן במחסומים; הן
-                לא אומרות מי אנחנו. תשובות שנשלחות כאן מוצגות למנחה. מותר לא
-                לדעת, לשנות ניסוח או לעצור.
-              </p>
-            </div>
-            {session.previousAgreement && (
-              <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-5">
-                <p className="text-xs text-slate-400 mb-2">
-                  מה שבחרת במפגש הקודם — אפשר לעדכן
-                </p>
-                <p>{session.previousAgreement}</p>
-              </div>
-            )}
-            <div className="rounded-3xl border border-teal-300/20 bg-teal-300/5 p-6 mb-7">
-              <h2 className="font-bold text-xl mb-2">
-                מה יכול לעזור לך להיות כאן היום?
-              </h2>
-              <p className="text-slate-300 text-sm mb-4">
-                אפשר לבחור משאב להתחלה. אין צורך להרגיש אותו מיד.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {goodPowersData.map((power) => (
+            {!welcomeReady && (
+              <>
+                <div className="mb-9 max-w-2xl">
+                  <p className="mb-3 text-sm text-teal-300">
+                    מתחילים בקשר ובבחירה
+                  </p>
+                  <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+                    יש מקום למה שמעסיק אותך.
+                    <br />
+                    <span className="text-slate-400">ואפשר להתחיל לאט.</span>
+                  </h1>
+                  <p className="mt-5 text-slate-300 leading-7">
+                    זה מפגש משותף עם המנחה. הדמויות מציעות דרך להתבונן במחסומים;
+                    הן לא אומרות מי אנחנו. תשובות שנשלחות כאן מוצגות למנחה. מותר
+                    לא לדעת, לשנות ניסוח או לעצור.
+                  </p>
+                </div>
+                {session.previousAgreement && (
+                  <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-5">
+                    <p className="text-xs text-slate-400 mb-2">
+                      מה שבחרת במפגש הקודם — אפשר לעדכן
+                    </p>
+                    <p>{session.previousAgreement}</p>
+                  </div>
+                )}
+                <div className="rounded-3xl border border-teal-300/20 bg-teal-300/5 p-6 mb-7">
+                  <h2 className="font-bold text-xl mb-2">
+                    מה יכול לעזור לך להיות כאן היום?
+                  </h2>
+                  <p className="text-slate-300 text-sm mb-4">
+                    אפשר לבחור משאב להתחלה. אין צורך להרגיש אותו מיד.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {goodPowersData.map((power) => (
+                      <button
+                        key={power.id}
+                        aria-pressed={initialResource === power.id}
+                        disabled={saving}
+                        onClick={() =>
+                          save({
+                            resourceArchetype: power.id,
+                            "answers.participant_screen": "welcome",
+                          })
+                        }
+                        className={`rounded-full px-4 py-2 border text-sm ${initialResource === power.id ? "bg-teal-300/15 border-teal-300" : "border-white/15"}`}
+                      >
+                        {power.icon} {power.name}
+                      </button>
+                    ))}
+                  </div>
                   <button
-                    key={power.id}
-                    aria-pressed={initialResource === power.id}
-                    onClick={() => setInitialResource(power.id)}
-                    className={`rounded-full px-4 py-2 border text-sm ${initialResource === power.id ? "bg-teal-300/15 border-teal-300" : "border-white/15"}`}
+                    className={`${buttonClass} mt-5`}
+                    disabled={saving}
+                    onClick={() =>
+                      save({ "answers.participant_screen": "world" })
+                    }
                   >
-                    {power.icon} {power.name}
+                    {" "}
+                    {initialResource ? "זה המשאב שלי להתחלה" : "נבחר יחד בהמשך"}
+                    <ArrowLeft className="h-4 w-4" />
                   </button>
-                ))}
-              </div>
-              <button
-                className={`${buttonClass} mt-5`}
-                disabled={saving}
-                onClick={async () => {
-                  if (
-                    !initialResource ||
-                    (await save({ resourceArchetype: initialResource }))
-                  )
-                    setWelcomeReady(true);
-                }}
-              >
-                {" "}
-                {initialResource ? "זה המשאב שלי להתחלה" : "נבחר יחד בהמשך"}
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-            </div>
+                </div>
+              </>
+            )}
             {welcomeReady && (
               <>
-                <h2 className="text-2xl font-bold mb-2">איזה מרחב מתאים לך?</h2>
+                <h1 className="text-3xl font-bold mb-2">איזה מרחב מתאים לך?</h1>
                 <p className="text-slate-400 mb-5">
                   זו בחירה של סגנון, לא אבחון.
                 </p>
+                <div className="mb-5 flex flex-wrap gap-4 text-sm">
+                  <span className="text-teal-200">
+                    {resource
+                      ? `המשאב שבחרתי: ${resource.name}`
+                      : "אפשר לבחור משאב עם המנחה בהמשך"}
+                  </span>
+                  <button
+                    disabled={saving}
+                    onClick={() =>
+                      save({ "answers.participant_screen": "welcome" })
+                    }
+                    className="underline text-slate-400"
+                  >
+                    חזרה למשאבים ולפתיחה
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {worldsData.map((item) => (
                     <button
@@ -1023,6 +1066,7 @@ export default function TraineeJourney({
                       [`answers.${actionKey}`]: actionDraft.trim(),
                       status: "completed",
                       completedAt: serverTimestamp(),
+                      "answers.participant_screen": "summary",
                     })
                   }
                 >
