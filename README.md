@@ -1,80 +1,51 @@
-# 🧭 Heart Compass - Interactive Therapeutic Engine
+# מצפן הלב — משחק מונחה בשיטת מ.ס.ע
 
-**Heart Compass** is an advanced, real-time therapeutic web application designed specifically for adolescents and young adults. It bypasses classic clinical resistance by translating complex psychological protocols (CBT, Somatic Experiencing, and Shadow Work) into an engaging, gamified "journey" using archetypes and visual worlds.
+מרחב למפגש עם מנחה, המיועד גם לנוער. הדמות מייצגת מחסום אפשרי ואינה מגדירה את המשתתף. מתחילים בקשר ובמשאב, בוחנים אירוע ומשמעות במילים של המשתתף, ומאפשרים לבחור צעד, להתבונן או לעצור.
 
----
+## מקור התוכן
 
-## ✨ Key Features
+- [מפת הדפוסים — מקור אמת](https://drive.google.com/file/d/1-BK6llPE83uBwr1sBLamx3SJOSri9hzV/view): 31 שמות, בכתיב המקורי ובחלוקה המקורית. התעתיק הנפרד נמצא ב־`docs/pattern-map.json` ונבדק מול הקטלוג.
+- [מסמך השיטה](https://docs.google.com/document/d/1saZn-gH0bMYPfa0xt4F4fseEURD6ANDTU10qCLtEypU/edit).
+- השאלות ו־93 האירועים הם הצעות למשחק המבוססות על העקרונות. הם אינם ציטוטים מהמקור או שמות של דפוסים נוספים.
 
-*   **Dual-Interface Synchronization:** 
-    *   **Trainee View:** An immersive, distraction-free environment where the user embanks on a journey, encountering "blocking" archetypes and answering deep introspective questions.
-    *   **Coach Dashboard:** A real-time clinical mirror that reveals the "Shadow Pattern" behind every trainee choice, providing the coach with dynamic deepening questions and clinical framing.
-*   **Live Resource Injection:** The coach can actively intervene during the session by opening a resource deck and sending a "Wise Archetype" directly to the trainee's screen with beautiful animations, pivoting the therapeutic conversation.
-*   **10-Step Clinical Peeling Flow:** A structured dialogue flow that moves the trainee from the external trigger ➔ emotional response ➔ somatic anchor ➔ survival urge ➔ cognitive distortion ➔ and finally, integration and discovering the core need.
-*   **Automated Homework Engine:** At the end of the journey, the system automatically generates an environment-specific action plan (72 hours, 1 week, 30 days) and a summary PDF based on the trainee's answers.
-*   **Print & PDF Ready:** Built-in PDF generation for clinical record keeping and trainee takeaways.
+מ.ס.ע: מיפוי, סילוק, עצמאות. המטרה היא להרחיב בחירה מתוך תשוקה ולצמצם שליטה אוטומטית של פחד. אין ציון רגשי, אבחון על סמך בחירת תמונה או הבטחה לשחרור בעקבות לחיצה.
 
----
+## הפעלה מקומית
 
-## 🛠️ Tech Stack
+נבדק עם Node.js 24.14.1. דרוש Node.js 24 ומעלה לבדיקות המייבאות TypeScript ישירות.
 
-*   **Frontend Framework:** React 18 (with Vite for rapid development)
-*   **Language:** TypeScript (Strict typing for clinical data structures)
-*   **Styling:** Tailwind CSS (Custom glassmorphism and modern UI tokens)
-*   **Animations:** Framer Motion (Smooth page transitions and real-time interactive feedback)
-*   **Icons:** Lucide React
-*   **State Management:** LocalStorage / Browser Storage Events (Currently optimized for local peer-to-peer syncing, architected to scale easily to WebSockets/Firebase).
+```sh
+npm ci
+npm run dev -- --host 127.0.0.1
+```
 
----
+- `/`: עמוד הפתיחה.
+- `/demo`: התנסות בסיפור בדיוני, ללא שמירת תשובות.
+- `/preview/library`: ספריית החיפוש בפיתוח, ללא פרטי משתתפים.
+- `/preview/journey`: ארבעת המסלולים בפיתוח, עם מצב בזיכרון וללא קריאה או כתיבה של מסמכי מפגש.
+- `/coach`: כניסה ומרחב המנחה עם Firebase.
+- `/journey/:sessionId`: מפגש משותף באמצעות קישור אישי.
 
-## 🧠 Clinical Methodology (M.S.A)
+נתיבי `/preview` זמינים רק בשרת הפיתוח. קוד Firebase כולל את הגדרות הפרויקט הקיים; לפני בדיקת מפגש אמיתי יש לחבר סביבת בדיקה מתאימה. אין להזין מידע אישי לתצוגות בדיקה.
 
-Heart Compass operates on a core therapeutic methodology designed to unmask defense mechanisms:
-1.  **Identification:** Externalizing the internal conflict using visual archetype cards.
-2.  **Somatic & Urge Processing:** Grounding the adolescent in the body rather than intellectualizing the problem.
-3.  **The Shadow Reveal:** Uncovering the hidden protective mechanism behind destructive behaviors.
-4.  **Resource Integration:** Supplying the adolescent with a new internal character to rely on.
+## בדיקות ובנייה
 
----
+```sh
+npm test
+npm run lint
+npm run build
+```
 
-## 🚀 Getting Started
+בדיקות התוכן מאמתות שמות וקבוצות מול תעתיק מקור נפרד, חיפוש בעברית, קישורי דפוס/דמות/אירוע, קיום תמונות, סדר שלבי המסלולים, והבחנה בין תשובה לא ברורה לצעד שנבחר.
 
-### Prerequisites
-Make sure you have Node.js (v16+) installed.
+## מבנה
 
-### Installation
+React 19, TypeScript, Vite, Tailwind, Framer Motion ו־Firebase Auth/Firestore. המסכים נטענים לפי נתיב, התמונות מוגשות כ־WebP, והשמירה היא עדכון מפורש של שדות שהמשתתף שינה. קובצי PNG המקוריים נשמרו. `scripts/optimize-artwork.py` משחזר את גרסאות WebP באמצעות Pillow.
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/your-username/heart-compass.git
-   ```
+ספריית המנחה מאפשרת חיפוש לפי שם או שפה יומיומית, סינון לפי תחום וקבוצת רגש, ושאלות ואירועים לכל דפוס. הקישור לדמות הוא מטפורה אפשרית; אינו קובע את משמעות התשובה.
 
-2. Navigate to the project directory:
-   ```bash
-   cd heart-compass
-   ```
+## לפני פריסה
 
-3. Install dependencies:
-   ```bash
-   npm install
-   ```
+כללי `firestore.rules` שונו מקומית. יש לבדוק אותם באמולטור Firebase ולבדוק סנכרון בין שני מכשירים בסביבת בדיקה לפני פריסה. בפרט: בעלות מנחה, מניעת קריאת רשימת מפגשים, הגנת שדות מנחה, עצירה, הסכמה לתרגיל, השלמה ועדכונים מוגבלים לאחר השלמה. בדיקות אלו טרם הורצו; Java ואמולטור Firebase אינם זמינים בסביבה הנוכחית.
 
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-5. Open your browser and navigate to `http://localhost:5173`.
-
----
-
-## 🏗️ Future Roadmap (SaaS Transition)
-
-*   [ ] **Real-time Database Integration:** Migrate from `localStorage` sync to Supabase/Firebase for remote tele-health sessions.
-*   [ ] **Authentication:** Implement multi-tenancy auth for independent coach accounts.
-*   [ ] **PWA (Progressive Web App):** Add service workers for a native mobile experience without App Store dependencies.
-*   [ ] **Stripe Integration:** Subscription management for clinical organizations.
-
----
-
-*Designed and developed for deep, transformative work.*
+קישורים חדשים משתמשים ב־UUID. מזהי מפגשים ישנים נשארים נגישים למנחה לפי הכללים, אך דורשים טיפול בהעברה לפני שימוש מחדש בקישור משתתף. הגישה באמצעות קישור אישי מחייבת התייחסות לקישור עצמו כמידע פרטי.

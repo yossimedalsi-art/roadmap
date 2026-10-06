@@ -1,59 +1,81 @@
-import { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { onAuthStateChanged } from "firebase/auth";
-import type { User } from "firebase/auth";
-import { auth } from "./lib/firebase";
-import TraineeJourney from "./pages/TraineeJourney";
-import CoachDashboard from "./pages/CoachDashboard";
-import DemoJourney from "./pages/DemoJourney";
+import { lazy, Suspense } from "react";
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { MotionConfig } from "framer-motion";
 import Home from "./pages/Home";
-import AuthPage from "./pages/AuthPage";
 import ToSGate from "./components/ToS";
 import ErrorBoundary from "./components/ErrorBoundary";
 
+const TraineeJourney = lazy(() => import("./pages/TraineeJourney"));
+const CoachAccess = lazy(() => import("./components/CoachAccess"));
+const DemoJourney = lazy(() => import("./pages/DemoJourney"));
+const MechanismLibrary = import.meta.env.DEV
+  ? lazy(() => import("./components/MechanismLibrary"))
+  : null;
+
 function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0d0f14] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
   return (
-    <BrowserRouter>
-      <ErrorBoundary>
-        <Routes>
-          {/* Public marketing demo — no ToS gate, no Firebase */}
-          <Route path="/demo" element={<DemoJourney />} />
-
-          <Route path="/" element={<ToSGate><Home /></ToSGate>} />
-          <Route path="/journey/:sessionId" element={<ToSGate><TraineeJourney /></ToSGate>} />
-
-          {/* Protected Coach Route */}
-          <Route
-            path="/coach"
-            element={user ? <ToSGate><CoachDashboard user={user} /></ToSGate> : <Navigate to="/login" />}
-          />
-          <Route
-            path="/login"
-            element={user ? <Navigate to="/coach" /> : <ToSGate><AuthPage onLogin={setUser} /></ToSGate>}
-          />
-        </Routes>
-      </ErrorBoundary>
-    </BrowserRouter>
+    <MotionConfig reducedMotion="user">
+      <BrowserRouter>
+        <ErrorBoundary>
+          <Suspense
+            fallback={
+              <div className="hc-shell grid place-items-center" role="status">
+                <p className="text-slate-300">מכינים את המרחב…</p>
+              </div>
+            }
+          >
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/demo" element={<DemoJourney />} />
+              <Route
+                path="/journey/:sessionId"
+                element={
+                  <ToSGate participant>
+                    <TraineeJourney />
+                  </ToSGate>
+                }
+              />
+              <Route path="/coach" element={<CoachAccess />} />
+              <Route path="/login" element={<CoachAccess />} />
+              {import.meta.env.DEV && MechanismLibrary && (
+                <Route
+                  path="/preview/library"
+                  element={
+                    <div className="hc-shell p-5 sm:p-10">
+                      <p className="hc-kicker mb-6">
+                        תצוגת פיתוח · ללא מידע אישי וללא חיבור למפגש
+                      </p>
+                      <MechanismLibrary />
+                    </div>
+                  }
+                />
+              )}
+              {import.meta.env.DEV && (
+                <Route
+                  path="/preview/journey"
+                  element={<TraineeJourney preview />}
+                />
+              )}
+              <Route
+                path="*"
+                element={
+                  <div className="hc-shell grid place-items-center p-6 text-center">
+                    <div>
+                      <h1 className="text-3xl font-bold mb-4">
+                        העמוד הזה לא נמצא
+                      </h1>
+                      <Link className="hc-button" to="/">
+                        חזרה למצפן הלב
+                      </Link>
+                    </div>
+                  </div>
+                }
+              />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+      </BrowserRouter>
+    </MotionConfig>
   );
 }
-
 export default App;

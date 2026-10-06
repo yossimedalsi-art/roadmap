@@ -1,65 +1,66 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ── Trainees ──────────────────────────────────────────────────────
-    // Only the coach who created the trainee can read/write.
+    function signedIn() { return request.auth != null; }
+    function owns(data) { return signedIn() && request.auth.uid == data.coachId; }
+    function validLink(id) {
+      return id.matches('^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$');
+    }
     match /trainees/{traineeId} {
-      allow read, delete: if request.auth != null
-                          && request.auth.uid == resource.data.coachId;
-      allow create: if request.auth != null
-                    && request.resource.data.coachId == request.auth.uid;
-      allow update: if request.auth != null
-                    && request.auth.uid == resource.data.coachId;
+      allow read, delete: if owns(resource.data);
+      allow create: if signedIn() && request.resource.data.coachId == request.auth.uid;
+      allow update: if owns(resource.data) && request.resource.data.coachId == resource.data.coachId;
     }
-
-    // ── Live Sessions ─────────────────────────────────────────────────
-    // • Coach (authenticated): full read/write for their own sessions.
-    // • Trainee (via magic link): can read any session by ID and update
-    //   journey progress fields. coachId/traineeId are immutable, and
-    //   status may only transition to "completed" (natural journey end).
-    //   The trainee rule intentionally does NOT require request.auth == null:
-    //   a remote device may have any Firebase user signed in (or none),
-    //   and the magic-link model treats session-ID knowledge as the grant.
     match /hc_live_sessions/{sessionId} {
-
-      // Magic-link model: anyone who KNOWS a session ID can fetch that
-      // single document — but only for new-format IDs (crypto.randomUUID,
-      // 36 chars), which are unguessable. Legacy 6-char IDs are readable
-      // by their coach only. Listing/enumerating the collection is never
-      // public: without this split, `allow read: if true` would let anyone
-      // dump every session via a collection query.
-      allow get: if sessionId.size() >= 30
-                 || (request.auth != null
-                     && request.auth.uid == resource.data.coachId);
-      allow list: if request.auth != null
-                  && request.auth.uid == resource.data.coachId;
-
-      // Coach: full write authority.
-      allow create: if request.auth != null
+      // The secret UUID grants access to this shared document, never collection listing.
+      // Keep coach-only notes in /private, not in this shared document.
+      allow get: if validLink(sessionId) || owns(resource.data);
+      allow list: if owns(resource.data);
+      allow create: if validLink(sessionId) && signedIn()
                     && request.resource.data.coachId == request.auth.uid;
-      allow update, delete: if request.auth != null
-                             && request.auth.uid == resource.data.coachId;
-
-      // Trainee (any auth state): may update journey progress fields.
-      // coachId/traineeId must remain unchanged; status may stay the same
-      // or move to "completed"; completedAt must remain unchanged.
-      allow update: if request.resource.data.coachId    == resource.data.coachId
-                    && request.resource.data.traineeId  == resource.data.traineeId
-                    && (
-                         !('status' in request.resource.data)
-                         || request.resource.data.status == resource.data.get('status', null)
-                         || request.resource.data.status == "completed"
-                       )
-                    && (
-                         !('completedAt' in request.resource.data)
-                         || request.resource.data.completedAt == resource.data.get('completedAt', null)
-                       );
+      allow delete: if owns(resource.data);
+      allow update: if owns(resource.data)
+                    && request.resource.data.coachId == resource.data.coachId;
+      function validIntensity(value) {
+        return value == null || (value is number && value >= 1 && value <= 10);
+      }
+      function participantProgress() {
+        let next = request.resource.data;
+        let changed = next.diff(resource.data).affectedKeys();
+        return validLink(sessionId)
+          && resource.data.status == 'active'
+          && changed.hasOnly(['environment', 'archetype', 'resourceArchetype', 'trigger',
+                              'answers', 'blockerStrengthBefore', 'blockerStrengthAfter',
+                              'participantPause', 'phase', 'status', 'completedAt'])
+          && next.phase is int && next.phase >= 0 && next.phase <= 20
+          && next.get('participantPause', false) is bool
+          && next.get('answers', {}) is map
+          && (next.get('environment', null) == null || next.environment is string)
+          && (next.get('archetype', null) == null || next.archetype is string)
+          && (next.get('resourceArchetype', null) == null || next.resourceArchetype is string)
+          && (next.get('trigger', null) == null || next.trigger is string)
+          && validIntensity(next.get('blockerStrengthBefore', null))
+          && validIntensity(next.get('blockerStrengthAfter', null))
+          && ((next.status == 'active' && !changed.hasAny(['completedAt']))
+              || (next.status == 'completed' && next.completedAt == request.time));
+      }
+      function participantSummaryAmendment() {
+        let next = request.resource.data;
+        let changed = next.diff(resource.data).affectedKeys();
+        return validLink(sessionId)
+          && resource.data.status == 'completed'
+          && changed.hasOnly(['answers', 'blockerStrengthAfter', 'participantPause'])
+          && next.get('participantPause', false) is bool
+          && validIntensity(next.get('blockerStrengthAfter', null))
+          && next.get('answers', {}) is map
+          && next.get('answers', {}).diff(resource.data.get('answers', {})).affectedKeys()
+             .hasOnly(['homework', 'resource_reflection']);
+      }
+      allow update: if participantProgress() || participantSummaryAmendment();
+      match /private/{documentId} {
+        allow read, write: if owns(get(/databases/$(database)/documents/hc_live_sessions/$(sessionId)).data);
+      }
     }
-
-    // Deny all other collections by default.
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    match /{document=**} { allow read, write: if false; }
   }
 }

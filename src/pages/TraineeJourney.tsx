@@ -1,1316 +1,1286 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Compass, TreePine, Cloud, Gamepad2, Music, ArrowLeft, Download, Map, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import {
+  ArrowLeft,
+  Check,
+  Compass,
+  Download,
+  Map,
+  Pause,
+  Shield,
+  Sparkles,
+} from "lucide-react";
+import { useParams } from "react-router-dom";
+import {
+  doc,
+  onSnapshot,
+  serverTimestamp,
+  updateDoc,
+  type DocumentData,
+} from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { worldsData, goodPowersData } from "../data/worlds";
+import {
+  journeyPhases,
+  stage2Phases,
+  stage3Phases,
+  stage4Phases,
+} from "../data/journey";
+import { findMechanism } from "../data/mechanisms";
+import { chosenAction } from "../lib/journeyAnswers";
 import Backpack from "../components/Backpack";
 import JourneyMap from "../components/JourneyMap";
-import { useParams } from "react-router-dom";
-import { worldsData, goodPowersData } from "../data/worlds";
-import { journeyPhases, stage2Phases, stage3Phases, stage4Phases, homeworkPlans } from "../data/journey";
-import { db } from "../lib/firebase";
-import { doc, getDoc, setDoc, updateDoc, onSnapshot } from "firebase/firestore";
+import ParticipantDialog from "../components/ParticipantDialog";
 
-
-const FALLBACK_IMAGE = "/images/guardian.png";
-
-const safeImage = (src?: string) => {
-  if (!src || src.trim() === "") {
-    return FALLBACK_IMAGE;
-  }
-
-  return src;
+type Session = {
+  phase?: number;
+  environment?: string | null;
+  archetype?: string | null;
+  resourceArchetype?: string | null;
+  trigger?: string | null;
+  answers?: Record<string, string>;
+  journeyStage?: number;
+  isYouthMode?: boolean;
+  mechanismId?: string;
+  participantPause?: boolean;
+  previousAgreement?: string;
+  sessionNumber?: number;
+  status?: string;
+  coachWhisper?: string | null;
+  coachInjectedResource?: string | null;
+  blockerStrengthBefore?: number | null;
+  blockerStrengthAfter?: number | null;
+};
+const phasesFor = (stage = 1) =>
+  stage === 4
+    ? stage4Phases
+    : stage === 3
+      ? stage3Phases
+      : stage === 2
+        ? stage2Phases
+        : journeyPhases;
+const phaseNames: Record<number, string> = {
+  1: "מיפוי · להכיר את מה שקורה",
+  2: "מיפוי · להבין את ההגנה והמחיר",
+  3: "סילוק · להרחיב את מרחב הבחירה",
+  4: "עצמאות · לנוע לעבר מה שחשוב",
+};
+const fallbackImage = (event: React.SyntheticEvent<HTMLImageElement>) => {
+  if (!event.currentTarget.src.endsWith("/images/guardian.webp"))
+    event.currentTarget.src = "/images/guardian.webp";
 };
 
-const handleImageError = (
-  e: React.SyntheticEvent<HTMLImageElement, Event>
-) => {
-  const target = e.currentTarget;
-
-  if (target.src.includes(FALLBACK_IMAGE)) {
-    return;
-  }
-
-  target.src = FALLBACK_IMAGE;
+const previewSession: Session = {
+  phase: 0,
+  journeyStage: 1,
+  isYouthMode: true,
+  answers: {},
+  participantPause: false,
+  status: "active",
 };
 
-
-const worldThemes: Record<string, {
-  bg: string;
-  radial1: string;
-  radial2: string;
-  accentText: string;
-  accentBorder: string;
-  accentBg: string;
-  glowColor: string;
-  patternBg: string;
-}> = {
-  clouds: {
-    bg: "bg-[#06091a]",
-    radial1: "radial-gradient(ellipse at 20% 0%, rgba(99,102,241,0.18) 0%, transparent 60%)",
-    radial2: "radial-gradient(ellipse at 80% 100%, rgba(139,92,246,0.12) 0%, transparent 60%)",
-    accentText: "text-indigo-400",
-    accentBorder: "border-indigo-500/40",
-    accentBg: "bg-indigo-500/10",
-    glowColor: "rgba(99,102,241,0.25)",
-    patternBg: "repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(99,102,241,0.03) 40px,rgba(99,102,241,0.03) 41px),repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(99,102,241,0.03) 40px,rgba(99,102,241,0.03) 41px)",
-  },
-  forest: {
-    bg: "bg-[#030d07]",
-    radial1: "radial-gradient(ellipse at 15% 10%, rgba(34,197,94,0.14) 0%, transparent 55%)",
-    radial2: "radial-gradient(ellipse at 85% 90%, rgba(16,185,129,0.10) 0%, transparent 55%)",
-    accentText: "text-emerald-400",
-    accentBorder: "border-emerald-500/40",
-    accentBg: "bg-emerald-500/10",
-    glowColor: "rgba(34,197,94,0.22)",
-    patternBg: "repeating-linear-gradient(60deg,transparent,transparent 40px,rgba(34,197,94,0.025) 40px,rgba(34,197,94,0.025) 41px),repeating-linear-gradient(-60deg,transparent,transparent 40px,rgba(34,197,94,0.025) 40px,rgba(34,197,94,0.025) 41px)",
-  },
-  arcade: {
-    bg: "bg-[#0a0214]",
-    radial1: "radial-gradient(ellipse at 50% 0%, rgba(217,70,239,0.18) 0%, transparent 55%)",
-    radial2: "radial-gradient(ellipse at 10% 90%, rgba(168,85,247,0.12) 0%, transparent 55%)",
-    accentText: "text-fuchsia-400",
-    accentBorder: "border-fuchsia-500/40",
-    accentBg: "bg-fuchsia-500/10",
-    glowColor: "rgba(217,70,239,0.25)",
-    patternBg: "repeating-linear-gradient(90deg,transparent,transparent 60px,rgba(217,70,239,0.03) 60px,rgba(217,70,239,0.03) 61px),repeating-linear-gradient(0deg,transparent,transparent 60px,rgba(217,70,239,0.03) 60px,rgba(217,70,239,0.03) 61px)",
-  },
-  fairies: {
-    bg: "bg-[#0a0710]",
-    radial1: "radial-gradient(ellipse at 30% 10%, rgba(236,72,153,0.14) 0%, transparent 55%)",
-    radial2: "radial-gradient(ellipse at 70% 90%, rgba(167,139,250,0.12) 0%, transparent 55%)",
-    accentText: "text-pink-400",
-    accentBorder: "border-pink-500/40",
-    accentBg: "bg-pink-500/10",
-    glowColor: "rgba(236,72,153,0.22)",
-    patternBg: "repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(236,72,153,0.025) 40px,rgba(236,72,153,0.025) 41px),repeating-linear-gradient(-45deg,transparent,transparent 40px,rgba(236,72,153,0.025) 40px,rgba(236,72,153,0.025) 41px)",
-  },
-};
-
-const defaultTheme = {
-  bg: "bg-[#0d0f14]",
-  radial1: "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.08) 0%, transparent 60%)",
-  radial2: "",
-  accentText: "text-amber-500",
-  accentBorder: "border-amber-500/40",
-  accentBg: "bg-amber-500/10",
-  glowColor: "rgba(245,158,11,0.2)",
-  patternBg: "",
-};
-
-export default function TraineeJourney() {
+export default function TraineeJourney({
+  preview = false,
+}: {
+  preview?: boolean;
+}) {
   const { sessionId } = useParams();
-
-  const [selectedEnv, setSelectedEnv] = useState<string | null>(null);
-  const [currentPhase, setCurrentPhase] = useState<number>(0);
-  const [activeCard, setActiveCard] = useState<string | null>(null);
-  const [selectedTrigger, setSelectedTrigger] = useState<string | null>(null);
-  const [structuredAnswers, setStructuredAnswers] = useState<Record<string, string>>({});
-  const [customInput, setCustomInput] = useState<string>("");
-  const [injectedResource, setInjectedResource] = useState<string | null>(null);
-  const [activeResourceCard, setActiveResourceCard] = useState<string | null>(null);
-  const [resourcePowerUsed, setResourcePowerUsed] = useState(false);
-  const [showMap, setShowMap] = useState(false);
-  const [previousAgreement, setPreviousAgreement] = useState<string | null>(null);
-  const [sessionNumber, setSessionNumber] = useState<number>(1);
-  const [journeyStage, setJourneyStage] = useState<number>(1);
-  const [blockerStrengthBefore, setBlockerStrengthBefore] = useState<number | null>(null);
-  const [blockerStrengthAfter, setBlockerStrengthAfter] = useState<number | null>(null);
-  const [showIntensityBefore, setShowIntensityBefore] = useState(false);
-  const [coachWhisper, setCoachWhisper] = useState<string | null>(null);
-  const [oldCardBurning, setOldCardBurning] = useState(false);
-  const [isYouthMode, setIsYouthMode] = useState(false);
-  const injectedResourceRef = useRef<string | null>(null);
-  injectedResourceRef.current = injectedResource;
-  // Prevents saveState from writing null/empty values to Firestore during the
-  // window between mount and when fetchSession or onSnapshot restore the session data.
-  const dataInitializedRef = useRef(false);
-  const choiceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const resourceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (choiceTimeoutRef.current) clearTimeout(choiceTimeoutRef.current);
-      if (resourceTimeoutRef.current) clearTimeout(resourceTimeoutRef.current);
-    };
-  }, []);
-  // Surfaces Firestore write failures to the trainee (remote devices may hit
-  // permission/network errors silently — without this the coach sees a frozen screen).
+  const [session, setSession] = useState<Session | null>(
+    preview ? previewSession : null,
+  );
+  const [loadError, setLoadError] = useState(false);
   const [syncError, setSyncError] = useState(false);
-
-  const theme = selectedEnv ? (worldThemes[selectedEnv] ?? defaultTheme) : defaultTheme;
-
-  const activeWorld = worldsData.find(w => w.id === selectedEnv);
-  const chosenArchetype = activeWorld?.archetypes.find(a => a.id === activeCard);
-
-  // Find resource archetype from ALL worlds
-  let resourceArchetype: any = null;
-  if (activeResourceCard) {
-    const foundPower = goodPowersData.find(p => p.id === activeResourceCard || p.name === activeResourceCard);
-    if (foundPower) {
-      resourceArchetype = foundPower;
-    } else {
-      worldsData.forEach(w => {
-        const found = w.archetypes.find(a => a.id === activeResourceCard);
-        if (found) resourceArchetype = found;
-      });
-    }
-  }
-
-  const activePhases = journeyStage === 4 ? stage4Phases : journeyStage === 3 ? stage3Phases : journeyStage === 2 ? stage2Phases : journeyPhases;
-
-  // Persistence
-  useEffect(() => {
-    if (!sessionId) return;
-    const fetchSession = async () => {
-      try {
-        const docRef = doc(db, "hc_live_sessions", sessionId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists() && currentPhase === 0 && !dataInitializedRef.current) {
-          const parsed = docSnap.data();
-          // Always load continuation fields
-          if (parsed.previousAgreement) setPreviousAgreement(parsed.previousAgreement);
-          if (parsed.sessionNumber) setSessionNumber(parsed.sessionNumber);
-          if (parsed.journeyStage) setJourneyStage(parsed.journeyStage);
-          if (parsed.isYouthMode) setIsYouthMode(parsed.isYouthMode);
-          // Restore in-progress session
-          if (parsed.phase > 0) {
-            setCurrentPhase(parsed.phase);
-            setSelectedEnv(parsed.environment);
-            setActiveCard(parsed.archetype);
-            setActiveResourceCard(parsed.resourceArchetype || null);
-            setSelectedTrigger(parsed.trigger);
-            setStructuredAnswers(parsed.answers || {});
-            if (parsed.blockerStrengthBefore) setBlockerStrengthBefore(parsed.blockerStrengthBefore);
-            if (parsed.blockerStrengthAfter) setBlockerStrengthAfter(parsed.blockerStrengthAfter);
-          }
-        }
-      } catch (e) {
-        console.error("Error loading session:", e);
-      } finally {
-        dataInitializedRef.current = true;
-      }
-    };
-    fetchSession();
-  }, [sessionId, currentPhase]);
+  const [saving, setSaving] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [draft, setDraft] = useState("");
+  const [homeworkDraft, setHomeworkDraft] = useState("");
+  const [showMap, setShowMap] = useState(false);
+  const [showResource, setShowResource] = useState(false);
+  const [resourceDraft, setResourceDraft] = useState("");
+  const [dismissedWhisper, setDismissedWhisper] = useState<string | null>(null);
+  const [dismissedResource, setDismissedResource] = useState<string | null>(
+    null,
+  );
+  const [initialResource, setInitialResource] = useState<string | null>(null);
+  const [welcomeReady, setWelcomeReady] = useState(false);
+  const [pendingWrite, setPendingWrite] = useState<DocumentData | null>(null);
+  const [editingAction, setEditingAction] = useState(false);
+  const [actionDraft, setActionDraft] = useState("");
+  const sessionRef = useRef<Session | null>(preview ? previewSession : null);
+  const contentRef = useRef<HTMLElement>(null);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
-    if (currentPhase > 0 && sessionId && dataInitializedRef.current) {
-      const saveState = async () => {
-        try {
-          const docRef = doc(db, "hc_live_sessions", sessionId);
-          const isJourneyComplete = currentPhase > activePhases.length;
-          await setDoc(docRef, {
-            phase: currentPhase,
-            environment: selectedEnv,
-            archetype: activeCard,
-            resourceArchetype: activeResourceCard,
-            trigger: selectedTrigger,
-            answers: structuredAnswers,
-            blockerStrengthBefore: blockerStrengthBefore,
-            blockerStrengthAfter: blockerStrengthAfter,
-            ...(isJourneyComplete && { status: "completed" })
-          }, { merge: true });
-          setSyncError(false);
-        } catch (e) {
-          console.error("Error saving state:", e);
-          setSyncError(true);
+    if (preview || !sessionId) return;
+    return onSnapshot(
+      doc(db, "hc_live_sessions", sessionId),
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setLoadError(true);
+          return;
         }
+        const next = snapshot.data() as Session;
+        if (next.phase !== sessionRef.current?.phase) setDraft("");
+        sessionRef.current = next;
+        setSession(next);
+        setLoadError(false);
+      },
+      () => setLoadError(true),
+    );
+  }, [sessionId, retry, preview]);
+
+  useEffect(() => {
+    if (session?.participantPause)
+      document.querySelectorAll("audio").forEach((player) => player.pause());
+  }, [session?.participantPause]);
+
+  // Only user actions write patches. Receiving a coach snapshot never writes it back.
+  // Dot paths preserve answers written concurrently by the coach.
+  async function save(patch: DocumentData) {
+    if (preview && sessionRef.current) {
+      const next: Session = {
+        ...sessionRef.current,
+        answers: { ...sessionRef.current.answers },
       };
-      saveState();
-    }
-  }, [sessionId, currentPhase, selectedEnv, activeCard, activeResourceCard, selectedTrigger, structuredAnswers, blockerStrengthAfter]);
-
-  // Listen for Coach Commands
-  // injectedResourceRef is used instead of injectedResource in deps to avoid recreating
-  // the listener on every dismiss — which would trigger a stale Firestore snapshot and
-  // reopen the modal before updateDoc clears the field (race condition).
-  useEffect(() => {
-    if (!sessionId) return;
-    const docRef = doc(db, "hc_live_sessions", sessionId);
-    const unsubscribe = onSnapshot(docRef, (docSnap: any) => {
-      if (docSnap.exists()) {
-        const parsed = docSnap.data();
-        if (parsed.coachInjectedResource && parsed.coachInjectedResource !== injectedResourceRef.current) {
-          setInjectedResource(parsed.coachInjectedResource);
-        }
-        if (parsed.coachWhisper && parsed.coachWhisper !== null) {
-          setCoachWhisper(parsed.coachWhisper);
-        }
-        // Restore full session state from the first snapshot, before fetchSession's
-        // async getDoc resolves — prevents saveState from writing nulls to Firestore.
-        if (!dataInitializedRef.current && parsed.environment) {
-          if (parsed.environment) setSelectedEnv(parsed.environment);
-          if (parsed.journeyStage) setJourneyStage(parsed.journeyStage);
-          if (parsed.answers && Object.keys(parsed.answers).length > 0) setStructuredAnswers(parsed.answers);
-          if (parsed.archetype) setActiveCard(parsed.archetype);
-          if (parsed.trigger) setSelectedTrigger(parsed.trigger);
-          if (parsed.resourceArchetype) setActiveResourceCard(parsed.resourceArchetype);
-          if (parsed.previousAgreement) setPreviousAgreement(parsed.previousAgreement);
-          if (parsed.sessionNumber) setSessionNumber(parsed.sessionNumber);
-        }
-        // Sync youth mode flag from coach dashboard in real-time
-        if (parsed.isYouthMode !== undefined) setIsYouthMode(!!parsed.isYouthMode);
-        // Listen for Coach advancing the phase.
-        // During meditation sub-steps, keep the trainee on the first meditation screen
-        // so the audio player keeps playing — only advance when moving to a non-meditation step.
-        if (parsed.phase && parsed.phase > 0) {
-          const jStage = parsed.journeyStage || 1;
-          const phases = jStage === 4 ? stage4Phases : jStage === 3 ? stage3Phases : jStage === 2 ? stage2Phases : journeyPhases;
-          const newStep = phases[parsed.phase - 1];
-          setCurrentPhase(prev => {
-            if (parsed.phase <= prev) return prev;
-            const currStep = phases[prev - 1];
-            if (newStep?.uiType === "meditation" && currStep?.uiType === "meditation") {
-              return prev; // stay on current meditation screen
-            }
-            setCustomInput("");
-            return parsed.phase;
-          });
-        }
+      for (const [key, value] of Object.entries(patch)) {
+        if (key.startsWith("answers.")) next.answers![key.slice(8)] = value;
+        else Object.assign(next, { [key]: value });
       }
-    });
-    return () => unsubscribe();
-  }, [sessionId]);
-
-  const handleDialogueSelect = (stepId: string, option: string) => {
-    setStructuredAnswers(prev => ({ ...prev, [stepId]: option }));
-  };
-
-  const getReplacedTitle = (title: string) => {
-    let replaced = title.replace(/\[ארכיטיפ\]/g, chosenArchetype?.name || "הדמות");
-    replaced = replaced.replace(/\[משאב\]/g, resourceArchetype?.name || "הכוח החדש");
-    return replaced;
-  };
-
-  const renderIntensityPicker = (value: number | null, onChange: (v: number) => void) => (
-    <div className="flex gap-2 justify-center flex-wrap mt-4">
-      {[1,2,3,4,5,6,7,8,9,10].map(n => (
-        <button
-          key={n}
-          onClick={() => onChange(n)}
-          className={`w-10 h-10 rounded-full font-bold text-sm transition-all ${
-            value === n
-              ? 'bg-amber-500 text-black scale-125 shadow-[0_0_15px_rgba(245,158,11,0.5)]'
-              : n <= 3
-              ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/40'
-              : n <= 6
-              ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/40'
-              : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/40'
-          }`}
-        >
-          {n}
-        </button>
-      ))}
-    </div>
-  );
-
-  const renderWhisperBubble = () => (
-    <AnimatePresence>
-      {coachWhisper && (
-        <motion.div
-          initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }}
-          className="fixed bottom-28 left-4 right-4 md:left-auto md:right-6 md:max-w-xs z-[70] bg-[#11131a] border border-blue-500/40 rounded-2xl p-4 shadow-[0_0_30px_rgba(59,130,246,0.25)]"
-        >
-          <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest block mb-2">💙 לחישה מהמאמן</span>
-          <p className="text-white font-medium text-sm leading-relaxed">{coachWhisper}</p>
-          <button
-            onClick={async () => {
-              setCoachWhisper(null);
-              if (sessionId) {
-                try {
-                  await updateDoc(doc(db, "hc_live_sessions", sessionId), { coachWhisper: null });
-                } catch (e) { console.error("Error clearing whisper", e); }
-              }
-            }}
-            className="mt-3 text-xs text-blue-400 hover:text-white transition font-bold"
-          >
-            ✓ הבנתי
-          </button>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-
-  const environments = [
-    { id: "clouds", title: "ממלכת העננים", icon: Cloud, color: "text-blue-400" },
-    { id: "forest", title: "היער הפנימי", icon: TreePine, color: "text-emerald-400" },
-    { id: "arcade", title: "עיר הניאון", icon: Gamepad2, color: "text-fuchsia-400" },
-    { id: "fairies", title: "יער הפיות והשדונים", icon: Sparkles, color: "text-pink-400" },
-  ];
-
-  // Find the injected resource archetype if it exists
-  let injectedArchetype: any = null;
-  if (injectedResource) {
-    const foundPower = goodPowersData.find(p => p.id === injectedResource);
-    if (foundPower) {
-      injectedArchetype = foundPower;
-    } else {
-      worldsData.forEach(w => {
-        const found = w.archetypes.find(a => a.id === injectedResource);
-        if (found) injectedArchetype = found;
-      });
+      sessionRef.current = next;
+      setSession(next);
+      return true;
+    }
+    if (!sessionId || !sessionRef.current) return false;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, "hc_live_sessions", sessionId), patch);
+      setPendingWrite(null);
+      setSyncError(false);
+      return true;
+    } catch {
+      setPendingWrite(patch);
+      setSyncError(true);
+      return false;
+    } finally {
+      setSaving(false);
     }
   }
-
-  const handleUseResource = () => {
-    setResourcePowerUsed(true);
-    if (resourceTimeoutRef.current) clearTimeout(resourceTimeoutRef.current);
-    resourceTimeoutRef.current = setTimeout(() => setResourcePowerUsed(false), 2500);
-  };
-
-
-  const renderResourcePowerFlash = () => (
-    <AnimatePresence>
-      {resourcePowerUsed && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          className="fixed bottom-24 left-6 z-[60] bg-amber-500 text-black font-bold px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 text-sm"
-        >
-          ✨ הכוח פועל! {resourceArchetype?.name} מחזק אותך
-        </motion.div>
-      )}
-    </AnimatePresence>
+  const answers = session?.answers || {};
+  const phase = session?.phase || 0;
+  const loaded = session !== null;
+  useEffect(() => {
+    if (loaded) contentRef.current?.focus();
+  }, [phase, loaded]);
+  const stage = session?.journeyStage || 1;
+  const phases = phasesFor(stage);
+  const step = phases[phase - 1];
+  const world = worldsData.find((item) => item.id === session?.environment);
+  const character = world?.archetypes.find(
+    (item) => item.id === session?.archetype,
   );
+  const resource =
+    goodPowersData.find(
+      (item) =>
+        item.id === session?.resourceArchetype ||
+        item.name === session?.resourceArchetype,
+    ) ||
+    worldsData
+      .flatMap((item) => item.archetypes)
+      .find((item) => item.id === session?.resourceArchetype);
+  const suggestion = findMechanism(session?.mechanismId);
+  // A character can represent several patterns. Never infer a pattern from its artwork.
+  const mechanism =
+    suggestion?.archetypeId === session?.archetype ? suggestion : undefined;
+  const answer = step ? answers[step.id] : undefined;
+  const replaceTitle = (title: string) =>
+    title
+      .replace(/\[ארכיטיפ\]/g, character?.name || "הדמות שבחרתי")
+      .replace(/\[משאב\]/g, resource?.name || "המשאב שלי")
+      .replace(/\[משפט_מטרה\]/g, answers.s4_step_1_what_i_want || "הכיוון שלי")
+      .replace(/\[חוזה\]/g, answers.s3_step_9_new_contract || "ההצעה שלי")
+      .replace(
+        /\[רווח\]/g,
+        answers.s3_step_2_secondary_gain || "מה שההגנה מנסה להשיג",
+      );
+  const writeAnswer = (id: string, value: string, extra: DocumentData = {}) =>
+    save({ [`answers.${id}`]: value, ...extra });
+  const selectedClass = (selected: boolean) =>
+    `rounded-2xl border p-4 text-right transition ${selected ? "border-teal-300 bg-teal-300/10 text-white" : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/30 hover:bg-white/[0.06]"}`;
+  const buttonClass =
+    "inline-flex items-center justify-center gap-2 rounded-xl bg-teal-300 px-6 py-3 font-bold text-slate-950 transition hover:bg-teal-200 disabled:cursor-wait disabled:opacity-40";
+  const title = step
+    ? replaceTitle(
+        session?.isYouthMode && step.youthTraineeTitle
+          ? step.youthTraineeTitle
+          : step.traineeTitle,
+      )
+    : "";
 
-  const renderInjectedModal = () => {
-    return (
-      <AnimatePresence>
-        {injectedResource && injectedArchetype && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-[#0d0f14]/95 backdrop-blur-md flex flex-col items-center justify-center p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.8, y: 50 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", damping: 20 }}
-              className="bg-[#171a23] border border-amber-500/50 shadow-[0_0_80px_rgba(245,158,11,0.2)] rounded-3xl p-8 max-w-lg w-full text-center relative overflow-hidden"
-            >
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-500/20 rounded-full blur-[60px] pointer-events-none"></div>
-
-              <span className="text-amber-500 font-bold tracking-widest text-xs mb-6 block uppercase">המאמן שלח לך משאב חדש</span>
-
-              <div className="w-full h-64 rounded-2xl border-2 border-amber-500/30 overflow-hidden relative mb-6">
-                {injectedArchetype.imageUrl ? (
-                  <img
-                          src={safeImage(injectedArchetype.imageUrl)}
-                          alt={injectedArchetype.name}
-                          className="w-full h-full object-cover"
-                          onError={handleImageError}
-                        />
-                ) : (
-                  <div className="w-full h-full bg-black flex items-center justify-center text-6xl">✨</div>
-                )}
-              </div>
-
-              <h2 className="text-3xl font-black mb-4 text-white">{injectedArchetype.name}</h2>
-              <p className="text-neutral-300 text-lg leading-relaxed mb-8">
-                {isYouthMode && injectedArchetype.youthDescription ? injectedArchetype.youthDescription : injectedArchetype.description}
-              </p>
-
-              <button
-                onClick={async () => {
-                  setActiveResourceCard(injectedResource);
-                  setInjectedResource(null);
-                  if (sessionId) {
-                    try {
-                      const docRef = doc(db, "hc_live_sessions", sessionId);
-                      await updateDoc(docRef, { coachInjectedResource: null });
-                    } catch (e) {
-                      console.error("Error clearing coach injected resource", e);
-                    }
-                  }
-                }}
-                className="w-full py-4 bg-amber-500 text-black font-bold text-lg rounded-xl hover:bg-amber-400 transition shadow-[0_0_20px_rgba(245,158,11,0.4)]"
-              >
-                צרף למסע שלי
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    );
-  };
-
-
-  // Fixed banner shown on every screen when Firestore writes fail —
-  // critical for remote trainees whose connection/permission errors are otherwise silent.
-  const syncErrorBanner = syncError && (
-    <div className="fixed top-0 inset-x-0 z-[100] bg-red-600 text-white text-center text-sm font-bold py-2 px-4 shadow-lg" dir="rtl">
-      ⚠ החיבור למאמן נכשל — התשובות לא נשמרות. בדוק את חיבור האינטרנט או רענן את הדף.
-    </div>
-  );
-
-  const worldSelectThemes: Record<string, { hover: string; iconBg: string; glow: string; textColor: string }> = {
-    clouds: { hover: "hover:border-indigo-500/60 hover:bg-indigo-500/5 hover:shadow-[0_0_40px_rgba(99,102,241,0.2)]", iconBg: "bg-indigo-500/10", glow: "group-hover:text-indigo-400", textColor: "text-indigo-400" },
-    forest: { hover: "hover:border-emerald-500/60 hover:bg-emerald-500/5 hover:shadow-[0_0_40px_rgba(34,197,94,0.2)]", iconBg: "bg-emerald-500/10", glow: "group-hover:text-emerald-400", textColor: "text-emerald-400" },
-    arcade: { hover: "hover:border-fuchsia-500/60 hover:bg-fuchsia-500/5 hover:shadow-[0_0_40px_rgba(217,70,239,0.2)]", iconBg: "bg-fuchsia-500/10", glow: "group-hover:text-fuchsia-400", textColor: "text-fuchsia-400" },
-    fairies: { hover: "hover:border-pink-500/60 hover:bg-pink-500/5 hover:shadow-[0_0_40px_rgba(236,72,153,0.2)]", iconBg: "bg-pink-500/10", glow: "group-hover:text-pink-400", textColor: "text-pink-400" },
-  };
-
-  if (currentPhase === 0) {
-    return (
-      <div className="min-h-screen bg-[#0d0f14] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden" dir="rtl">
-        {syncErrorBanner}
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.07) 0%, transparent 65%)" }} />
-        {/* Previous agreement bubble */}
-        {previousAgreement && sessionNumber > 1 && (
-          <div className="w-full max-w-lg mb-10 bg-amber-500/8 border border-amber-500/25 rounded-2xl p-5 text-right">
-            <p className="text-amber-500 text-xs font-bold tracking-widest uppercase mb-2">ההסכם מהמסע הקודם</p>
-            <p className="text-white text-base font-bold leading-relaxed">"{previousAgreement}"</p>
-            <p className="text-neutral-500 text-sm mt-2">לפני שנתחיל — רגע של נשימה עם ההתחייבות הזו</p>
-          </div>
-        )}
-
-        <h1 className="text-5xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-l from-amber-200 to-amber-500">
-          לאן נכנסים היום?
-        </h1>
-        <p className="text-neutral-500 mb-12 text-lg">בחר את העולם שמתאים לך הכי טוב עכשיו</p>
-        <div className="grid md:grid-cols-4 gap-6 w-full max-w-5xl">
-          {environments.map(env => {
-            const wt = worldSelectThemes[env.id];
-            return (
-              <motion.button
-                key={env.id}
-                onClick={() => { setSelectedEnv(env.id); setCurrentPhase(1); }}
-                whileHover={{ y: -6, scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`group p-10 rounded-3xl border border-white/5 bg-[#171a23] shadow-xl transition-all duration-300 flex flex-col items-center ${wt.hover}`}
-              >
-                <div className={`w-20 h-20 rounded-full ${wt.iconBg} flex items-center justify-center mb-6 transition-all group-hover:scale-110`}>
-                  <env.icon className={`w-10 h-10 ${env.color}`} />
-                </div>
-                <h2 className="text-2xl font-bold">{env.title}</h2>
-              </motion.button>
-            );
-          })}
-        </div>
-        {renderInjectedModal()}
-        <Backpack resourceArchetype={resourceArchetype} onUseResource={handleUseResource} />
-        {renderResourcePowerFlash()}
-      </div>
-    );
+  async function next() {
+    const nextPhase = phase + 1;
+    if (await save({ phase: nextPhase })) {
+      setDraft("");
+      window.scrollTo(0, 0);
+    }
   }
+  const actionKey =
+    stage === 4
+      ? "s4_step_6_action"
+      : stage === 3
+        ? "s3_step_9_new_contract"
+        : stage === 2
+          ? "s2_step_8_new_action"
+          : "step_9_resource_action";
+  const action = chosenAction(answers[actionKey]);
+  const complete = phase > phases.length;
+  const needsChoice =
+    complete && !answers.choice_moment && session?.status !== "completed";
+  const finishChoice = (choice: string) =>
+    writeAnswer("choice_moment", choice, {
+      status: "completed",
+      completedAt: serverTimestamp(),
+    });
 
-  if (currentPhase === 1 || currentPhase === 2) {
+  if (loadError || !session)
     return (
-      <div className={`min-h-screen ${theme.bg} text-white p-6 relative overflow-x-hidden`} dir="rtl">
-        {syncErrorBanner}
-        {/* World-themed gradient overlay */}
-        <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
-        <div className="fixed inset-0 pointer-events-none z-0 opacity-60" style={{ background: theme.patternBg }} />
-
-        {/* STEP COUNTER */}
-        <div className="absolute top-6 left-6 z-10">
-          <span className={`${theme.accentText} font-bold tracking-widest text-xs uppercase flex items-center gap-2`}>
-            <span className={`w-2 h-2 rounded-full ${theme.accentText.replace('text-', 'bg-')}`}></span>
-            שלב {currentPhase} מתוך {activePhases.length}
-          </span>
-        </div>
-
-        {/* BACK TO WORLDS BUTTON */}
-        <div className="absolute top-6 right-6 z-10">
-          <button
-            onClick={async () => {
-              setCurrentPhase(0);
-              setSelectedEnv(null);
-              setActiveCard(null);
-              setSelectedTrigger(null);
-              if (sessionId) {
-                try {
-                  const docRef = doc(db, "hc_live_sessions", sessionId);
-                  await setDoc(docRef, { phase: 0, environment: null, archetype: null, trigger: null }, { merge: true });
-                } catch (e) {
-                  console.error("Error resetting phase to world select", e);
-                }
-              }
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition text-sm text-neutral-400 hover:text-white"
-          >
-            → חזור לבחירת עולם
-          </button>
-        </div>
-
-        <header className="mb-12 text-center mt-12">
-          <h1 className="text-4xl md:text-5xl font-black text-white mb-4">
-            {journeyStage === 4 ? 'מי חוסם לך את הדרך למטרה?' : 'מי חסם לך את הדרך היום?'}
+      <main
+        dir="rtl"
+        className="min-h-screen bg-[#0a1321] text-white grid place-items-center p-6"
+      >
+        <div className="max-w-md rounded-3xl border border-white/10 bg-white/5 p-8 text-center">
+          <Compass className="mx-auto mb-5 h-10 w-10 text-teal-300" />
+          <h1 className="text-2xl font-bold">
+            {loadError ? "לא הצלחנו לפתוח את המפגש" : "מתחברים למפגש שלך"}
           </h1>
-          <p className="text-neutral-400">
-            {journeyStage === 4
-              ? 'בחר את הדמות שמונעת ממך להתקדם לעבר מה שאתה רוצה.'
-              : 'הפוך את הקלף של היצור שהכי מזדהה עם איך שאתה מרגיש עכשיו.'}
+          <p className="my-4 text-slate-300">
+            {loadError
+              ? "אפשר לבדוק את החיבור ואת הקישור עם המנחה. התשובות שלך לא יוחלפו במסע חדש."
+              : "עוד רגע נמשיך מהמקום שבו המפגש נמצא."}
           </p>
-        </header>
-
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 perspective-1000 pb-20">
-          {activeWorld?.archetypes.map(arc => {
-            const isFlipped = activeCard === arc.id;
-
-            return (
-              <div key={arc.id} className="relative h-[500px] [perspective:1000px]">
-                <motion.div
-                  className="w-full h-full relative preserve-3d cursor-pointer"
-                  onClick={() => { if (!isFlipped) { setActiveCard(arc.id); setCurrentPhase(2); } }}
-                  animate={{ rotateY: isFlipped ? 180 : 0 }}
-                  transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
-                  style={{ transformStyle: "preserve-3d" }}
-                >
-                  {/* Front */}
-                  <div className="absolute inset-0 backface-hidden bg-[#171a23] border border-white/10 rounded-[2rem] overflow-hidden flex flex-col items-center text-center shadow-2xl hover:border-amber-500/50 hover:shadow-[0_0_30px_rgba(245,158,11,0.2)] transition-all group">
-                    <div className="w-full h-64 bg-black relative">
-                      {arc.imageUrl ? (
-                        <img
-                            src={safeImage(arc.imageUrl)}
-                            alt={arc.name}
-                            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-                            onError={handleImageError}
-                          />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-5xl">🔮</div>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#171a23] to-transparent h-20"></div>
-                    </div>
-                    <div className="p-6 flex-1 flex flex-col justify-start w-full relative -mt-6">
-                      <div className="text-amber-500 text-xs font-bold tracking-widest mb-1">הקלף הנוכחי</div>
-                      <h3 className="text-2xl font-black mb-2 text-white">{arc.name}</h3>
-                      <p className="text-neutral-400 text-sm leading-relaxed">{isYouthMode && arc.youthDescription ? arc.youthDescription : arc.description}</p>
-                    </div>
-                  </div>
-
-                  {/* Back */}
-                  <div className="absolute inset-0 bg-[#171a23] border border-amber-500/50 shadow-[0_0_40px_rgba(245,158,11,0.1)] rounded-[2rem] p-6 flex flex-col" style={{ transform: "rotateY(180deg)", backfaceVisibility: "hidden" }}>
-                    <button onClick={(e) => { e.stopPropagation(); setActiveCard(null); setSelectedTrigger(null); }} className="text-neutral-500 text-sm hover:text-white mb-6 text-right">✕ חזור לקלפים</button>
-                    <h4 className="font-bold text-xl mb-6 text-white text-center">
-                      {journeyStage === 4 ? `איך ${arc.name} חוסמת את דרכך למטרה?` : `מה העיר את ${arc.name}?`}
-                    </h4>
-
-                    <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
-                      {(isYouthMode
-                        ? (journeyStage === 4 && arc.youthGoalTriggers ? arc.youthGoalTriggers : arc.youthTriggers || arc.triggers)
-                        : (journeyStage === 4 && arc.goalTriggers ? arc.goalTriggers : arc.triggers)
-                      ).map((trigger, idx) => (
-                        <button
-                          key={idx}
-                          onClick={(e) => { e.stopPropagation(); setSelectedTrigger(trigger); }}
-                          className={`text-right p-4 rounded-xl border text-sm transition-all ${selectedTrigger === trigger ? 'bg-amber-500/10 text-amber-400 border-amber-500 font-bold' : 'bg-black/20 border-white/5 hover:border-white/20 text-neutral-300'}`}
-                        >
-                          {trigger}
-                        </button>
-                      ))}
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className={`p-4 rounded-xl border flex flex-col transition-all ${selectedTrigger === customInput && customInput.trim().length > 0 ? 'bg-amber-500/10 border-amber-500' : 'bg-black/20 border-white/5'}`}
-                      >
-                        <div className="text-xs text-neutral-500 mb-2 flex items-center gap-2">✎ אחר - נסח במילים שלך</div>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="במילים שלי..."
-                            value={customInput}
-                            onChange={(e) => setCustomInput(e.target.value)}
-                            className="bg-transparent flex-1 outline-none text-sm text-white"
-                          />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (customInput.trim()) setSelectedTrigger(customInput);
-                            }}
-                            className="text-xs bg-amber-500/20 text-amber-500 font-bold px-3 py-1 rounded hover:bg-amber-500 hover:text-black transition"
-                          >
-                            שמור
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-6">
-                      <motion.button
-                        initial={{ opacity: 0 }} animate={{ opacity: selectedTrigger ? 1 : 0.3 }}
-                        disabled={!selectedTrigger}
-                        onClick={(e) => { e.stopPropagation(); setShowIntensityBefore(true); }}
-                        className="w-full flex items-center justify-center gap-2 py-4 bg-amber-500 text-black font-bold rounded-xl transition-all"
-                      >
-                        התחל חקירה <ArrowLeft className="w-5 h-5" />
-                      </motion.button>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-            );
-          })}
-        </div>
-        {renderInjectedModal()}
-        {renderWhisperBubble()}
-        <Backpack resourceArchetype={resourceArchetype} onUseResource={handleUseResource} />
-        {renderResourcePowerFlash()}
-
-        {/* Intensity Before overlay */}
-        <AnimatePresence>
-          {showIntensityBefore && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
-            >
-              <motion.div
-                initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }}
-                className="bg-[#171a23] border border-amber-500/30 rounded-3xl p-8 max-w-md w-full text-center"
-              >
-                <div className="text-4xl mb-4">🌡️</div>
-                <h3 className="text-2xl font-black text-white mb-2">לפני שנתחיל —</h3>
-                <p className="text-neutral-400 mb-6">כמה חזק <strong className="text-amber-400">{chosenArchetype?.name}</strong> פועל בך עכשיו?</p>
-                <div className="flex justify-between text-xs text-neutral-500 mb-1 px-1">
-                  <span>כמעט לא מורגש</span>
-                  <span>חזק מאוד</span>
-                </div>
-                {renderIntensityPicker(blockerStrengthBefore, setBlockerStrengthBefore)}
-                <motion.button
-                  animate={{ opacity: blockerStrengthBefore ? 1 : 0.3 }}
-                  disabled={!blockerStrengthBefore}
-                  onClick={() => { setShowIntensityBefore(false); setCurrentPhase(3); }}
-                  className="mt-8 w-full py-4 bg-amber-500 text-black font-bold rounded-xl transition disabled:cursor-not-allowed"
-                >
-                  מוכן, נתחיל את החקירה
-                </motion.button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  }
-
-  // Phases 3 to 8
-  if (currentPhase >= 3 && currentPhase <= activePhases.length) {
-    const currentStep = activePhases[currentPhase - 1];
-    const answer = structuredAnswers[currentStep.id];
-    const isAnswered = !!answer;
-
-    return (
-      <div className={`min-h-screen ${theme.bg} text-white flex flex-col items-center p-6 relative overflow-hidden`} dir="rtl">
-        {syncErrorBanner}
-        {/* World-themed gradient overlay */}
-        <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
-        <div className="fixed inset-0 pointer-events-none z-0 opacity-50" style={{ background: theme.patternBg }} />
-        {renderInjectedModal()}
-
-        <header className="w-full max-w-4xl flex justify-between items-center mt-6 mb-12 relative z-10">
-          <span className={`${theme.accentText} font-bold tracking-widest text-xs uppercase flex items-center gap-2`}>
-            <span className={`w-2 h-2 rounded-full ${theme.accentText.replace('text-', 'bg-')}`}></span> שלב {currentPhase} מתוך {activePhases.length}
-          </span>
-          <div className="flex items-center gap-3">
-            <span className="text-neutral-500 text-sm">חקירה עם {chosenArchetype?.name}</span>
+          {loadError && (
             <button
-              onClick={() => setShowMap(true)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 bg-white/5 ${theme.accentBg} border border-white/10 ${theme.accentBorder} rounded-full text-neutral-400 ${theme.accentText} transition text-xs font-bold hover:opacity-90`}
-            >
-              <Map className="w-3.5 h-3.5" /> מפת המסע
-            </button>
-          </div>
-        </header>
-        {showMap && <JourneyMap currentPhase={currentPhase} phases={activePhases} onClose={() => setShowMap(false)} />}
-
-        <main className="flex-1 w-full max-w-3xl flex flex-col items-center relative z-10">
-          <AnimatePresence mode="wait">
-            <motion.div key={currentPhase} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full bg-[#171a23]/90 backdrop-blur-sm rounded-3xl border border-white/5 shadow-2xl p-8 md:p-12 relative">
-
-              {/* Card display */}
-              <div className="flex justify-center gap-6 mb-8 mt-2">
-                {/* Original Archetype */}
-                <div className="w-32 h-48 md:w-40 md:h-64 rounded-2xl border-4 border-amber-500/20 overflow-hidden shadow-[0_0_30px_rgba(245,158,11,0.1)] relative">
-                  {chosenArchetype?.imageUrl ? (
-                    <img
-                      src={safeImage(chosenArchetype.imageUrl)}
-                      alt="Card"
-                      className="w-full h-full object-cover"
-                      onError={handleImageError}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-black flex items-center justify-center text-4xl">🔮</div>
-                  )}
-                  <div className="absolute bottom-0 w-full bg-black/60 backdrop-blur-sm p-2 text-center text-white font-bold text-sm">
-                    {chosenArchetype?.name}
-                  </div>
-                </div>
-
-                {/* Resource Archetype (if any) */}
-                {resourceArchetype && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }}
-                    className="w-32 h-48 md:w-40 md:h-64 rounded-2xl border-4 border-blue-500/40 overflow-hidden shadow-[0_0_40px_rgba(59,130,246,0.2)] relative"
-                  >
-                    {resourceArchetype.imageUrl ? (
-                      <img
-                        src={safeImage(resourceArchetype.imageUrl)}
-                        alt="Resource Card"
-                        className="w-full h-full object-cover"
-                        onError={handleImageError}
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-blue-900 flex items-center justify-center text-4xl">✨</div>
-                    )}
-                    <div className="absolute top-2 left-2 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">משאב מחזק</div>
-                    <div className="absolute bottom-0 w-full bg-black/60 backdrop-blur-sm p-2 text-center text-white font-bold text-sm">
-                      {resourceArchetype.name}
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-
-              <h2 className="text-2xl md:text-3xl font-black mb-10 text-center text-white/90 leading-relaxed">
-                {getReplacedTitle(isYouthMode && currentStep.youthTraineeTitle ? currentStep.youthTraineeTitle : currentStep.traineeTitle)}
-              </h2>
-
-              {currentStep.uiType === "structured-dialogue" && currentStep.options && selectedEnv && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                  {((isYouthMode && currentStep.youthOptions ? currentStep.youthOptions : currentStep.options) as any)[selectedEnv as string]?.map((option: string, idx: number) => {
-                    const isSelected = answer === option;
-                    const letter = String.fromCharCode(65 + idx); // A, B, C, D
-
-                    return (
-                      <motion.button
-                        key={idx}
-                        onClick={() => handleDialogueSelect(currentStep.id, option)}
-                        className={`p-5 rounded-2xl border text-right transition-all duration-300 flex items-center justify-between ${
-                          isSelected
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
-                          : 'bg-black/30 border-white/5 hover:border-white/20 text-neutral-300'
-                        }`}
-                      >
-                        <span className="leading-snug">{option}</span>
-                        <span className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs ml-4 ${isSelected ? 'bg-amber-500 text-black' : 'bg-white/10 text-neutral-500'}`}>
-                          {letter}
-                        </span>
-                      </motion.button>
-                    );
-                  })}
-
-                  {/* Custom Option for structured questions too! */}
-                  <div
-                    className={`p-5 rounded-2xl border col-span-1 md:col-span-2 transition-all duration-300 flex flex-col ${
-                      answer === customInput && customInput.trim().length > 0
-                      ? 'bg-amber-500/10 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
-                      : 'bg-black/30 border-white/5'
-                    }`}
-                  >
-                    <div className="text-xs text-neutral-500 mb-2 flex items-center gap-2">✎ אחר - נסח במילים שלך</div>
-                    <div className="flex gap-3 items-center">
-                      <input
-                        type="text"
-                        placeholder="הקלד תשובה אחרת..."
-                        value={customInput}
-                        onChange={(e) => setCustomInput(e.target.value)}
-                        className="bg-transparent flex-1 outline-none text-sm text-white placeholder-neutral-600"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && customInput.trim()) {
-                            handleDialogueSelect(currentStep.id, customInput);
-                          }
-                        }}
-                      />
-                      <button
-                        onClick={() => {
-                          if (customInput.trim()) handleDialogueSelect(currentStep.id, customInput);
-                        }}
-                        className="bg-amber-500/20 text-amber-500 px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-500 hover:text-black transition"
-                      >
-                        שמור
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Text Input Block */}
-              {currentStep.uiType === "text-input" && (
-                <div className="mb-8 w-full">
-                  <div className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col ${
-                    answer && answer.trim().length > 0
-                    ? 'bg-amber-500/10 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
-                    : 'bg-black/30 border-white/5'
-                  }`}>
-                    <div className="text-xs text-neutral-500 mb-2 flex items-center gap-2">✎ תשובה חופשית</div>
-                    <div className="flex gap-3 items-center">
-                      <input
-                        type="text"
-                        placeholder="הקלד את התשובה שלך כאן..."
-                        value={customInput}
-                        onChange={(e) => setCustomInput(e.target.value)}
-                        className="bg-transparent flex-1 outline-none text-sm text-white placeholder-neutral-600"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && customInput.trim()) {
-                            handleDialogueSelect(currentStep.id, customInput);
-                          }
-                        }}
-                      />
-                      <button
-                        onClick={() => {
-                          if (customInput.trim()) handleDialogueSelect(currentStep.id, customInput);
-                        }}
-                        className="bg-amber-500/20 text-amber-500 px-5 py-2 rounded-lg text-sm font-bold hover:bg-amber-500 hover:text-black transition"
-                      >
-                        שמור
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Good Powers Block */}
-              {currentStep.uiType === "good-powers" && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                  {goodPowersData.map((power) => {
-                    const isSelected = answer === power.name;
-                    return (
-                      <motion.button
-                        key={power.id}
-                        onClick={() => {
-                          handleDialogueSelect(currentStep.id, power.name);
-                          setActiveResourceCard(power.id);
-                        }}
-                        className={`p-4 rounded-2xl border text-center transition-all duration-300 flex flex-col items-center justify-center gap-3 ${
-                          isSelected
-                          ? 'bg-amber-500/20 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)]'
-                          : 'bg-[#11131a] border-white/10 hover:border-amber-500/50 hover:bg-black/40'
-                        }`}
-                      >
-                        <div className="w-16 h-16 rounded-full bg-[#171a23] overflow-hidden border border-white/10 flex items-center justify-center text-3xl">
-                          {power.imageUrl ? (
-                            <img
-                        src={safeImage(power.imageUrl)}
-                        alt={power.name}
-                        className="w-full h-full object-cover"
-                        onError={handleImageError}
-                      />
-                          ) : (
-                            power.icon
-                          )}
-                        </div>
-                        <span className={`font-bold ${isSelected ? 'text-amber-400' : 'text-neutral-300'}`}>{power.name}</span>
-                        <span className="text-xs text-neutral-500">{isYouthMode && power.youthDescription ? power.youthDescription : power.description}</span>
-                        {isSelected && power.triggers.length > 0 && (
-                          <div className="w-full mt-1 pt-2 border-t border-amber-500/20 text-right">
-                            <span className="text-[10px] text-amber-500/80 font-bold block mb-1">מתי הכוח הזה עוזר:</span>
-                            {(isYouthMode && power.youthTriggers ? power.youthTriggers : power.triggers).map((t: string, i: number) => (
-                              <span key={i} className="text-[11px] text-neutral-400 block leading-relaxed">• {t}</span>
-                            ))}
-                          </div>
-                        )}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Meditation Block */}
-              {currentStep.uiType === "meditation" && (
-                <div className="mb-8 w-full">
-                  <div className={`p-8 rounded-2xl border ${
-                    answer ? 'bg-amber-500/10 border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.15)]' : 'bg-blue-500/10 border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.15)]'
-                  } flex flex-col items-center justify-center text-center transition-all`}>
-                    <div className={`w-20 h-20 rounded-full ${answer ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'} flex items-center justify-center mb-6`}>
-                      <Music className="w-10 h-10" />
-                    </div>
-                    <h3 className={`text-2xl font-black ${answer ? 'text-amber-400' : 'text-blue-400'} mb-3`}>זמן האזנה למאמן</h3>
-                    <p className="text-neutral-300 text-lg mb-6 leading-relaxed max-w-md">
-                      אין צורך להקליד כלום עכשיו.<br/>פשוט לעצום עיניים, לנשום עמוק, ולהקשיב לקול של המאמן שלך.
-                    </p>
-
-                    {/* 528Hz player during meditation */}
-                    <div className="w-full max-w-md mb-6">
-                      <p className="text-blue-300 text-xs font-bold uppercase tracking-widest mb-2 flex items-center justify-center gap-2">
-                        <Music className="w-3.5 h-3.5" /> 528 Hz — תדר ריפוי (הפעל עם המדיטציה)
-                      </p>
-                      <audio controls loop className="w-full mb-3" src="/audio/528hz.mp3">
-                        הדפדפן אינו תומך בהפעלת שמע.
-                      </audio>
-                      <a
-                        href="/audio/528hz.mp3"
-                        download="528hz-healing.mp3"
-                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 font-bold rounded-xl hover:bg-blue-500 hover:text-white transition text-sm"
-                      >
-                        <Download className="w-4 h-4" /> הורד את הקובץ
-                      </a>
-                    </div>
-
-                    <div className="text-amber-500/80 text-sm font-bold animate-pulse">
-                      המאמן מנחה את השלב הזה. אנא המתן...
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Pattern Revealed Block removed as requested, only visible to Coach */}
-
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Footer Controls */}
-          <div className="w-full max-w-3xl mt-8 flex justify-between items-center relative z-10">
-            <span className="text-neutral-500 text-sm tracking-widest">© מצפן הלב | יוסי מדלסי</span>
-            <AnimatePresence>
-              {isAnswered && (
-                <motion.button
-                  initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                  onClick={() => {
-                    setCustomInput("");
-                    setCurrentPhase(prev => prev + 1);
-                  }}
-                  className="flex items-center gap-3 px-8 py-4 bg-amber-500 hover:bg-amber-400 text-black font-black rounded-full transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)]"
-                >
-                  שלב הבא
-                  <ArrowLeft className="w-5 h-5" />
-                </motion.button>
-              )}
-            </AnimatePresence>
-          </div>
-        </main>
-        {renderInjectedModal()}
-        {renderWhisperBubble()}
-        <Backpack resourceArchetype={resourceArchetype} onUseResource={handleUseResource} />
-        {renderResourcePowerFlash()}
-      </div>
-    );
-  }
-
-  // ── THE CHOICE MOMENT ──────────────────────────────────────────────
-  // Symbolic rehearsal: trainee physically chooses the new action over the
-  // old automatic reaction; the old card burns away. Stages 1-2 only (פר"ת).
-  const oldReaction = structuredAnswers['step_5_urge'] || structuredAnswers['s2_step_5_reaction'];
-  const newAgreement = structuredAnswers['step_10_integration'] || structuredAnswers['s2_step_9_agreement'];
-  const showChoiceMoment =
-    (journeyStage === 1 || journeyStage === 2) &&
-    oldReaction && newAgreement &&
-    !structuredAnswers['choice_moment'];
-
-  if (showChoiceMoment) {
-    return (
-      <div className={`min-h-screen ${theme.bg} text-white flex flex-col items-center justify-center p-6 text-center relative overflow-hidden`} dir="rtl">
-        {syncErrorBanner}
-        <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 max-w-3xl w-full">
-          <h1 className="text-3xl md:text-4xl font-black text-white mb-3">רגע הבחירה</h1>
-          <p className="text-neutral-400 mb-2 text-lg">דמיין: הטריגר קורה שוב, ממש עכשיו —</p>
-          <p className="text-amber-400 font-bold mb-10 text-xl">"{selectedTrigger || 'הרגע הקשה ההוא'}"</p>
-
-          <div className="grid md:grid-cols-2 gap-6 mb-10">
-            {/* Old automatic reaction */}
-            <motion.div
-              animate={oldCardBurning
-                ? { opacity: 0, scale: 0.6, rotate: -8, filter: "blur(6px) brightness(2)" }
-                : { opacity: 1, scale: 1 }}
-              transition={{ duration: 1.4, ease: "easeIn" }}
-              className="bg-[#171a23] border-2 border-red-500/40 rounded-3xl p-8 flex flex-col items-center"
-            >
-              <span className="text-red-400 text-xs font-bold tracking-widest uppercase mb-4">הדרך הישנה — אוטומט</span>
-              <div className="text-5xl mb-4">⛓️</div>
-              <p className="text-white font-bold text-lg leading-relaxed">"{oldReaction}"</p>
-              <p className="text-neutral-500 text-sm mt-4">מוכר. בטוח. אבל גובה מחיר.</p>
-            </motion.div>
-
-            {/* New chosen action */}
-            <motion.button
+              className={buttonClass}
               onClick={() => {
-                if (oldCardBurning) return;
-                setOldCardBurning(true);
-                choiceTimeoutRef.current = setTimeout(() => {
-                  handleDialogueSelect('choice_moment', 'new');
-                }, 1600);
+                setLoadError(false);
+                setRetry((value) => value + 1);
               }}
-              whileHover={!oldCardBurning ? { scale: 1.04, y: -4 } : {}}
-              whileTap={!oldCardBurning ? { scale: 0.98 } : {}}
-              animate={oldCardBurning
-                ? { scale: 1.06, boxShadow: "0 0 60px rgba(245,158,11,0.5)" }
-                : {}}
-              className="bg-[#171a23] border-2 border-amber-500/60 rounded-3xl p-8 flex flex-col items-center cursor-pointer shadow-[0_0_30px_rgba(245,158,11,0.15)] transition-all"
             >
-              <span className="text-amber-400 text-xs font-bold tracking-widest uppercase mb-4">הדרך החדשה — הבחירה שלי</span>
-              <div className="text-5xl mb-4">🔑</div>
-              <p className="text-white font-bold text-lg leading-relaxed">"{newAgreement}"</p>
-              <p className="text-amber-500/80 text-sm mt-4 font-bold">{oldCardBurning ? '✨ הבחירה נעשתה' : 'לחץ כדי לבחור בדרך הזו'}</p>
-            </motion.button>
-          </div>
-
-          <p className="text-neutral-500 text-sm">
-            {oldCardBurning ? 'הדפוס הישן משתחרר...' : 'איזו דרך אתה בוחר הפעם?'}
-          </p>
-        </motion.div>
-        {renderWhisperBubble()}
-      </div>
+              ניסיון נוסף
+            </button>
+          )}
+        </div>
+      </main>
     );
-  }
 
   return (
-    <div className={`min-h-screen ${theme.bg} text-white flex flex-col items-center justify-center p-6 text-center relative overflow-hidden`} dir="rtl">
-      {syncErrorBanner}
-      <div className="fixed inset-0 pointer-events-none z-0" style={{ background: `${theme.radial1}${theme.radial2 ? `, ${theme.radial2}` : ""}` }} />
-
-      <div className="absolute top-6 right-6 print:hidden z-10">
-        <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-500 border border-amber-500/30 rounded-full hover:bg-amber-500 hover:text-black font-bold transition text-sm">
-          <Download className="w-4 h-4" /> הורד סיכום מסע (PDF)
-        </button>
-      </div>
-
-      <div className="w-full max-w-2xl bg-[#171a23]/90 backdrop-blur-sm border border-white/5 shadow-2xl rounded-3xl p-10 mt-12 relative overflow-hidden z-10">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-
-        <div className="relative z-10 flex flex-col items-center">
-          <Compass className="w-12 h-12 text-amber-500 mb-6" />
-          <h1 className="text-3xl md:text-4xl font-black mb-8 text-white tracking-wide">
-            סיום המסע: המצפן הפנימי
-          </h1>
-
-          <div className="w-full text-right bg-black/40 border border-white/10 rounded-2xl p-6 mb-6">
-            <h3 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-4 border-b border-white/5 pb-2">מה גילינו היום</h3>
-            {journeyStage === 4 ? (
-              <>
-                <p className="text-neutral-300 leading-relaxed mb-4 text-lg">
-                  היום מיפינו את המטרה שלך לעומק. זיהינו את הרצון, את הכוחות הקיימים בך, ואת מה שמעכב — עם <strong className="text-white text-xl ml-1">{chosenArchetype?.name}</strong> כשומר הדרך.
-                </p>
-                <p className="text-neutral-300 leading-relaxed text-lg">
-                  גיבשנו יחד צעד מעשי ראשון לקראת המטרה. הנה ההסכם שיוביל אותך קדימה:
-                </p>
-              </>
-            ) : journeyStage === 3 ? (
-              <>
-                <p className="text-neutral-300 leading-relaxed mb-4 text-lg">
-                  היום חשפנו את הרווח הנסתר שהחסם מניב, ואת הצורך האמיתי שמסתתר מאחוריו — <strong className="text-white text-xl ml-1">{chosenArchetype?.name}</strong> שומר על משהו יקר.
-                </p>
-                <p className="text-neutral-300 leading-relaxed text-lg">
-                  כשהבנו מה הצורך האמיתי, יכולנו ליצור הסכם חדש — כזה שמכבד את הצורך מבלי לשלם את המחיר הישן:
-                </p>
-              </>
-            ) : journeyStage === 2 ? (
-              <>
-                <p className="text-neutral-300 leading-relaxed mb-4 text-lg">
-                  המשכנו לחקור את הדפוס שמניע את <strong className="text-white text-xl ml-1">{chosenArchetype?.name}</strong>. זיהינו את הנקודה הרגישה מאחוריו ואת המחיר שהוא גובה מחייך.
-                </p>
-                <p className="text-neutral-300 leading-relaxed text-lg">
-                  הדפוס פועל לפי לוגיקה פנימית — הגנה. עכשיו כשראינו אותו בעיניים פקוחות, מצאנו ביחד פעולה חדשה:
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-neutral-300 leading-relaxed mb-4 text-lg">
-                  התחלנו את המסע במצב של סערה, ופגשנו את השומר שהתעורר כדי להגן עליך: <strong className="text-white text-xl ml-1">{chosenArchetype?.name}</strong>.
-                </p>
-                <p className="text-neutral-300 leading-relaxed text-lg">
-                  הבנו שהתפקיד האמיתי שלו הוא לא לפגוע בך, אלא לשמור עליך מתוך פחד עמוק.
-                  הבאנו אליו את המשאב הפנימי שלך, והגענו להסכם חשוב לקראת השבוע הקרוב:
-                </p>
-              </>
-            )}
-          </div>
-
-          <div className="w-full text-right bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 mb-6">
-            <h3 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-4 flex items-center gap-2">
-              ההסכם החדש שלנו <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            </h3>
-            <p className="text-xl font-bold text-white leading-relaxed">
-              "{structuredAnswers[journeyStage === 4 ? 's4_step_6_action' : journeyStage === 3 ? 's3_step_9_new_contract' : journeyStage === 2 ? 's2_step_9_agreement' : 'step_10_integration'] || 'אקח נשימה במקום להגיב מיד'}"
-            </p>
-          </div>
-
-          {/* Intensity After — measure shift */}
-          <div className="w-full bg-[#11131a] border border-white/10 rounded-2xl p-6 mb-6 print:hidden">
-            <h3 className="text-white font-bold text-sm tracking-widest uppercase mb-1 text-center">🌡️ כמה חזק החוסם עכשיו, אחרי המסע?</h3>
-            <p className="text-neutral-500 text-xs text-center mb-2">
-              {blockerStrengthBefore ? `לפני המסע בחרת ${blockerStrengthBefore}` : ''}
-            </p>
-            {renderIntensityPicker(blockerStrengthAfter, (v) => {
-              setBlockerStrengthAfter(v);
-            })}
-            {blockerStrengthBefore && blockerStrengthAfter && (
-              <div className="mt-5 flex items-center justify-center gap-4 text-center">
-                <div>
-                  <span className="block text-xs text-neutral-500 mb-1">לפני</span>
-                  <span className="text-3xl font-black text-red-400">{blockerStrengthBefore}</span>
-                </div>
-                <span className="text-amber-500 text-2xl font-bold">→</span>
-                <div>
-                  <span className="block text-xs text-neutral-500 mb-1">אחרי</span>
-                  <span className="text-3xl font-black text-green-400">{blockerStrengthAfter}</span>
-                </div>
-                {blockerStrengthBefore !== blockerStrengthAfter && (
-                  <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-2">
-                    <span className="block text-xs text-neutral-500 mb-1">שינוי</span>
-                    <span className={`text-2xl font-black ${blockerStrengthBefore - blockerStrengthAfter > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {blockerStrengthBefore - blockerStrengthAfter > 0 ? '−' : '+'}{Math.abs(blockerStrengthBefore - blockerStrengthAfter)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="w-full bg-[#11131a] border border-white/10 rounded-2xl p-6 mb-8">
-            <h3 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-6 text-center">
-              {journeyStage === 4 ? 'מפת המטרה שלנו' : 'מעגל החסם שזיהינו'}
-            </h3>
-            <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-center">
-              <div className="flex flex-col items-center bg-black/40 p-4 rounded-xl border border-white/5 flex-1 w-full">
-                <span className="text-xs text-neutral-500 mb-2">
-                  {isYouthMode 
-                    ? (journeyStage === 4 ? 'המטרה שלך' : journeyStage === 3 ? 'מה הקפיץ אותי' : 'הסרט שהרצתי לך בראש')
-                    : (journeyStage === 4 ? 'המטרה שלי' : journeyStage === 3 ? 'הטריגר שהעיר את התגובה' : 'מחשבה (פרשנות)')}
-                </span>
-                <span className="text-white font-bold">
-                  {journeyStage === 4
-                    ? (structuredAnswers['s4_step_1_what_i_want'] || 'לא צוין')
-                    : journeyStage === 3
-                    ? (structuredAnswers['s3_step_1_trigger'] || selectedTrigger || 'לא צוין')
-                    : (structuredAnswers['step_6_thought'] || structuredAnswers['s2_step_3_interpretation'] || selectedTrigger || 'לא צוין')}
-                </span>
-              </div>
-              <div className="text-amber-500">→</div>
-              <div className="flex flex-col items-center bg-black/40 p-4 rounded-xl border border-white/5 flex-1 w-full">
-                <span className="text-xs text-neutral-500 mb-2">
-                  {isYouthMode
-                    ? (journeyStage === 4 ? 'הכוחות שכבר יש לך' : journeyStage === 3 ? 'על מה ניסיתי לשמור לך' : 'הנקודה הרגישה שבה נגעתי')
-                    : (journeyStage === 4 ? 'הכוחות שלי' : journeyStage === 3 ? 'מה ניסתה התגובה להשיג' : 'רגש / נקודה רגישה')}
-                </span>
-                <span className="text-white font-bold">
-                  {journeyStage === 4
-                    ? (structuredAnswers['s4_step_2_capability'] || 'לא צוין')
-                    : journeyStage === 3
-                    ? (structuredAnswers['s3_step_2_secondary_gain'] || 'לא צוין')
-                    : (structuredAnswers['step_3_feeling'] || structuredAnswers['s2_step_4_sensitive_spot'] || 'לא צוין')}
-                </span>
-              </div>
-              <div className="text-amber-500">→</div>
-              <div className="flex flex-col items-center bg-black/40 p-4 rounded-xl border border-white/5 flex-1 w-full">
-                <span className="text-xs text-neutral-500 mb-2">
-                  {isYouthMode
-                    ? (journeyStage === 4 ? 'איך אני חוסם אותך' : journeyStage === 3 ? 'מה באמת היית צריך' : 'מה גרמתי לך לעשות')
-                    : (journeyStage === 4 ? 'מה עוצר אותי' : journeyStage === 3 ? 'הצורך האמיתי שהוחמץ' : 'תגובה אוטומטית')}
-                </span>
-                <span className="text-white font-bold">
-                  {journeyStage === 4
-                    ? (structuredAnswers['s4_step_4_secondary_gain'] || 'לא צוין')
-                    : journeyStage === 3
-                    ? (structuredAnswers['s3_step_3_need'] || 'לא צוין')
-                    : (structuredAnswers['step_5_urge'] || structuredAnswers['s2_step_5_reaction'] || 'לא צוין')}
-                </span>
-              </div>
-            </div>
-            <p className="text-xs text-neutral-500 text-center mt-4">
-              {isYouthMode
-                ? (journeyStage === 4
-                  ? 'זו מפת המטרה שלך. הרצון שלך, הכוחות שכבר יש לך, ואיך אני מנסה לעצור אותך. עכשיו כשיש לך כוח חדש, המשחק השתנה.'
-                  : journeyStage === 3
-                  ? 'זה הלופ שלי. ניסיתי להגן עליך בדרך שלי, אבל בעצם רק היית צריך שמישהו יראה את הצורך האמיתי שלך בלי לברוח.'
-                  : 'זה הלופ שלי. אני מכניס לך סרט לראש, לוחץ לך על הנקודה הרגישה, וגורם לך להגיב על אוטומט. אבל עכשיו שראית אותי — השליטה חוזרת אליך.')
-                : (journeyStage === 4
-                  ? 'זוהי מפת המטרה שלנו — הרצון, הכוחות הקיימים, ומה שעוצר. הצעד הבא נמצא בהסכם מעלה.'
-                  : journeyStage === 3
-                  ? 'זוהי מפת הביינד שהילד הפנימי בנה. עכשיו כשרואים אותה, אפשר להניח אותה בעדינות ולתת לצורך האמיתי לקבל מענה.'
-                  : 'זהו מעגל הפר"ת האוטומטי — הפרשנות שיצרה את הרגש, והרגש שהניע את התגובה. כעת כשאנחנו רואים אותו, אנחנו יכולים לעצור אותו.')}
-            </p>
-          </div>
-
-          <div className="w-full text-right bg-[#11131a] border border-white/5 rounded-2xl p-6 mb-8 print:border-neutral-200 print:bg-transparent">
-
-            <h3 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-6 border-b border-white/5 pb-2">תכנית עבודה: שיעורי בית</h3>
-
-            {/* Continuation bridge — shown from session 2+ */}
-            {previousAgreement && sessionNumber > 1 && (
-              <div className="mb-6 p-4 bg-white/5 border border-white/10 rounded-xl">
-                <p className="text-neutral-500 text-xs uppercase tracking-widest mb-1">ההסכם מהמסע הקודם</p>
-                <p className="text-neutral-300 text-sm font-bold">"{previousAgreement}"</p>
-                <p className="text-neutral-500 text-xs mt-2">בנוסף לתרגילים למטה — המשך לחזק את ההתחייבות הזו</p>
-              </div>
-            )}
-
-            <div className="mb-6">
-              <h4 className="text-neutral-400 font-bold text-sm mb-3">72 השעות הקרובות:</h4>
-              <ul className="space-y-3 pr-4 border-r-2 border-amber-500/20 list-none">
-                {selectedEnv && homeworkPlans[journeyStage || 1]?.[selectedEnv as "clouds"|"forest"|"arcade"|"fairies"]?.next72.map((item: string, idx: number) => (
-                  <li key={idx} className="text-neutral-300 text-base relative before:content-[''] before:absolute before:right-[-22px] before:top-2 before:w-1.5 before:h-1.5 before:bg-amber-500 before:rounded-full">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-neutral-400 font-bold text-sm mb-3">השבוע הקרוב:</h4>
-              <ul className="space-y-3 pr-4 border-r-2 border-amber-500/20 list-none">
-                {selectedEnv && homeworkPlans[journeyStage || 1]?.[selectedEnv as "clouds"|"forest"|"arcade"|"fairies"]?.nextWeek.map((item: string, idx: number) => (
-                  <li key={idx} className="text-neutral-300 text-base relative before:content-[''] before:absolute before:right-[-22px] before:top-2 before:w-1.5 before:h-1.5 before:bg-amber-500 before:rounded-full">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* 528Hz Audio Player — for trainee at end of session */}
-          <div className="w-full bg-[#11131a] border border-fuchsia-500/20 rounded-2xl p-6 mb-4 print:hidden">
-            <h3 className="text-fuchsia-400 font-bold text-sm tracking-widest uppercase mb-4 flex items-center gap-2">
-              <Music className="w-4 h-4" /> 528 Hz — תדר ריפוי לסיום המסע
-            </h3>
-            <audio controls loop className="w-full mb-4" src="/audio/528hz.mp3">
-              הדפדפן אינו תומך בהפעלת שמע.
-            </audio>
-            <a
-              href="/audio/528hz.mp3"
-              download="528hz-healing.mp3"
-              className="flex items-center justify-center gap-2 w-full py-3 bg-fuchsia-500/10 border border-fuchsia-500/30 text-fuchsia-400 font-bold rounded-xl hover:bg-fuchsia-500 hover:text-white transition text-sm"
-            >
-              <Download className="w-4 h-4" /> הורד את תדר הריפוי (528Hz)
-            </a>
-          </div>
-
-          <p className="text-neutral-500 text-sm max-w-sm mx-auto">
-            המאמן שלך קיבל את תובנות המסע ואת תכנית העבודה המלאה. <br />
-            מומלץ להוריד עותק של הסיכום ולשמור לעצמך.
-          </p>
-
-          <p className="text-neutral-700 text-xs mt-6 print:text-neutral-400">
-            © 2025 יוסי מדלסי — מצפן הלב. כל הזכויות שמורות. אין להעתיק, לשכפל או להפיץ ללא רשות.
-          </p>
-
-          <div className="mt-10 mb-4 print:hidden">
-            <button
-              onClick={() => {
-                if (sessionId) localStorage.removeItem(`session_${sessionId}`);
-                setCurrentPhase(0);
-                setSelectedEnv(null);
-                setActiveCard(null);
-                setSelectedTrigger(null);
-                setStructuredAnswers({});
-                setCustomInput("");
-                window.scrollTo(0, 0);
-              }}
-              className="px-8 py-3 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 hover:text-white font-bold transition text-sm text-neutral-400"
-            >
-              סיום והתחלת מסע חדש
-            </button>
+    <div
+      dir="rtl"
+      className="hc-participant min-h-screen bg-[#0a1321] text-slate-100 pb-28 relative"
+    >
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at 80% 0%,rgba(45,212,191,.1),transparent 55%),radial-gradient(ellipse at 0% 80%,rgba(129,140,248,.08),transparent 50%)",
+        }}
+      />
+      <header className="relative mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-5 border-b border-white/10 print:hidden">
+        <div className="flex items-center gap-3">
+          <Compass className="h-8 w-8 text-teal-300" />
+          <div>
+            <span className="block font-bold">מצפן הלב · מ.ס.ע</span>
+            <span className="text-xs text-slate-400">
+              {phaseNames[stage]} · מפגש עם מנחה
+            </span>
           </div>
         </div>
-      </div>
+        <div className="flex gap-2">
+          {phase > 0 && (
+            <button
+              aria-label="פתיחת מפת המסע"
+              onClick={() => setShowMap(true)}
+              className="rounded-xl border border-white/15 px-3 py-2 text-sm flex gap-2 items-center"
+            >
+              <Map className="h-4 w-4" />
+              המפה
+            </button>
+          )}
+          <button
+            disabled={saving}
+            onClick={() => save({ participantPause: true })}
+            className="rounded-xl border border-white/15 px-3 py-2 text-sm flex gap-2 items-center"
+          >
+            <Pause className="h-4 w-4" />
+            רגע לעצמי
+          </button>
+        </div>
+      </header>
+      {syncError && (
+        <div
+          role="alert"
+          className="relative mx-auto max-w-4xl mt-4 rounded-xl border border-rose-300/30 bg-rose-400/10 p-4 flex flex-wrap gap-3 items-center"
+        >
+          <span>התשובה האחרונה עדיין לא נשמרה. אפשר להמתין ולנסות שוב.</span>
+          <button
+            className="underline"
+            disabled={saving}
+            onClick={() => pendingWrite && save(pendingWrite)}
+          >
+            שמירה מחדש
+          </button>
+        </div>
+      )}
+      <main
+        ref={contentRef}
+        tabIndex={-1}
+        className="relative mx-auto w-full max-w-6xl px-5 pt-8 md:pt-12 outline-none"
+      >
+        {preview && (
+          <div className="mb-6 flex flex-wrap gap-3 items-center rounded-xl border border-amber-300/30 bg-amber-300/5 p-3 text-xs">
+            <strong className="text-amber-200">
+              תצוגת פיתוח · ללא שמירה או חיבור למנחה
+            </strong>
+            {[1, 2, 3, 4].map((value) => (
+              <button
+                key={value}
+                onClick={() => {
+                  sessionRef.current = {
+                    ...previewSession,
+                    journeyStage: value,
+                  };
+                  setSession(sessionRef.current);
+                  setWelcomeReady(false);
+                  setDraft("");
+                }}
+                className="underline"
+              >
+                מסלול {value}
+              </button>
+            ))}
+            {step?.uiType === "meditation" && (
+              <button onClick={next} className="underline">
+                התקדמות מנחה לדוגמה
+              </button>
+            )}
+          </div>
+        )}
+        {phase > 0 && !complete && (
+          <div className="mb-7 flex items-center gap-4 text-xs text-slate-400">
+            <span>
+              תחנה {phase} מתוך {phases.length}
+            </span>
+            <div className="h-1 flex-1 rounded-full bg-white/10">
+              <div
+                className="h-1 rounded-full bg-teal-300 transition-all"
+                style={{ width: `${(phase / phases.length) * 100}%` }}
+              />
+            </div>
+            <span>בקצב שלך</span>
+          </div>
+        )}
 
-      <style>{`
-        @media print {
-          body { background: white !important; color: black !important; }
-          .print\\:hidden { display: none !important; }
-          .bg-\\[\\#171a23\\] { background: white !important; border: 2px solid #ddd !important; box-shadow: none !important; }
-          .text-white, .text-neutral-100, .text-neutral-300, .text-neutral-500 { color: black !important; }
-          .bg-black\\/40 { background: #f9fafb !important; }
-          .bg-amber-500\\/10 { background: #fffbeb !important; }
-          .text-amber-500 { color: #d97706 !important; }
-          * { direction: rtl !important; }
-          .print\\:text-neutral-400 { color: #9ca3af !important; font-size: 11px !important; }
-          body::after {
-            content: "© יוסי מדלסי — מצפן הלב";
-            position: fixed;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 10px;
-            color: #aaa;
-            letter-spacing: 0.1em;
-          }
-        }
-      `}</style>
+        {phase === 0 && (
+          <section className="mx-auto max-w-4xl">
+            <div className="mb-9 max-w-2xl">
+              <p className="mb-3 text-sm text-teal-300">מתחילים בקשר ובבחירה</p>
+              <h1 className="text-4xl md:text-5xl font-bold leading-tight">
+                יש מקום למה שמעסיק אותך.
+                <br />
+                <span className="text-slate-400">ואפשר להתחיל לאט.</span>
+              </h1>
+              <p className="mt-5 text-slate-300 leading-7">
+                זה מפגש משותף עם המנחה. הדמויות מציעות דרך להתבונן במחסומים; הן
+                לא אומרות מי אנחנו. תשובות שנשלחות כאן מוצגות למנחה. מותר לא
+                לדעת, לשנות ניסוח או לעצור.
+              </p>
+            </div>
+            {session.previousAgreement && (
+              <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-5">
+                <p className="text-xs text-slate-400 mb-2">
+                  מה שבחרת במפגש הקודם — אפשר לעדכן
+                </p>
+                <p>{session.previousAgreement}</p>
+              </div>
+            )}
+            <div className="rounded-3xl border border-teal-300/20 bg-teal-300/5 p-6 mb-7">
+              <h2 className="font-bold text-xl mb-2">
+                מה יכול לעזור לך להיות כאן היום?
+              </h2>
+              <p className="text-slate-300 text-sm mb-4">
+                אפשר לבחור משאב להתחלה. אין צורך להרגיש אותו מיד.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {goodPowersData.map((power) => (
+                  <button
+                    key={power.id}
+                    aria-pressed={initialResource === power.id}
+                    onClick={() => setInitialResource(power.id)}
+                    className={`rounded-full px-4 py-2 border text-sm ${initialResource === power.id ? "bg-teal-300/15 border-teal-300" : "border-white/15"}`}
+                  >
+                    {power.icon} {power.name}
+                  </button>
+                ))}
+              </div>
+              <button
+                className={`${buttonClass} mt-5`}
+                disabled={saving}
+                onClick={async () => {
+                  if (
+                    !initialResource ||
+                    (await save({ resourceArchetype: initialResource }))
+                  )
+                    setWelcomeReady(true);
+                }}
+              >
+                {" "}
+                {initialResource ? "זה המשאב שלי להתחלה" : "נבחר יחד בהמשך"}
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            </div>
+            {welcomeReady && (
+              <>
+                <h2 className="text-2xl font-bold mb-2">איזה מרחב מתאים לך?</h2>
+                <p className="text-slate-400 mb-5">
+                  זו בחירה של סגנון, לא אבחון.
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {worldsData.map((item) => (
+                    <button
+                      key={item.id}
+                      disabled={saving}
+                      onClick={() => save({ environment: item.id, phase: 1 })}
+                      className="rounded-2xl border border-white/10 bg-white/5 p-5 text-right hover:border-teal-300/50"
+                    >
+                      <span className="block text-3xl mb-4">
+                        {
+                          {
+                            clouds: "☁️",
+                            forest: "🌿",
+                            arcade: "◈",
+                            fairies: "✦",
+                          }[item.id]
+                        }
+                      </span>
+                      <span className="font-bold">{item.title}</span>
+                      {suggestion?.worldId === item.id && (
+                        <span className="block text-xs text-teal-300 mt-2">
+                          יש כאן הצעה מהמנחה
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
+        {(phase === 1 || phase === 2) && (
+          <section>
+            <div className="max-w-2xl mb-8">
+              <p className="text-sm text-teal-300 mb-3">
+                {phase === 1 ? "מחסום אפשרי · לא מי שאני" : "מתחילים ממה שקרה"}
+              </p>
+              <h1 className="text-3xl md:text-4xl font-bold mb-4">
+                {phase === 1
+                  ? "איזו דמות יכולה לייצג את מה שמעכב?"
+                  : "איזה אירוע מתאים לברר יחד?"}
+              </h1>
+              <p className="text-slate-300 leading-7">
+                {phase === 1
+                  ? "אפשר להתעניין בדמות בלי להסכים לתיאור שלה. המשמעות היא שלך, ונברר יחד מה היא מנסה להשיג ובאיזה מחיר."
+                  : "נבחר רגע אחד ונפריד בין מה שנאמר או נעשה לבין המשמעות שניתנה לו."}
+              </p>
+              {suggestion && (
+                <p className="mt-3 text-teal-200 text-sm">
+                  המנחה מציע לבדוק: {suggestion.title}. זו הצעה שאפשר לשנות.
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-5 mb-5">
+              <button
+                disabled={saving}
+                onClick={() =>
+                  save({
+                    phase: 0,
+                    environment: null,
+                    archetype: null,
+                    trigger: null,
+                  })
+                }
+                className="text-sm underline text-slate-400"
+              >
+                בחירת מרחב אחר
+              </button>
+              <button
+                disabled={saving}
+                onClick={() =>
+                  save({
+                    phase: 2,
+                    archetype: null,
+                    trigger: null,
+                    "answers.character_meaning":
+                      "לא מצאתי דמות שמתאימה לי — נברר במילים שלי",
+                  })
+                }
+                className="text-sm underline text-teal-200"
+              >
+                אף דמות לא מתאימה — נתחיל מהאירוע
+              </button>
+            </div>
+            {phase === 1 && (
+              <div className="grid gap-4 md:grid-cols-3">
+                {world?.archetypes
+                  .filter(
+                    (item) => !("kind" in item) || item.kind !== "resource",
+                  )
+                  .map((item) => (
+                    <button
+                      key={item.id}
+                      disabled={saving}
+                      aria-pressed={character?.id === item.id}
+                      onClick={() => {
+                        setDraft("");
+                        save({ archetype: item.id, trigger: null, phase: 2 });
+                      }}
+                      className={`${selectedClass(character?.id === item.id)} overflow-hidden p-0`}
+                    >
+                      <img
+                        loading="lazy"
+                        src={item.imageUrl || "/images/guardian.webp"}
+                        onError={fallbackImage}
+                        alt=""
+                        className="w-full h-44 object-cover"
+                      />
+                      <div className="p-5">
+                        <p className="text-xs text-teal-300 mb-2">
+                          {character?.id === item.id
+                            ? "הדמות שבחרתי"
+                            : "אפשרות להתבוננות"}
+                        </p>
+                        <h2 className="text-xl font-bold mb-2">{item.name}</h2>
+                        <p className="text-sm leading-6 text-slate-300">
+                          {session.isYouthMode && item.youthDescription
+                            ? item.youthDescription
+                            : item.description}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            )}
+            {phase === 2 && (
+              <div className="mt-7 mx-auto max-w-3xl rounded-3xl border border-white/15 bg-[#111e30] p-6 md:p-8">
+                <div className="mb-5 flex items-center gap-4">
+                  {character?.imageUrl && (
+                    <img
+                      src={character.imageUrl}
+                      alt=""
+                      onError={fallbackImage}
+                      className="w-16 h-20 rounded-xl object-cover"
+                    />
+                  )}
+                  <div>
+                    <p className="text-sm text-teal-300">
+                      {character?.name || "בחרתי להתבונן בלי דמות"}
+                    </p>
+                    <button
+                      disabled={saving}
+                      onClick={() => save({ phase: 1 })}
+                      className="mt-2 text-xs text-slate-400 underline"
+                    >
+                      בחירת דמות אחרת
+                    </button>
+                  </div>
+                </div>
+                <p className="text-sm text-teal-300 mb-3">
+                  {character
+                    ? `${character.name} יכולה להיות דימוי למחסום`
+                    : "אפשר להתבונן במחסום גם בלי דמות"}
+                </p>
+                <h2 className="text-2xl font-bold mb-2">מה קרה במציאות?</h2>
+                <p className="text-slate-400 text-sm mb-5">
+                  אירוע אחד כפי שקרה. הדוגמאות רק עוזרות להתחיל.
+                </p>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {(
+                    mechanism?.scenarios.map((item) => item.title) ||
+                    (character
+                      ? session.isYouthMode
+                        ? character.youthTriggers || character.triggers
+                        : character.triggers
+                      : [])
+                  ).map((event) => (
+                    <button
+                      key={event}
+                      disabled={saving}
+                      aria-pressed={session.trigger === event}
+                      className={selectedClass(session.trigger === event)}
+                      onClick={() =>
+                        save({
+                          trigger: event,
+                          [`answers.${phases[1].id}`]: event,
+                        })
+                      }
+                    >
+                      {event}
+                    </button>
+                  ))}
+                </div>
+                <label
+                  className="block mt-5 text-sm text-slate-300"
+                  htmlFor="event-own"
+                >
+                  או אירוע במילים שלי
+                </label>
+                <textarea
+                  id="event-own"
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  placeholder="מה נאמר או נעשה? מי היה שם?"
+                  rows={2}
+                  className="mt-2 w-full rounded-xl border border-white/15 bg-black/20 p-4"
+                />
+                <div className="flex flex-wrap gap-3 mt-4">
+                  <button
+                    disabled={!draft.trim() || saving}
+                    onClick={() =>
+                      save({
+                        trigger: draft.trim(),
+                        [`answers.${phases[1].id}`]: draft.trim(),
+                      })
+                    }
+                    className="rounded-xl border border-white/20 px-4 py-3"
+                  >
+                    שמירת האירוע שלי
+                  </button>
+                  <button
+                    disabled={!session.trigger || saving}
+                    onClick={() => save({ phase: 3 })}
+                    className={buttonClass}
+                  >
+                    נברר יחד
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    disabled={saving}
+                    onClick={() =>
+                      save({
+                        trigger: "עוד לא ברור לי איזה אירוע מתאים",
+                        [`answers.${phases[1].id}`]:
+                          "עוד לא ברור לי איזה אירוע מתאים",
+                        phase: 3,
+                      })
+                    }
+                    className="text-sm text-slate-400 underline"
+                  >
+                    עוד לא ברור לי
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {phase >= 3 && !complete && step && (
+          <section className="grid lg:grid-cols-[240px_1fr] gap-7">
+            <aside className="hidden lg:block">
+              <div className="sticky top-6 rounded-3xl border border-white/10 overflow-hidden bg-white/[0.03]">
+                {character ? (
+                  <img
+                    src={character.imageUrl || "/images/guardian.webp"}
+                    onError={fallbackImage}
+                    alt=""
+                    className="w-full h-56 object-cover"
+                  />
+                ) : (
+                  <div className="p-7 bg-teal-300/5">
+                    <Compass className="h-12 w-12 text-teal-300" />
+                  </div>
+                )}
+                <div className="p-5">
+                  <p className="text-xs text-teal-300 mb-2">
+                    {character
+                      ? "דימוי למחסום · אפשר לשנות את משמעותו"
+                      : "התבוננות באירוע · בלי דמות"}
+                  </p>
+                  <p className="font-bold text-lg">
+                    {character?.name || "הרגע שבחרתי"}
+                  </p>
+                  <p className="text-slate-400 text-sm mt-3 leading-6">
+                    {session.trigger}
+                  </p>
+                  {resource && (
+                    <div className="mt-5 pt-4 border-t border-white/10 text-sm">
+                      <span className="text-slate-400">המשאב שבחרתי</span>
+                      <p className="text-teal-200 mt-1">{resource.name}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </aside>
+            <motion.div
+              key={step.id}
+              initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-3xl border border-white/10 bg-[#111e30]/95 p-6 md:p-9"
+            >
+              <p className="text-xs text-teal-300 mb-4">
+                שאלה אחת · המשמעות שלך
+              </p>
+              <h1 className="text-2xl md:text-3xl font-bold leading-snug mb-3">
+                {title}
+              </h1>
+              <p className="text-sm text-slate-400 mb-7">
+                אין תשובה נכונה. אפשר לבחור ניסוח קרוב ולדייק אותו עם המנחה.
+              </p>
+              {step.uiType === "meditation" ? (
+                <div className="rounded-2xl border border-indigo-300/20 bg-indigo-300/5 p-5">
+                  <Shield className="h-8 w-8 text-indigo-200 mb-4" />
+                  <h2 className="font-bold text-xl mb-3">
+                    רק עם המנחה, ורק כשמתאים לך
+                  </h2>
+                  <p className="text-slate-300 leading-7">
+                    אפשר להשאיר עיניים פתוחות, לדבר בלי דימוי או להישאר
+                    בהתבוננות. אין צורך לחפש זיכרון או להרגיש דבר מסוים. אם משהו
+                    לא מתאים, נעצור ונחזור לחדר.
+                  </p>
+                  {answers.meditation_permission ===
+                  "מתאים לי להמשיך עם המנחה" ? (
+                    <>
+                      <p role="status" className="my-5 text-teal-200">
+                        המנחה יוביל את הקצב. אפשר לעצור בכל רגע.
+                      </p>
+                      <details className="my-4">
+                        <summary className="cursor-pointer text-sm">
+                          מוזיקת רקע לבחירה
+                        </summary>
+                        <audio
+                          controls
+                          loop
+                          className="w-full mt-3"
+                          src="/audio/528hz.mp3"
+                        />
+                      </details>
+                    </>
+                  ) : (
+                    <div className="flex flex-wrap gap-3 mt-5">
+                      <button
+                        disabled={saving}
+                        className={buttonClass}
+                        onClick={() =>
+                          writeAnswer(
+                            "meditation_permission",
+                            "מתאים לי להמשיך עם המנחה",
+                          )
+                        }
+                      >
+                        מתאים לי להמשיך עם המנחה
+                      </button>
+                      <button
+                        disabled={saving}
+                        onClick={() =>
+                          writeAnswer(
+                            "meditation_permission",
+                            "מעדיף להישאר בשיחה",
+                            { participantPause: true },
+                          )
+                        }
+                        className="rounded-xl border border-white/20 p-3"
+                      >
+                        מעדיף להישאר בשיחה
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {step.uiType === "good-powers" && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+                      {goodPowersData.map((power) => (
+                        <button
+                          key={power.id}
+                          disabled={saving}
+                          aria-pressed={answer === power.name}
+                          className={selectedClass(answer === power.name)}
+                          onClick={() =>
+                            writeAnswer(step.id, power.name, {
+                              resourceArchetype: power.id,
+                            })
+                          }
+                        >
+                          <span className="text-2xl block mb-2">
+                            {power.icon || "✦"}
+                          </span>
+                          <span className="font-bold block">{power.name}</span>
+                          <span className="block text-xs text-slate-400 mt-2 leading-5">
+                            {session.isYouthMode && power.youthDescription
+                              ? power.youthDescription
+                              : power.description}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {step.uiType === "structured-dialogue" && (
+                    <div className="grid gap-3 md:grid-cols-2 mb-5">
+                      {((session.isYouthMode ? step.youthOptions : undefined) ||
+                        step.options)?.[
+                        session.environment as
+                          | "clouds"
+                          | "forest"
+                          | "arcade"
+                          | "fairies"
+                      ]?.map((option) => (
+                        <button
+                          key={option}
+                          disabled={saving}
+                          aria-pressed={answer === option}
+                          onClick={() => writeAnswer(step.id, option)}
+                          className={selectedClass(answer === option)}
+                        >
+                          {option}
+                          {answer === option && (
+                            <Check className="inline-block h-4 w-4 mr-2 text-teal-300" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <label
+                    htmlFor="own-answer"
+                    className="block text-sm mb-2 text-slate-300"
+                  >
+                    במילים שלי
+                  </label>
+                  <textarea
+                    id="own-answer"
+                    rows={3}
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    className="w-full rounded-2xl border border-white/15 bg-black/20 p-4 leading-7"
+                    placeholder="אפשר לדייק, לשנות או לכתוב משהו אחר לגמרי"
+                  />
+                  <button
+                    disabled={saving || !draft.trim()}
+                    onClick={() => writeAnswer(step.id, draft.trim())}
+                    className="mt-3 rounded-xl border border-white/20 px-4 py-2 text-sm"
+                  >
+                    שליחת התשובה למנחה
+                  </button>
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <button
+                      disabled={saving}
+                      onClick={() => writeAnswer(step.id, "עוד לא ברור לי")}
+                      className="text-sm text-slate-400 underline"
+                    >
+                      עוד לא ברור לי
+                    </button>
+                    <button
+                      disabled={saving}
+                      onClick={() =>
+                        writeAnswer(
+                          step.id,
+                          "לא עכשיו — מעדיף לדלג בשיחה עם המנחה",
+                        )
+                      }
+                      className="text-sm text-slate-400 underline"
+                    >
+                      לא עכשיו
+                    </button>
+                  </div>
+                  {answer && (
+                    <div
+                      role="status"
+                      className="mt-6 rounded-xl border border-teal-300/20 bg-teal-300/5 p-4"
+                    >
+                      <span className="text-xs text-teal-300 block mb-2">
+                        התשובה שנשלחה · אפשר לעדכן
+                      </span>
+                      {answer}
+                    </div>
+                  )}
+                  <div className="flex justify-end mt-7">
+                    <button
+                      disabled={!answer || saving}
+                      className={buttonClass}
+                      onClick={next}
+                    >
+                      ממשיכים בקצב שלי
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </section>
+        )}
+
+        {needsChoice && (
+          <section className="mx-auto max-w-3xl rounded-3xl border border-white/10 bg-[#111e30] p-7 md:p-10">
+            <p className="text-sm text-teal-300 mb-3">רגע הבחירה · לא מבחן</p>
+            <h1 className="text-3xl font-bold mb-4">
+              מה מתאים לי לקחת מהמפגש?
+            </h1>
+            <p className="text-slate-300 leading-7 mb-6">
+              המחסום יכול להישאר נוכח. הבחירה שלך אינה צריכה להוכיח שהשתחרר
+              משהו.
+            </p>
+            {action && (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-5 mb-6">
+                <p className="text-xs text-slate-400 mb-2">הצעד שהצעת</p>
+                <p className="text-xl">{action}</p>
+              </div>
+            )}
+            <div className="grid gap-3 md:grid-cols-2">
+              {[
+                ...(action ? ["רוצה לנסות את הצעד שבחרתי"] : []),
+                "בינתיים רוצה רק להתבונן",
+                "רוצה לדייק את הצעד עם המנחה",
+                "מספיק לי להיום",
+              ].map((choice) => (
+                <button
+                  disabled={saving}
+                  className={selectedClass(false)}
+                  key={choice}
+                  onClick={() => {
+                    if (choice === "רוצה לדייק את הצעד עם המנחה") {
+                      setEditingAction(true);
+                      setActionDraft(action || "");
+                    } else finishChoice(choice);
+                  }}
+                >
+                  {choice}
+                  <ArrowLeft className="h-4 w-4 mt-3 text-teal-300" />
+                </button>
+              ))}
+            </div>
+            <p className="text-sm text-slate-400 mt-6">
+              אפשר לברר יחד: מה מושך אותי בבחירה הזאת, ומה הפחד מנסה למנוע?
+            </p>
+            {editingAction && (
+              <div className="mt-5 rounded-xl border border-white/15 p-4">
+                <label htmlFor="action-edit" className="block mb-2 text-sm">
+                  הצעד שמתאים לי עכשיו
+                </label>
+                <textarea
+                  id="action-edit"
+                  rows={3}
+                  className="w-full rounded-xl border border-white/15 bg-black/20 p-3"
+                  value={actionDraft}
+                  onChange={(event) => setActionDraft(event.target.value)}
+                />
+                <button
+                  disabled={saving || !actionDraft.trim()}
+                  className={`${buttonClass} mt-3`}
+                  onClick={() =>
+                    writeAnswer("choice_moment", "דייקתי את הצעד עם המנחה", {
+                      [`answers.${actionKey}`]: actionDraft.trim(),
+                      status: "completed",
+                      completedAt: serverTimestamp(),
+                    })
+                  }
+                >
+                  זה הניסוח שלי להמשך
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {complete && !needsChoice && (
+          <section className="mx-auto max-w-3xl">
+            <div className="flex items-start justify-between gap-4 mb-7">
+              <div>
+                <p className="text-teal-300 text-sm mb-3">סגירה · במילים שלך</p>
+                <h1 className="text-3xl md:text-4xl font-bold">
+                  מה אני לוקח מהמפגש
+                </h1>
+              </div>
+              <button
+                aria-label="הדפסת סיכום"
+                onClick={() => window.print()}
+                className="print:hidden rounded-xl border border-white/15 p-3"
+              >
+                <Download className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-slate-300 mb-6 leading-7">
+              זה רישום של מה שנשלח, ולא קביעה על מי שאת או אתה. גם שאלה שנותרה
+              פתוחה יכולה להיות חלק חשוב במפגש.
+            </p>
+            <div className="rounded-3xl border border-white/10 bg-[#111e30] p-6 md:p-8">
+              <dl className="space-y-5">
+                <div>
+                  <dt className="text-xs text-slate-400 mb-2">האירוע שבחרתי</dt>
+                  <dd>{session.trigger || "לא נבחר אירוע"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-slate-400 mb-2">
+                    דימוי אפשרי למחסום
+                  </dt>
+                  <dd>{character?.name || "לא נבחרה דמות"}</dd>
+                </div>
+                {stage === 1 && answers.step_10_integration && (
+                  <div>
+                    <dt className="text-xs text-slate-400 mb-2">
+                      הצורך כפי שתיארתי אותו
+                    </dt>
+                    <dd>{answers.step_10_integration}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-xs text-slate-400 mb-2">הצעד שהצעתי</dt>
+                  <dd>{action || "עדיין לא ניסחתי צעד — אפשר לברר יחד"}</dd>
+                </div>
+                {answers.choice_moment && (
+                  <div>
+                    <dt className="text-xs text-slate-400 mb-2">
+                      מה מתאים לי כרגע
+                    </dt>
+                    <dd className="text-teal-200">{answers.choice_moment}</dd>
+                  </div>
+                )}
+              </dl>
+              <details className="mt-6 pt-5 border-t border-white/10">
+                <summary className="cursor-pointer text-sm text-slate-300">
+                  התשובות מהמפגש
+                </summary>
+                <dl className="mt-4 space-y-4">
+                  {phases
+                    .filter((item) => answers[item.id])
+                    .map((item) => (
+                      <div key={item.id}>
+                        <dt className="text-xs text-slate-400 mb-1">
+                          {replaceTitle(
+                            session.isYouthMode && item.youthTraineeTitle
+                              ? item.youthTraineeTitle
+                              : item.traineeTitle,
+                          )}
+                        </dt>
+                        <dd>{answers[item.id]}</dd>
+                      </div>
+                    ))}
+                </dl>
+              </details>
+            </div>
+            <div className="mt-5 rounded-3xl border border-teal-300/20 bg-teal-300/5 p-6">
+              <h2 className="text-xl font-bold mb-2">דבר אחד עד המפגש הבא</h2>
+              <p className="text-sm text-slate-300 leading-6 mb-4">
+                בחרו יחד צעד קטן שמתאים לך. בשלב המיפוי אפשר רק לשים לב מתי
+                הדפוס מופיע. אין חובה להוסיף משימה.
+              </p>
+              {answers.homework && (
+                <p className="mb-4 rounded-xl bg-black/20 p-4">
+                  {answers.homework}
+                </p>
+              )}
+              <label
+                htmlFor="homework"
+                className="block text-sm mb-2 print:hidden"
+              >
+                מה מתאים לי לנסות או להתבונן בו?
+              </label>
+              <textarea
+                id="homework"
+                className="print:hidden w-full rounded-xl border border-white/15 bg-black/20 p-4"
+                rows={2}
+                value={homeworkDraft}
+                onChange={(event) => setHomeworkDraft(event.target.value)}
+                placeholder="מה אעשה, מתי, ואיך אדע שזה מתאים לי?"
+              />
+              <div className="print:hidden flex flex-wrap gap-3 mt-3">
+                <button
+                  disabled={!homeworkDraft.trim() || saving}
+                  className={buttonClass}
+                  onClick={() => writeAnswer("homework", homeworkDraft.trim())}
+                >
+                  שמירת הבחירה שלי
+                </button>
+                <button
+                  disabled={saving}
+                  onClick={() =>
+                    writeAnswer(
+                      "homework",
+                      "בינתיים בלי משימה — אחזור לזה במפגש",
+                    )
+                  }
+                  className="text-sm underline text-slate-300"
+                >
+                  בינתיים בלי משימה
+                </button>
+              </div>
+            </div>
+            <div className="mt-5 rounded-3xl border border-white/10 p-6 print:hidden">
+              <h2 className="font-bold mb-2">איך זה מרגיש עכשיו?</h2>
+              <p className="text-sm text-slate-400 mb-4">
+                בדיקה לבחירה, לא ציון להצלחה. כל עוצמה היא מידע לשיחה.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: 10 }, (_, index) => index + 1).map(
+                  (value) => (
+                    <button
+                      aria-label={`עוצמה ${value} מתוך 10`}
+                      aria-pressed={session.blockerStrengthAfter === value}
+                      disabled={saving}
+                      key={value}
+                      onClick={() => save({ blockerStrengthAfter: value })}
+                      className={`w-10 h-10 rounded-xl border ${session.blockerStrengthAfter === value ? "bg-teal-300/15 border-teal-300" : "border-white/15"}`}
+                    >
+                      {value}
+                    </button>
+                  ),
+                )}
+              </div>
+              <div className="mt-2 flex justify-between text-xs text-slate-400">
+                <span>כמעט לא מורגש</span>
+                <span>מורגש מאוד</span>
+              </div>
+            </div>
+            <p className="mt-6 text-sm text-slate-400">
+              אפשר לסגור את המסך ולסיים יחד עם המנחה. הסיכום נשאר בקישור המפגש.
+            </p>
+          </section>
+        )}
+      </main>
+
+      <Backpack
+        resourceArchetype={resource}
+        onUseResource={() => setShowResource(true)}
+      />
+      {showMap && (
+        <JourneyMap
+          currentPhase={phase}
+          phases={phases}
+          resolveTitle={replaceTitle}
+          onClose={() => setShowMap(false)}
+        />
+      )}
+      {session.coachWhisper &&
+        session.coachWhisper !== dismissedWhisper &&
+        !session.participantPause && (
+          <aside
+            role="status"
+            className="fixed bottom-6 right-5 max-w-sm z-40 rounded-2xl border border-indigo-300/30 bg-[#18243a] p-5 shadow-xl"
+          >
+            <p className="text-xs text-indigo-200 mb-2">הודעה מהמנחה</p>
+            <p>{session.coachWhisper}</p>
+            <button
+              onClick={() => setDismissedWhisper(session.coachWhisper || null)}
+              className="mt-3 text-sm text-indigo-200 underline"
+            >
+              קראתי
+            </button>
+          </aside>
+        )}
+      {session.coachInjectedResource &&
+        session.coachInjectedResource !== dismissedResource &&
+        !session.participantPause && (
+          <aside className="fixed bottom-24 right-5 max-w-sm z-40 rounded-2xl border border-teal-300/30 bg-[#18243a] p-5 shadow-xl">
+            <p className="text-xs text-teal-300 mb-2">המנחה מציע משאב</p>
+            <p>
+              {goodPowersData.find(
+                (item) => item.id === session.coachInjectedResource,
+              )?.name || "כלי לשיחה"}
+            </p>
+            <div className="flex gap-3 mt-3">
+              <button
+                disabled={saving}
+                onClick={async () => {
+                  if (
+                    await save({
+                      resourceArchetype: session.coachInjectedResource,
+                    })
+                  )
+                    setDismissedResource(session.coachInjectedResource || null);
+                }}
+                className="text-sm text-teal-200 underline"
+              >
+                מתאים לי לצרף
+              </button>
+              <button
+                onClick={() =>
+                  setDismissedResource(session.coachInjectedResource || null)
+                }
+                className="text-sm text-slate-400 underline"
+              >
+                לא עכשיו
+              </button>
+            </div>
+          </aside>
+        )}
+      {(session.participantPause || showResource) && (
+        <ParticipantDialog
+          labelledBy="pause-title"
+          onClose={() => {
+            if (session.participantPause) save({ participantPause: false });
+            setShowResource(false);
+          }}
+        >
+          <Sparkles className="h-8 w-8 text-teal-300 mb-4" />
+          <h2 id="pause-title" className="text-2xl font-bold mb-4">
+            {session.participantPause
+              ? "יש מקום לעצירה"
+              : `רגע עם ${resource?.name || "המשאב שלי"}`}
+          </h2>
+          <p className="text-slate-300 leading-7">
+            אפשר להסתכל סביב, להרגיש את המגע של הרגליים ברצפה או לשתות מים. אין
+            צורך לשנות את ההרגשה.{" "}
+            {session.participantPause
+              ? "המנחה רואה שביקשת לעצור; נחליט יחד איך להמשיך."
+              : "מתי המשאב הזה כבר עזר לך? מה ממנו מתאים לרגע הזה?"}
+          </p>
+          {showResource && (
+            <>
+              <label
+                htmlFor="resource-note"
+                className="block text-sm mt-5 mb-2"
+              >
+                איך אוכל להיעזר בו בפועל?
+              </label>
+              <textarea
+                id="resource-note"
+                rows={2}
+                className="w-full rounded-xl border border-white/15 bg-black/20 p-3"
+                value={resourceDraft}
+                onChange={(event) => setResourceDraft(event.target.value)}
+              />
+              {answers.resource_reflection && (
+                <p className="mt-3 text-sm text-teal-200">
+                  {answers.resource_reflection}
+                </p>
+              )}
+              <button
+                disabled={!resourceDraft.trim() || saving}
+                onClick={() =>
+                  writeAnswer("resource_reflection", resourceDraft.trim())
+                }
+                className="mt-3 text-sm underline text-teal-200"
+              >
+                שמירת התזכורת שלי
+              </button>
+            </>
+          )}
+          <div className="flex flex-wrap gap-3 mt-6">
+            <button
+              disabled={saving}
+              className={buttonClass}
+              onClick={async () => {
+                if (
+                  !session.participantPause ||
+                  (await save({ participantPause: false }))
+                )
+                  setShowResource(false);
+              }}
+            >
+              {session.participantPause ? "מתאים לי לחזור לשיחה" : "חזרה לשאלה"}
+            </button>
+          </div>
+        </ParticipantDialog>
+      )}
+      <footer className="relative max-w-6xl mx-auto px-5 mt-10 text-xs text-slate-500">
+        מצפן הלב · מרחב לבחירה עם מנחה · ערך עצמי אינו ציון במסע
+      </footer>
     </div>
   );
 }

@@ -1,0 +1,30 @@
+import type { Timestamp } from "firebase/firestore";
+export type Trainee = {
+  id: string;
+  name: string;
+  coachId: string;
+  createdAt?: Timestamp;
+};
+export type GuidedSession = {
+  id: string;
+  coachId: string;
+  traineeId: string;
+  phase: number;
+  status: "active" | "completed";
+  journeyStage?: number;
+  isYouthMode?: boolean;
+  createdAt?: Timestamp;
+  completedAt?: Timestamp;
+  answers?: Record<string, string>;
+  environment?: string | null;
+  archetype?: string | null;
+  trigger?: string | null;
+  resourceArchetype?: string | null;
+  mechanismId?: string | null;
+  participantPause?: boolean;
+  blockerStrengthBefore?: number | null;
+  blockerStrengthAfter?: number | null;
+  previousAgreement?: string;
+  previousArchetype?: string;
+  previousEnvironment?: string;
+};
