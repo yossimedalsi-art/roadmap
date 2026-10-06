@@ -31,8 +31,9 @@ import { chosenAction } from "../lib/journeyAnswers";
 import Backpack from "../components/Backpack";
 import JourneyMap from "../components/JourneyMap";
 import ParticipantDialog from "../components/ParticipantDialog";
+import SessionTakeaway from "../components/SessionTakeaway";
 
-type Session = {
+export type Session = {
   phase?: number;
   environment?: string | null;
   archetype?: string | null;
@@ -41,7 +42,7 @@ type Session = {
   answers?: Record<string, string>;
   journeyStage?: number;
   isYouthMode?: boolean;
-  mechanismId?: string;
+  mechanismId?: string | null;
   participantPause?: boolean;
   previousAgreement?: string;
   sessionNumber?: number;
@@ -80,20 +81,29 @@ const previewSession: Session = {
 };
 
 export default function TraineeJourney({
-  preview = false,
+  preview: requestedPreview = false,
+  previewSession: suppliedPreviewSession,
+  onPreviewSave,
 }: {
   preview?: boolean;
+  previewSession?: Session;
+  onPreviewSave?: (patch: Record<string, unknown>) => Promise<boolean>;
 }) {
+  const preview = import.meta.env.DEV && requestedPreview;
   const { sessionId } = useParams();
-  const [session, setSession] = useState<Session | null>(
+  const [localSession, setSession] = useState<Session | null>(
     preview ? previewSession : null,
   );
+  const session =
+    preview && suppliedPreviewSession ? suppliedPreviewSession : localSession;
   const [loadError, setLoadError] = useState(false);
   const [syncError, setSyncError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [retry, setRetry] = useState(0);
   const [draft, setDraft] = useState("");
-  const [homeworkDraft, setHomeworkDraft] = useState("");
+  const [loadedSessionId, setLoadedSessionId] = useState<string | null>(
+    preview ? "preview" : null,
+  );
   const [showMap, setShowMap] = useState(false);
   const [showResource, setShowResource] = useState(false);
   const [resourceDraft, setResourceDraft] = useState("");
@@ -107,8 +117,14 @@ export default function TraineeJourney({
   const [editingAction, setEditingAction] = useState(false);
   const [actionDraft, setActionDraft] = useState("");
   const sessionRef = useRef<Session | null>(preview ? previewSession : null);
+  const loadedSessionIdRef = useRef<string | null>(preview ? "preview" : null);
   const contentRef = useRef<HTMLElement>(null);
   const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (preview && suppliedPreviewSession)
+      sessionRef.current = suppliedPreviewSession;
+  }, [preview, suppliedPreviewSession]);
 
   useEffect(() => {
     if (preview || !sessionId) return;
@@ -120,7 +136,19 @@ export default function TraineeJourney({
           return;
         }
         const next = snapshot.data() as Session;
+        if (loadedSessionIdRef.current !== sessionId) {
+          setPendingWrite(null);
+          setSyncError(false);
+          setDraft("");
+          setShowMap(false);
+          setShowResource(false);
+          setWelcomeReady(false);
+          setInitialResource(null);
+          setEditingAction(false);
+        }
         if (next.phase !== sessionRef.current?.phase) setDraft("");
+        loadedSessionIdRef.current = sessionId;
+        setLoadedSessionId(sessionId);
         sessionRef.current = next;
         setSession(next);
         setLoadError(false);
@@ -137,6 +165,14 @@ export default function TraineeJourney({
   // Only user actions write patches. Receiving a coach snapshot never writes it back.
   // Dot paths preserve answers written concurrently by the coach.
   async function save(patch: DocumentData) {
+    if (preview && suppliedPreviewSession && onPreviewSave) {
+      setSaving(true);
+      try {
+        return await onPreviewSave(patch);
+      } finally {
+        setSaving(false);
+      }
+    }
     if (preview && sessionRef.current) {
       const next: Session = {
         ...sessionRef.current,
@@ -150,16 +186,25 @@ export default function TraineeJourney({
       setSession(next);
       return true;
     }
-    if (!sessionId || !sessionRef.current) return false;
+    if (
+      !sessionId ||
+      !sessionRef.current ||
+      loadedSessionIdRef.current !== sessionId
+    )
+      return false;
+    const writingSessionId = sessionId;
     setSaving(true);
     try {
       await updateDoc(doc(db, "hc_live_sessions", sessionId), patch);
+      if (loadedSessionIdRef.current !== writingSessionId) return false;
       setPendingWrite(null);
       setSyncError(false);
       return true;
     } catch {
-      setPendingWrite(patch);
-      setSyncError(true);
+      if (loadedSessionIdRef.current === writingSessionId) {
+        setPendingWrite(patch);
+        setSyncError(true);
+      }
       return false;
     } finally {
       setSaving(false);
@@ -167,7 +212,7 @@ export default function TraineeJourney({
   }
   const answers = session?.answers || {};
   const phase = session?.phase || 0;
-  const loaded = session !== null;
+  const loaded = session !== null && (preview || loadedSessionId === sessionId);
   useEffect(() => {
     if (loaded) contentRef.current?.focus();
   }, [phase, loaded]);
@@ -241,7 +286,7 @@ export default function TraineeJourney({
       completedAt: serverTimestamp(),
     });
 
-  if (loadError || !session)
+  if (loadError || !session || !loaded)
     return (
       <main
         dir="rtl"
@@ -335,7 +380,7 @@ export default function TraineeJourney({
         tabIndex={-1}
         className="relative mx-auto w-full max-w-6xl px-5 pt-8 md:pt-12 outline-none"
       >
-        {preview && (
+        {preview && !suppliedPreviewSession && (
           <div className="mb-6 flex flex-wrap gap-3 items-center rounded-xl border border-amber-300/30 bg-amber-300/5 p-3 text-xs">
             <strong className="text-amber-200">
               תצוגת פיתוח · ללא שמירה או חיבור למנחה
@@ -1005,112 +1050,12 @@ export default function TraineeJourney({
                 <Download className="h-5 w-5" />
               </button>
             </div>
-            <p className="text-slate-300 mb-6 leading-7">
-              זה רישום של מה שנשלח, ולא קביעה על מי שאת או אתה. גם שאלה שנותרה
-              פתוחה יכולה להיות חלק חשוב במפגש.
-            </p>
-            <div className="rounded-3xl border border-white/10 bg-[#111e30] p-6 md:p-8">
-              <dl className="space-y-5">
-                <div>
-                  <dt className="text-xs text-slate-400 mb-2">האירוע שבחרתי</dt>
-                  <dd>{session.trigger || "לא נבחר אירוע"}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-400 mb-2">
-                    דימוי אפשרי למחסום
-                  </dt>
-                  <dd>{character?.name || "לא נבחרה דמות"}</dd>
-                </div>
-                {stage === 1 && answers.step_10_integration && (
-                  <div>
-                    <dt className="text-xs text-slate-400 mb-2">
-                      הצורך כפי שתיארתי אותו
-                    </dt>
-                    <dd>{answers.step_10_integration}</dd>
-                  </div>
-                )}
-                <div>
-                  <dt className="text-xs text-slate-400 mb-2">הצעד שהצעתי</dt>
-                  <dd>{action || "עדיין לא ניסחתי צעד — אפשר לברר יחד"}</dd>
-                </div>
-                {answers.choice_moment && (
-                  <div>
-                    <dt className="text-xs text-slate-400 mb-2">
-                      מה מתאים לי כרגע
-                    </dt>
-                    <dd className="text-teal-200">{answers.choice_moment}</dd>
-                  </div>
-                )}
-              </dl>
-              <details className="mt-6 pt-5 border-t border-white/10">
-                <summary className="cursor-pointer text-sm text-slate-300">
-                  התשובות מהמפגש
-                </summary>
-                <dl className="mt-4 space-y-4">
-                  {phases
-                    .filter((item) => answers[item.id])
-                    .map((item) => (
-                      <div key={item.id}>
-                        <dt className="text-xs text-slate-400 mb-1">
-                          {replaceTitle(
-                            session.isYouthMode && item.youthTraineeTitle
-                              ? item.youthTraineeTitle
-                              : item.traineeTitle,
-                          )}
-                        </dt>
-                        <dd>{answers[item.id]}</dd>
-                      </div>
-                    ))}
-                </dl>
-              </details>
-            </div>
-            <div className="mt-5 rounded-3xl border border-teal-300/20 bg-teal-300/5 p-6">
-              <h2 className="text-xl font-bold mb-2">דבר אחד עד המפגש הבא</h2>
-              <p className="text-sm text-slate-300 leading-6 mb-4">
-                בחרו יחד צעד קטן שמתאים לך. בשלב המיפוי אפשר רק לשים לב מתי
-                הדפוס מופיע. אין חובה להוסיף משימה.
-              </p>
-              {answers.homework && (
-                <p className="mb-4 rounded-xl bg-black/20 p-4">
-                  {answers.homework}
-                </p>
-              )}
-              <label
-                htmlFor="homework"
-                className="block text-sm mb-2 print:hidden"
-              >
-                מה מתאים לי לנסות או להתבונן בו?
-              </label>
-              <textarea
-                id="homework"
-                className="print:hidden w-full rounded-xl border border-white/15 bg-black/20 p-4"
-                rows={2}
-                value={homeworkDraft}
-                onChange={(event) => setHomeworkDraft(event.target.value)}
-                placeholder="מה אעשה, מתי, ואיך אדע שזה מתאים לי?"
-              />
-              <div className="print:hidden flex flex-wrap gap-3 mt-3">
-                <button
-                  disabled={!homeworkDraft.trim() || saving}
-                  className={buttonClass}
-                  onClick={() => writeAnswer("homework", homeworkDraft.trim())}
-                >
-                  שמירת הבחירה שלי
-                </button>
-                <button
-                  disabled={saving}
-                  onClick={() =>
-                    writeAnswer(
-                      "homework",
-                      "בינתיים בלי משימה — אחזור לזה במפגש",
-                    )
-                  }
-                  className="text-sm underline text-slate-300"
-                >
-                  בינתיים בלי משימה
-                </button>
-              </div>
-            </div>
+            <SessionTakeaway
+              session={session}
+              audience="participant"
+              onSave={save}
+              saving={saving}
+            />
             <div className="mt-5 rounded-3xl border border-white/10 p-6 print:hidden">
               <h2 className="font-bold mb-2">איך זה מרגיש עכשיו?</h2>
               <p className="text-sm text-slate-400 mb-4">

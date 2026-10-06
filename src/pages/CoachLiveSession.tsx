@@ -14,6 +14,8 @@ import {
   RotateCcw,
   Music,
 } from "lucide-react";
+import SessionTakeaway from "../components/SessionTakeaway";
+import { getCoachInsight } from "../lib/coachInsight";
 import HeartCompassLogo from "../components/HeartCompassLogo";
 import { worldsData, goodPowersData } from "../data/worlds";
 import {
@@ -36,11 +38,19 @@ import {
 export default function CoachLiveSession({
   sessionId,
   onBack,
+  previewSession,
+  onPreviewSave,
 }: {
   sessionId: string;
   onBack: () => void;
+  previewSession?: GuidedSession;
+  onPreviewSave?: (patch: Record<string, unknown>) => Promise<boolean>;
 }) {
-  const [sessionState, setSessionState] = useState<GuidedSession | null>(null);
+  const [liveSessionState, setSessionState] = useState<GuidedSession | null>(
+    null,
+  );
+  const previewActive = import.meta.env.DEV && Boolean(previewSession);
+  const sessionState = previewActive ? previewSession! : liveSessionState;
   const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const resourceDialogRef = useRef<HTMLDivElement>(null);
@@ -59,10 +69,19 @@ export default function CoachLiveSession({
   const [copyStatus, setCopyStatus] = useState("");
   const magicLink = `${window.location.origin}/journey/${sessionId}`;
 
+  const persistSession = async (patch: Record<string, unknown>) => {
+    if (previewActive) {
+      if (!onPreviewSave || !(await onPreviewSave(patch)))
+        throw new Error("Preview change not saved");
+      return;
+    }
+    await updateDoc(doc(db, "hc_live_sessions", sessionId), patch);
+  };
+
   const sendWhisper = async (text: string) => {
     if (!text.trim() || !sessionId) return;
     try {
-      await updateDoc(doc(db, "hc_live_sessions", sessionId), {
+      await persistSession({
         coachWhisper: text,
       });
       setWhisperText("");
@@ -77,7 +96,7 @@ export default function CoachLiveSession({
 
   const handleEndJourney = async () => {
     try {
-      await updateDoc(doc(db, "hc_live_sessions", sessionId), {
+      await persistSession({
         status: "completed",
         completedAt: serverTimestamp(),
         phase: activePhases.length + 1,
@@ -92,7 +111,7 @@ export default function CoachLiveSession({
   };
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || previewActive) return;
     const docRef = doc(db, "hc_live_sessions", sessionId);
     const unsubscribe = onSnapshot(
       docRef,
@@ -112,7 +131,7 @@ export default function CoachLiveSession({
         ),
     );
     return () => unsubscribe();
-  }, [sessionId]);
+  }, [sessionId, previewActive]);
 
   const activeWorld = worldsData.find(
     (w) => w.id === sessionState?.environment,
@@ -130,8 +149,11 @@ export default function CoachLiveSession({
           ? stage2Phases
           : journeyPhases;
   const currentStep =
-    sessionState && sessionState.phase > 0
-      ? activePhases[Math.min(sessionState.phase - 1, activePhases.length - 1)]
+    sessionState &&
+    sessionState.status !== "completed" &&
+    sessionState.phase > 0 &&
+    sessionState.phase <= activePhases.length
+      ? activePhases[sessionState.phase - 1]
       : null;
 
   const visibleOptions =
@@ -147,6 +169,64 @@ export default function CoachLiveSession({
         []
       : [];
   const mechanism = findMechanism(sessionState?.mechanismId);
+  const selectedResource =
+    goodPowersData.find(
+      (power) =>
+        power.id === sessionState?.resourceArchetype ||
+        power.name === sessionState?.resourceArchetype,
+    ) ||
+    worldsData
+      .flatMap((world) => world.archetypes)
+      .find(
+        (character) =>
+          character.id === sessionState?.resourceArchetype ||
+          character.name === sessionState?.resourceArchetype,
+      );
+  const currentAnswer = currentStep
+    ? sessionState?.answers?.[currentStep.id]
+    : undefined;
+  const sessionCompleted = sessionState?.status === "completed";
+  const awaitingChoice =
+    !sessionCompleted && (sessionState?.phase ?? 0) > activePhases.length;
+  const stepTitle = currentStep
+    ? (sessionState?.isYouthMode && currentStep.youthTraineeTitle
+        ? currentStep.youthTraineeTitle
+        : currentStep.traineeTitle
+      )
+        .replace(/\[ארכיטיפ\]/g, chosenArchetype?.name || "הדמות שנבחרה")
+        .replace(/\[משאב\]/g, selectedResource?.name || "המשאב שלי")
+        .replace(
+          /\[משפט_מטרה\]/g,
+          sessionState?.answers?.s4_step_1_what_i_want || "הכיוון שלי",
+        )
+        .replace(
+          /\[חוזה\]/g,
+          sessionState?.answers?.s3_step_9_new_contract || "ההצעה שלי",
+        )
+        .replace(
+          /\[רווח\]/g,
+          sessionState?.answers?.s3_step_2_secondary_gain ||
+            "מה שההגנה מנסה להשיג",
+        )
+    : "";
+  const insight = currentStep
+    ? getCoachInsight({
+        step: currentStep,
+        answer: currentAnswer,
+        answers: sessionState?.answers,
+        mechanism: findMechanism(sessionState?.answers?.summary_pattern_id),
+      })
+    : undefined;
+  const selectedAction =
+    sessionState?.answers?.[
+      journeyStage === 4
+        ? "s4_step_6_action"
+        : journeyStage === 3
+          ? "s3_step_9_new_contract"
+          : journeyStage === 2
+            ? "s2_step_8_new_action"
+            : "step_9_resource_action"
+    ];
   const conversationPhase = activePhases.reduce(
     (last, step, index) => (step.uiType === "meditation" ? index + 2 : last),
     0,
@@ -178,7 +258,7 @@ export default function CoachLiveSession({
           )}
         </div>
         <div className="flex gap-3">
-          {(sessionState?.phase ?? 0) > activePhases.length ? (
+          {sessionCompleted ? (
             <>
               <button
                 onClick={handlePrint}
@@ -557,120 +637,51 @@ export default function CoachLiveSession({
                   <div className="w-10 h-10 rounded-full border-2 border-amber-500/40 border-t-amber-500 animate-spin mb-4" />
                   <p className="text-neutral-400 text-sm">טוען נתוני סשן...</p>
                 </div>
-              ) : (sessionState?.phase ?? 0) > activePhases.length ? (
-                /* ── JOURNEY COMPLETE: show summary only ── */
-                <div className="bg-[#11131a] rounded-2xl border border-amber-500/50 shadow-[0_0_40px_rgba(245,158,11,0.1)] p-8">
-                  <div className="flex items-center mb-6">
-                    <h3 className="text-xl font-bold text-amber-500 flex items-center gap-2">
-                      <Target className="w-6 h-6" /> סיכום לבירור משותף
-                    </h3>
-                  </div>
-
-                  <p className="text-xl text-white font-medium mb-6 pb-6 border-b border-white/10">
-                    {journeyStage === 4
-                      ? `התמה המרכזית: מיפוי המטרה וצעד מעשי. ${chosenArchetype?.name} מלווה את המסע.`
-                      : `התמה לבירור: היכרות עם המנגנון האפשרי (${chosenArchetype?.name}) וחיבורו למשאבים.`}
+              ) : awaitingChoice ? (
+                <section
+                  role="status"
+                  className="rounded-2xl border border-teal-300/30 bg-teal-400/5 p-8"
+                >
+                  <h3 className="text-2xl font-bold text-teal-200 mb-3">
+                    ממתינים לבחירה המסכמת של המשתתף
+                  </h3>
+                  <p className="text-neutral-300 leading-relaxed">
+                    השאלות הסתיימו, והמשתתף בוחר מה מתאים לו לקחת — צעד,
+                    התבוננות או סיום. המפגש יושלם והסיכום יוצג לאחר שיאשר את
+                    בחירתו.
                   </p>
-
-                  {/* Blocker/Goal Map in Summary */}
-                  <div className="bg-black/40 border border-white/10 rounded-2xl p-6 mb-8">
-                    <h4 className="text-amber-500 font-bold text-sm tracking-widest uppercase mb-4">
-                      {journeyStage === 4
-                        ? "מפת המטרה שסוכמה"
-                        : "מפת תשובות · לא אבחון"}
-                    </h4>
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-3">
-                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">
-                          {journeyStage === 4
-                            ? "המטרה"
-                            : journeyStage === 3
-                              ? "הטריגר שהעיר את התגובה"
-                              : "מחשבה (פרשנות)"}
-                        </span>
-                        <span className="text-white font-bold text-sm">
-                          {journeyStage === 4
-                            ? sessionState?.answers?.[
-                                "s4_step_1_what_i_want"
-                              ] || "—"
-                            : journeyStage === 3
-                              ? sessionState?.answers?.["s3_step_1_trigger"] ||
-                                sessionState?.trigger ||
-                                "—"
-                              : sessionState?.answers?.["step_6_thought"] ||
-                                sessionState?.answers?.[
-                                  "s2_step_3_interpretation"
-                                ] ||
-                                sessionState?.trigger ||
-                                "—"}
-                        </span>
-                      </div>
-                      <div className="text-amber-500 font-bold">→</div>
-                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">
-                          {journeyStage === 4
-                            ? "כוחות"
-                            : journeyStage === 3
-                              ? "מה ניסתה התגובה להשיג"
-                              : "רגש / נקודה רגישה"}
-                        </span>
-                        <span className="text-white font-bold text-sm">
-                          {journeyStage === 4
-                            ? sessionState?.answers?.["s4_step_2_capability"] ||
-                              "—"
-                            : journeyStage === 3
-                              ? sessionState?.answers?.[
-                                  "s3_step_2_secondary_gain"
-                                ] || "—"
-                              : sessionState?.answers?.["step_3_feeling"] ||
-                                sessionState?.answers?.[
-                                  "s2_step_4_sensitive_spot"
-                                ] ||
-                                "—"}
-                        </span>
-                      </div>
-                      <div className="text-amber-500 font-bold">→</div>
-                      <div className="flex-1 bg-[#11131a] rounded-xl p-4 border border-white/5 text-center w-full">
-                        <span className="text-xs text-neutral-500 block mb-2">
-                          {journeyStage === 4
-                            ? "חסם"
-                            : journeyStage === 3
-                              ? "הצורך במילים שלו"
-                              : "תגובה אוטומטית"}
-                        </span>
-                        <span className="text-white font-bold text-sm">
-                          {journeyStage === 4
-                            ? sessionState?.answers?.[
-                                "s4_step_4_secondary_gain"
-                              ] || "—"
-                            : journeyStage === 3
-                              ? sessionState?.answers?.["s3_step_3_need"] || "—"
-                              : sessionState?.answers?.["step_5_urge"] ||
-                                sessionState?.answers?.["s2_step_5_reaction"] ||
-                                "—"}
-                        </span>
-                      </div>
+                  {selectedAction && (
+                    <div className="mt-5 rounded-xl border border-white/10 p-4">
+                      <p className="text-xs text-neutral-400 mb-2">
+                        הצעת הפעולה האחרונה · טרם אושרה בבחירה המסכמת
+                      </p>
+                      <p className="whitespace-pre-wrap text-white">
+                        {selectedAction}
+                      </p>
                     </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-teal-300/20 bg-teal-400/5 p-5 space-y-3">
-                    <h4 className="font-bold text-teal-200">
-                      הצעד שנבחר והמשך במילים שלו
-                    </h4>
-                    <p className="whitespace-pre-wrap text-white">
-                      {sessionState?.answers?.homework ||
-                        sessionState?.answers?.["s4_step_6_action"] ||
-                        sessionState?.answers?.["s3_step_9_new_contract"] ||
-                        sessionState?.answers?.["s2_step_9_agreement"] ||
-                        sessionState?.answers?.["step_9_resource_action"] ||
-                        "לא נבחר צעד. אפשר לסיים בהתבוננות בלבד."}
+                  )}
+                  {selectedResource && (
+                    <p className="mt-4 text-white">
+                      המשאב שבחר: {selectedResource.name}
                     </p>
-                    <p className="text-sm text-neutral-300">
-                      בדקו יחד אם הצעד מתאים לו באמת, ממה נבעה הבחירה, ומה ירצה
-                      להביא למפגש הבא. תשובה או ירידה בעוצמה אינן הוכחה לסילוק.
-                    </p>
-                  </div>
-                </div>
+                  )}
+                </section>
+              ) : sessionCompleted ? (
+                <SessionTakeaway
+                  session={sessionState}
+                  audience="coach"
+                  onSave={async (patch) => {
+                    try {
+                      await persistSession(patch);
+                      return true;
+                    } catch {
+                      setConnectionError(
+                        "השינוי בסיכום לא נשמר. אפשר לנסות שוב.",
+                      );
+                      return false;
+                    }
+                  }}
+                />
               ) : (
                 <div className="print:hidden flex flex-col gap-8">
                   {/* Archetype Card Display */}
@@ -704,52 +715,35 @@ export default function CoachLiveSession({
                       </div>
                     )}
 
-                    {sessionState?.resourceArchetype &&
-                      (goodPowersData.find(
-                        (p) => p.id === sessionState.resourceArchetype,
-                      ) ||
-                        worldsData
-                          .flatMap((w) => w.archetypes)
-                          .find(
-                            (a) => a.id === sessionState.resourceArchetype,
-                          )) &&
-                      (() => {
-                        const resCard =
-                          goodPowersData.find(
-                            (p) => p.id === sessionState.resourceArchetype,
-                          ) ||
-                          worldsData
-                            .flatMap((w) => w.archetypes)
-                            .find(
-                              (a) => a.id === sessionState.resourceArchetype,
-                            );
-                        return (
-                          <div className="bg-[#11131a] rounded-2xl border border-blue-500/20 shadow-[0_0_40px_rgba(59,130,246,0.1)] overflow-hidden flex flex-col items-center p-8 w-full md:w-72 relative">
-                            <div className="absolute top-4 left-4 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest">
-                              משאב פעיל
-                            </div>
-                            <div className="text-xs font-bold tracking-widest text-blue-400 mb-6 uppercase">
-                              כוח מלווה / {resCard?.name}
-                            </div>
-                            <div className="w-40 h-64 rounded-2xl border-4 border-blue-500/40 overflow-hidden shadow-[0_0_40px_rgba(59,130,246,0.2)] relative">
-                              {resCard?.imageUrl ? (
-                                <img
-                                  src={resCard.imageUrl}
-                                  alt={resCard.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full bg-blue-900 flex items-center justify-center text-4xl">
-                                  ✨
-                                </div>
-                              )}
-                            </div>
-                            <h2 className="text-2xl font-black text-white mt-6 text-center">
-                              {resCard?.name}
-                            </h2>
-                          </div>
-                        );
-                      })()}
+                    {selectedResource && (
+                      <div className="bg-[#11131a] rounded-2xl border border-teal-300/20 p-6 w-full md:w-72 flex flex-col items-center">
+                        <p className="text-xs text-teal-200 mb-4">
+                          משאב שבחר המשתתף
+                        </p>
+                        {selectedResource.imageUrl ? (
+                          <img
+                            src={selectedResource.imageUrl}
+                            alt={selectedResource.name}
+                            className="w-32 h-44 object-cover rounded-xl"
+                          />
+                        ) : (
+                          <span className="text-4xl">
+                            {selectedResource.icon}
+                          </span>
+                        )}
+                        <h2 className="text-xl font-bold mt-4">
+                          {selectedResource.name}
+                        </h2>
+                        <p className="text-sm text-neutral-300 mt-2 text-center">
+                          {selectedResource.role}
+                        </p>
+                        {sessionState.answers?.resource_reflection && (
+                          <p className="mt-4 text-teal-100 whitespace-pre-wrap">
+                            {sessionState.answers.resource_reflection}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* The Active Question (Mirrors Trainee UI) — hidden when journey is complete */}
@@ -758,15 +752,7 @@ export default function CoachLiveSession({
                       <div className="bg-[#11131a] rounded-2xl border border-blue-500/20 shadow-lg p-8">
                         <div className="flex justify-between items-center mb-8">
                           <h3 className="text-2xl md:text-3xl font-bold text-white leading-tight">
-                            {currentStep.traineeTitle
-                              .replace(
-                                /\[ארכיטיפ\]/g,
-                                `"${chosenArchetype?.name || ""}"`,
-                              )
-                              .replace(
-                                /\[משאב\]/g,
-                                `"${sessionState?.resourceArchetype ? worldsData.flatMap((w) => w.archetypes).find((a) => a.id === sessionState.resourceArchetype)?.name : "הכוח החדש"}"`,
-                              )}
+                            {stepTitle}
                           </h3>
                           <div className="flex items-center gap-2 text-xs font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full">
                             <span className="w-2 h-2 rounded-full bg-blue-500"></span>{" "}
@@ -774,6 +760,49 @@ export default function CoachLiveSession({
                           </div>
                         </div>
 
+                        {currentStep.uiType === "good-powers" && (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                            {goodPowersData.map((power) => (
+                              <div
+                                key={power.id}
+                                className={`rounded-xl border p-3 text-center ${selectedResource?.id === power.id ? "border-teal-300 bg-teal-300/10" : "border-white/10 bg-black/20"}`}
+                              >
+                                {power.imageUrl && (
+                                  <img
+                                    src={power.imageUrl}
+                                    alt={power.name}
+                                    className="h-24 w-20 rounded-lg object-cover mx-auto mb-2"
+                                  />
+                                )}
+                                <p className="font-bold text-sm">
+                                  {power.name}
+                                </p>
+                                <p className="text-xs text-neutral-400 mt-1">
+                                  {power.role}
+                                </p>
+                                {selectedResource?.id === power.id && (
+                                  <p className="text-xs text-teal-200 mt-2">
+                                    נבחר בידי המשתתף
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {currentAnswer &&
+                          currentStep.uiType !== "structured-dialogue" && (
+                            <div
+                              role="status"
+                              className="rounded-xl border border-teal-300/20 bg-teal-300/5 p-4 mb-5"
+                            >
+                              <p className="text-xs text-teal-200 mb-2">
+                                תשובת המשתתף כעת
+                              </p>
+                              <p className="text-white whitespace-pre-wrap">
+                                {currentAnswer}
+                              </p>
+                            </div>
+                          )}
                         {/* Options Mirror */}
                         {currentStep.uiType === "structured-dialogue" && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -828,49 +857,40 @@ export default function CoachLiveSession({
                                   </span>
                                 </div>
                               )}
-
-                            {/* Pattern Revealed (Mirror of what the trainee sees) */}
-                            {sessionState?.answers?.[currentStep.id] &&
-                              currentStep.patternRevealed && (
-                                <div className="col-span-1 md:col-span-2 mt-2 p-5 rounded-2xl border bg-blue-500/10 border-blue-500/20 flex items-start gap-4">
-                                  <span className="w-8 h-8 shrink-0 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg">
-                                    💧
-                                  </span>
-                                  <div>
-                                    <h4 className="text-blue-400 font-bold text-sm tracking-widest uppercase mb-1">
-                                      השערה לבירור עם המשתתף
-                                    </h4>
-                                    <p className="text-xs text-neutral-300 mb-2">
-                                      כיוון אפשרי בלבד. שאלו: זה מתאים לחוויה
-                                      שלך, או שהמשמעות אחרת?
-                                    </p>
-                                    <p className="text-blue-100 font-medium text-lg">
-                                      {(() => {
-                                        const answer =
-                                          sessionState.answers[currentStep.id];
-                                        const optionsArray = visibleOptions;
-                                        const answerIdx =
-                                          optionsArray.indexOf(answer);
-                                        if (answerIdx !== -1) {
-                                          const patterns =
-                                            currentStep.patternRevealed?.[
-                                              sessionState.environment as keyof typeof currentStep.patternRevealed
-                                            ];
-                                          return patterns
-                                            ? patterns[answerIdx]
-                                            : "";
-                                        }
-                                        return "זו תשובה במילים שלו. שאלו מה היא אומרת עבורו, בלי לייחס לה מנגנון מראש.";
-                                      })()}
-                                    </p>
-                                  </div>
-                                </div>
-                              )}
                           </div>
                         )}
                       </div>
                     )}
 
+                  {insight && (
+                    <section
+                      className="rounded-2xl border border-indigo-300/25 bg-indigo-400/5 p-6"
+                      aria-label="הבנה מקצועית לבירור"
+                    >
+                      <p className="text-xs text-indigo-200 mb-2">
+                        {insight.kind === "hypothesis"
+                          ? "השערה לבירור, לא מסקנה"
+                          : insight.kind === "readiness"
+                            ? "מוכנות וקצב"
+                            : "מה עדיין צריך להתברר"}
+                      </p>
+                      <h3 className="font-bold text-xl mb-3">
+                        {insight.title}
+                      </h3>
+                      <p className="text-indigo-100 leading-relaxed">
+                        {insight.explanation}
+                      </p>
+                      {insight.evidence && (
+                        <p className="mt-3 text-sm text-neutral-300 whitespace-pre-wrap">
+                          מתוך התשובות שנמסרו: {insight.evidence}
+                        </p>
+                      )}
+                      <p className="mt-4 text-sm text-indigo-200">
+                        <strong>מה לברר עכשיו: </strong>
+                        {insight.nextFocus}
+                      </p>
+                    </section>
+                  )}
                   {/* Coach Clinical Deep Dive (Only visible if step is active) */}
                   {currentStep &&
                     sessionState?.phase <= activePhases.length && (
@@ -1010,14 +1030,11 @@ export default function CoachLiveSession({
                                     return;
                                   setAdvancingExercise(true);
                                   try {
-                                    await updateDoc(
-                                      doc(db, "hc_live_sessions", sessionId),
-                                      {
-                                        phase: conversationPhase,
-                                        "answers.experiential_path":
-                                          "בחרנו להמשיך בשיחה ולבחור תמיכה, בלי התרגיל החווייתי",
-                                      },
-                                    );
+                                    await persistSession({
+                                      phase: conversationPhase,
+                                      "answers.experiential_path":
+                                        "בחרנו להמשיך בשיחה ולבחור תמיכה, בלי התרגיל החווייתי",
+                                    });
                                   } catch {
                                     setConnectionError(
                                       "המעבר לשיחה לא נשמר. אפשר לנסות שוב.",
@@ -1040,12 +1057,9 @@ export default function CoachLiveSession({
                                   ) {
                                     setAdvancingExercise(true);
                                     try {
-                                      await updateDoc(
-                                        doc(db, "hc_live_sessions", sessionId),
-                                        {
-                                          phase: sessionState.phase + 1,
-                                        },
-                                      );
+                                      await persistSession({
+                                        phase: sessionState.phase + 1,
+                                      });
                                     } catch (e) {
                                       console.error("Error advancing phase", e);
                                       setConnectionError(
@@ -1153,12 +1167,9 @@ export default function CoachLiveSession({
                   onClick={async () => {
                     if (sessionId) {
                       try {
-                        await updateDoc(
-                          doc(db, "hc_live_sessions", sessionId),
-                          {
-                            coachInjectedResource: power.id,
-                          },
-                        );
+                        await persistSession({
+                          coachInjectedResource: power.id,
+                        });
                       } catch (e) {
                         console.error("Error injecting resource", e);
                         setConnectionError("המשאב לא נשלח. אפשר לנסות שוב.");

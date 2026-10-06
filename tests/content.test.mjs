@@ -58,6 +58,73 @@ const { worldsData, goodPowersData } = await import(
   pathToFileURL(join(temporary, "worlds.mjs"))
 );
 const journey = await import(pathToFileURL(join(temporary, "journey.mjs")));
+for (const name of ["journeyAnswers", "sessionSummary"]) {
+  const source = readFileSync(
+    new URL(`../src/lib/${name}.ts`, import.meta.url),
+    "utf8",
+  );
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2023,
+    },
+  }).outputText;
+  writeFileSync(
+    join(temporary, `${name}.mjs`),
+    output.replace(
+      /from ["'](?:\.\.\/data\/|\.\/)(mechanisms|worlds|journeyAnswers)["']/g,
+      'from "./$1.mjs"',
+    ),
+  );
+}
+const { buildSessionSummary, weeklyExperiments } = await import(
+  pathToFileURL(join(temporary, "sessionSummary.mjs"))
+);
+test("shared takeaway never identifies a person by character and retains actual weekly agreement", () => {
+  assert.equal(
+    buildSessionSummary({ archetype: "bunny", answers: {} }).pattern,
+    undefined,
+  );
+  const fixture = {
+    status: "completed",
+    journeyStage: 2,
+    mechanismId: "procrastination",
+    resourceArchetype: goodPowersData[0].id,
+    answers: {
+      summary_pattern_id: "people-pleasing",
+      s2_step_8_new_action: "לבקש זמן לפני שאסכים",
+      s2_step_9_agreement: "רוצה להמשיך",
+      choice_moment: "בינתיים רוצה רק להתבונן",
+      homework: "פעמיים השבוע אבדוק מה אני רוצה לפני שאסכים",
+    },
+    blockerStrengthAfter: 6,
+  };
+  const summary = buildSessionSummary(fixture);
+  assert.equal(summary.pattern.title, "ריצוי");
+  assert.equal(summary.patternConfirmed, true);
+  assert.equal(summary.action, fixture.answers.s2_step_8_new_action);
+  assert.equal(summary.homework, fixture.answers.homework);
+  assert.equal(summary.choice, fixture.answers.choice_moment);
+  assert.equal(summary.resourceName, goodPowersData[0].name);
+  assert.equal(summary.afterIntensity, 6);
+  assert.equal(
+    buildSessionSummary({ ...fixture, status: "active", answers: {} }).status,
+    "choosing",
+  );
+  assert.equal(
+    buildSessionSummary({
+      ...fixture,
+      answers: { homework: "בינתיים בלי משימה — נברר יחד" },
+    }).noTask,
+    true,
+  );
+  for (const pattern of catalog.mechanisms)
+    assert.ok(
+      weeklyExperiments[pattern.id]?.includes("השבוע") ||
+        weeklyExperiments[pattern.id]?.includes("שבוע"),
+      pattern.id,
+    );
+});
 const sourceMap = JSON.parse(
   readFileSync(new URL("../docs/pattern-map.json", import.meta.url), "utf8"),
 );

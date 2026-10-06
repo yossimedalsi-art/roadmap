@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
+import CoachPauseAlert from "../components/CoachPauseAlert";
 import CoachLiveSession from "./CoachLiveSession";
 import HeartCompassLogo from "../components/HeartCompassLogo";
 import MechanismLibrary from "../components/MechanismLibrary";
@@ -54,6 +55,8 @@ export default function CoachDashboard({ user }: { user: User }) {
   const [readinessConfirmed, setReadinessConfirmed] = useState(false);
   const [sessionError, setSessionError] = useState("");
   const [startingSession, setStartingSession] = useState(false);
+  const [observedSessions, setObservedSessions] = useState<GuidedSession[]>([]);
+  const [pauseWatchError, setPauseWatchError] = useState(false);
 
   useEffect(() => {
     const traineesQuery = query(
@@ -77,6 +80,27 @@ export default function CoachDashboard({ user }: { user: User }) {
         setLoading(false);
         setSessionError("לא ניתן לטעון את המשתתפים כרגע.");
       },
+    );
+  }, [user.uid]);
+
+  useEffect(() => {
+    // One owner filter avoids composite indexes and keeps pause requests visible
+    // while the coach is browsing the dashboard or another participant's file.
+    const ownerSessions = query(
+      collection(db, "hc_live_sessions"),
+      where("coachId", "==", user.uid),
+    );
+    return onSnapshot(
+      ownerSessions,
+      (snapshot) => {
+        setObservedSessions(
+          snapshot.docs.map(
+            (entry) => ({ ...entry.data(), id: entry.id }) as GuidedSession,
+          ),
+        );
+        setPauseWatchError(false);
+      },
+      () => setPauseWatchError(true),
     );
   }, [user.uid]);
 
@@ -248,6 +272,20 @@ export default function CoachDashboard({ user }: { user: User }) {
           {sessionError}
         </p>
       )}
+      {pauseWatchError && (
+        <p
+          role="alert"
+          className="max-w-6xl mx-auto mb-4 rounded-xl border border-red-300/30 bg-red-400/10 p-4 text-red-200"
+        >
+          מעקב בקשות העצירה אינו מחובר כרגע. בדקו חיבור והרשאות; עד לחידוש
+          החיבור אין אישור לקבלת בקשות חדשות.
+        </p>
+      )}
+      <CoachPauseAlert
+        sessions={observedSessions}
+        trainees={trainees}
+        onOpen={setActiveSessionId}
+      />
       <MechanismLibrary
         selectedId={selectedMechanismId}
         onSelect={(mechanism) => setSelectedMechanismId(mechanism?.id)}

@@ -8,6 +8,9 @@ import ErrorBoundary from "./components/ErrorBoundary";
 const TraineeJourney = lazy(() => import("./pages/TraineeJourney"));
 const CoachAccess = lazy(() => import("./components/CoachAccess"));
 const DemoJourney = lazy(() => import("./pages/DemoJourney"));
+const SyncPreview = import.meta.env.DEV
+  ? lazy(() => import("./pages/SyncPreview"))
+  : null;
 const MechanismLibrary = import.meta.env.DEV
   ? lazy(() => import("./components/MechanismLibrary"))
   : null;
@@ -37,6 +40,9 @@ function App() {
               />
               <Route path="/coach" element={<CoachAccess />} />
               <Route path="/login" element={<CoachAccess />} />
+              {import.meta.env.DEV && SyncPreview && (
+                <Route path="/preview/sync" element={<SyncPreview />} />
+              )}
               {import.meta.env.DEV && MechanismLibrary && (
                 <Route
                   path="/preview/library"
