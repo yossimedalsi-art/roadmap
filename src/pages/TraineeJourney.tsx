@@ -26,12 +26,14 @@ import {
   stage3Phases,
   stage4Phases,
 } from "../data/journey";
-import { findMechanism } from "../data/mechanisms";
 import { chosenAction } from "../lib/journeyAnswers";
+import { eventAnswerKey, eventChoices } from "../lib/participantScreen";
+import { findMechanism } from "../data/mechanisms";
 import Backpack from "../components/Backpack";
 import JourneyMap from "../components/JourneyMap";
 import ParticipantDialog from "../components/ParticipantDialog";
 import SessionTakeaway from "../components/SessionTakeaway";
+import { printSessionSummary } from "../lib/summaryPrint";
 
 export type Session = {
   phase?: number;
@@ -239,6 +241,7 @@ export default function TraineeJourney({
   const phases = phasesFor(stage);
   const step = phases[phase - 1];
   const world = worldsData.find((item) => item.id === session?.environment);
+  const suggestion = findMechanism(session?.mechanismId);
   const character = world?.archetypes.find(
     (item) => item.id === session?.archetype,
   );
@@ -251,10 +254,6 @@ export default function TraineeJourney({
     worldsData
       .flatMap((item) => item.archetypes)
       .find((item) => item.id === session?.resourceArchetype);
-  const suggestion = findMechanism(session?.mechanismId);
-  // A character can represent several patterns. Never infer a pattern from its artwork.
-  const mechanism =
-    suggestion?.archetypeId === session?.archetype ? suggestion : undefined;
   const answer = step ? answers[step.id] : undefined;
   const replaceTitle = (title: string) =>
     title
@@ -691,14 +690,7 @@ export default function TraineeJourney({
                   אירוע אחד כפי שקרה. הדוגמאות רק עוזרות להתחיל.
                 </p>
                 <div className="grid gap-2 md:grid-cols-2">
-                  {(
-                    mechanism?.scenarios.map((item) => item.title) ||
-                    (character
-                      ? session.isYouthMode
-                        ? character.youthTriggers || character.triggers
-                        : character.triggers
-                      : [])
-                  ).map((event) => (
+                  {eventChoices(session).map((event) => (
                     <button
                       key={event}
                       disabled={saving}
@@ -707,7 +699,8 @@ export default function TraineeJourney({
                       onClick={() =>
                         save({
                           trigger: event,
-                          [`answers.${phases[1].id}`]: event,
+                          [`answers.${eventAnswerKey(stage)}`]: event,
+                          "answers.participant_screen": "event",
                         })
                       }
                     >
@@ -735,7 +728,8 @@ export default function TraineeJourney({
                     onClick={() =>
                       save({
                         trigger: draft.trim(),
-                        [`answers.${phases[1].id}`]: draft.trim(),
+                        [`answers.${eventAnswerKey(stage)}`]: draft.trim(),
+                        "answers.participant_screen": "event",
                       })
                     }
                     className="rounded-xl border border-white/20 px-4 py-3"
@@ -755,7 +749,7 @@ export default function TraineeJourney({
                     onClick={() =>
                       save({
                         trigger: "עוד לא ברור לי איזה אירוע מתאים",
-                        [`answers.${phases[1].id}`]:
+                        [`answers.${eventAnswerKey(stage)}`]:
                           "עוד לא ברור לי איזה אירוע מתאים",
                         phase: 3,
                       })
@@ -822,6 +816,62 @@ export default function TraineeJourney({
               <p className="text-sm text-slate-400 mb-7">
                 אין תשובה נכונה. אפשר לבחור ניסוח קרוב ולדייק אותו עם המנחה.
               </p>
+              {(step.id === "s2_step_3_interpretation" ||
+                step.id === "s3_step_2b_reaction") && (
+                <div className="mb-6 grid sm:grid-cols-2 gap-4 rounded-xl border border-teal-300/25 bg-teal-300/5 p-4">
+                  {step.id === "s3_step_2b_reaction" && (
+                    <label className="text-sm">
+                      איזה משפט עבר בראש לפני התגובה?
+                      <input
+                        key={answers.loop_meaning || ""}
+                        list="loop-meaning-options"
+                        className="hc-input mt-2 w-full"
+                        defaultValue={answers.loop_meaning || ""}
+                        placeholder="משפט משלך, או דוגמה מהרשימה"
+                        disabled={saving}
+                        onBlur={(e) => {
+                          if (e.target.value !== (answers.loop_meaning || ""))
+                            writeAnswer("loop_meaning", e.target.value);
+                        }}
+                      />
+                      <datalist id="loop-meaning-options">
+                        {[
+                          "אולי לא יקבלו אותי",
+                          "אני חייב להסתדר או להצליח",
+                          "אולי אין לי מקום או בחירה",
+                        ].map((value) => (
+                          <option key={value} value={value} />
+                        ))}
+                      </datalist>
+                    </label>
+                  )}
+                  <label className="text-sm">
+                    איזו הרגשה ליוותה את הרגע הזה?
+                    <input
+                      key={answers.loop_emotion || ""}
+                      list="loop-emotion-options"
+                      className="hc-input mt-2 w-full"
+                      defaultValue={answers.loop_emotion || ""}
+                      placeholder="במילים שלך, או דוגמה מהרשימה"
+                      disabled={saving}
+                      onBlur={(e) => {
+                        if (e.target.value !== (answers.loop_emotion || ""))
+                          writeAnswer("loop_emotion", e.target.value);
+                      }}
+                    />
+                    <datalist id="loop-emotion-options">
+                      {[
+                        "פחד או דאגה",
+                        "עצב או בדידות",
+                        "כעס או תסכול",
+                        "קשה לי לזהות כרגע",
+                      ].map((value) => (
+                        <option key={value} value={value} />
+                      ))}
+                    </datalist>
+                  </label>
+                </div>
+              )}
               {step.uiType === "meditation" ? (
                 <div className="rounded-2xl border border-indigo-300/20 bg-indigo-300/5 p-5">
                   <Shield className="h-8 w-8 text-indigo-200 mb-4" />
@@ -833,12 +883,54 @@ export default function TraineeJourney({
                     בהתבוננות. אין צורך לחפש זיכרון או להרגיש דבר מסוים. אם משהו
                     לא מתאים, נעצור ונחזור לחדר.
                   </p>
+                  <p className="mt-4 rounded-xl bg-indigo-200/10 p-4 leading-7 text-indigo-100">
+                    {step.id === "s3_step_4_meditation_prep"
+                      ? "לפני שמתחילים, בחר יחד עם המנחה דרך נוחה וסימן לעצירה. מצא דבר אחד בחדר שאפשר לחזור אליו במהלך התרגיל."
+                      : step.id === "s3_step_4_meditation_start"
+                        ? "בחר עוגן נוח כאן: מגע בכיסא, קול בחדר או דבר שאתה רואה. בדוק עם המנחה אם יש מקום להתבונן בהגנה, בלי צורך לשנות את התחושה."
+                        : step.id === "s3_step_5_meditation_child"
+                          ? "יחד עם המנחה, הקשב לחלק שמבקש הגנה: מה הוא צריך לקבל כדי שלא יהיה חייב לפעול בדרך המוכרת? אפשר לדבר עליו גם בלי דימוי."
+                          : step.id === "s3_step_6_meditation_release"
+                            ? "המנחה יבדוק איתך ועם החלק המגן אם יש נכונות לשחרר את הדרך הישנה, תוך שמירה על הצורך שלה. אין צורך להסכים לפני שזה מתאים."
+                            : "יחד עם המנחה, בדוק איזו איכות היית רוצה שתתפוס יותר מקום. לאחר מכן חזור לסביבה וחשוב על מצב קטן בחיים שבו אפשר לתת לה ביטוי."}
+                  </p>
                   {answers.meditation_permission ===
                   "מתאים לי להמשיך עם המנחה" ? (
                     <>
                       <p role="status" className="my-5 text-teal-200">
                         המנחה יוביל את הקצב. אפשר לעצור בכל רגע.
                       </p>
+                      {step.id === "s3_step_7_meditation_integration" && (
+                        <div className="my-5">
+                          <h3 className="font-bold mb-3">
+                            איזו איכות תרצה לקחת לכיוון החדש?
+                          </h3>
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            {[
+                              "בחירה מתוך הרצון שלי",
+                              "ביטחון להתמודד גם בלי ודאות",
+                              "שייכות לצד מקום לרצון שלי",
+                              "כבוד לעצמי גם כשאני טועה",
+                            ].map((quality) => (
+                              <button
+                                key={quality}
+                                disabled={saving}
+                                aria-pressed={answers.new_quality === quality}
+                                className={`rounded-xl border p-3 text-right ${answers.new_quality === quality ? "border-teal-300 bg-teal-300/15" : "border-white/20"}`}
+                                onClick={() =>
+                                  writeAnswer("new_quality", quality)
+                                }
+                              >
+                                {quality}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="mt-3 text-xs text-slate-300">
+                            אפשר גם להשאיר את הבחירה פתוחה. הבחירה אינה הוכחה
+                            שהדפוס סולק.
+                          </p>
+                        </div>
+                      )}
                       <details className="my-4">
                         <summary className="cursor-pointer text-sm">
                           מוזיקת רקע לבחירה
@@ -1088,7 +1180,7 @@ export default function TraineeJourney({
               </div>
               <button
                 aria-label="הדפסת סיכום"
-                onClick={() => window.print()}
+                onClick={() => printSessionSummary(session)}
                 className="print:hidden rounded-xl border border-white/15 p-3"
               >
                 <Download className="h-5 w-5" />

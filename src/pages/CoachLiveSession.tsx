@@ -15,7 +15,14 @@ import {
   Music,
 } from "lucide-react";
 import SessionTakeaway from "../components/SessionTakeaway";
-import { getCoachInsight } from "../lib/coachInsight";
+import {
+  resolveParticipantScreen,
+  eventAnswerKey,
+  eventChoices,
+} from "../lib/participantScreen";
+import { getCoachInsight, getCoachQuestions } from "../lib/coachInsight";
+import { buildSessionSummary } from "../lib/sessionSummary";
+import { printSessionSummary } from "../lib/summaryPrint";
 import HeartCompassLogo from "../components/HeartCompassLogo";
 import { worldsData, goodPowersData } from "../data/worlds";
 import {
@@ -149,19 +156,13 @@ export default function CoachLiveSession({
         : journeyStage === 2
           ? stage2Phases
           : journeyPhases;
-  const participantScreen =
-    sessionState?.answers?.participant_screen ||
-    (sessionState?.status === "completed"
-      ? "summary"
-      : (sessionState?.phase ?? 0) === 0
-        ? "welcome"
-        : sessionState?.phase === 1
-          ? "archetype"
-          : sessionState?.phase === 2
-            ? "event"
-            : (sessionState?.phase ?? 0) > activePhases.length
-              ? "choice"
-              : "question");
+  const participantScreen = resolveParticipantScreen(
+    sessionState || { phase: 0 },
+  );
+  const currentEvent =
+    sessionState?.trigger ||
+    sessionState?.answers?.[eventAnswerKey(journeyStage)];
+  const currentEventChoices = eventChoices(sessionState || { phase: 0 });
   const openingScreen = ["welcome", "world", "archetype", "event"].includes(
     participantScreen,
   );
@@ -257,8 +258,11 @@ export default function CoachLiveSession({
   const experientialConsent =
     sessionState?.answers?.meditation_permission === "מתאים לי להמשיך עם המנחה";
 
+  const meditationActive =
+    participantScreen === "meditation" && currentStep?.uiType === "meditation";
+
   const handlePrint = () => {
-    window.print();
+    if (sessionState) printSessionSummary(sessionState);
   };
 
   return (
@@ -317,14 +321,38 @@ export default function CoachLiveSession({
           {connectionError}
         </p>
       )}
-      {sessionState?.participantPause && (
-        <div
-          role="alert"
-          className="fixed bottom-4 left-4 right-4 z-40 max-w-4xl mx-auto rounded-2xl bg-[#123e3c] border-2 border-teal-200 text-white p-4 text-center shadow-2xl print:hidden"
+      {(sessionState?.participantPause || meditationActive) && (
+        <aside
+          className="fixed bottom-3 left-3 right-3 z-40 max-w-4xl mx-auto space-y-2 print:hidden"
+          aria-label="מצב המפגש כעת"
         >
-          המשתתף ביקש לעצור. עצרו את ההתקדמות, בררו מה מתאים לו וחזרו למשאב או
-          לסביבה. ההמשך בידיו.
-        </div>
+          {sessionState?.participantPause && (
+            <div
+              role="alert"
+              className="rounded-2xl bg-[#123e3c] border-2 border-teal-200 text-white p-3 shadow-2xl"
+            >
+              <p className="font-bold">המשתתף ביקש לעצור</p>
+              <p className="text-sm">
+                עצרו את ההתקדמות ובררו מה מתאים לו. ההמשך בידיו.
+              </p>
+            </div>
+          )}
+          {meditationActive && (
+            <div
+              role="alert"
+              className="rounded-2xl bg-[#473553] border-2 border-fuchsia-200 text-white p-3 shadow-2xl"
+            >
+              <p className="font-bold">נכנסנו להתבוננות חווייתית עם המנחה</p>
+              <p className="text-sm mt-1">{stepTitle}</p>
+              <p className="text-sm mt-1">
+                {experientialConsent
+                  ? "המשתתף אישר להמשיך עם המנחה; אפשר לעצור בכל רגע."
+                  : "ממתינים לרצון מפורש של המשתתף לפני ההתקדמות."}{" "}
+                מוזיקה היא בחירה אפשרית בלבד.
+              </p>
+            </div>
+          )}
+        </aside>
       )}
       {mechanism && (
         <div className="px-6 py-3 text-sm text-teal-200 bg-teal-400/5">
@@ -334,7 +362,9 @@ export default function CoachLiveSession({
       )}
       <main className="flex-1 flex p-4 md:p-6 gap-6 lg:h-[calc(100vh-90px)] lg:overflow-hidden print:h-auto print:overflow-visible max-w-7xl mx-auto w-full">
         {/* Right Panel: Answers Map */}
-        <section className="hidden lg:flex w-80 flex-col gap-4 overflow-y-auto custom-scrollbar print:hidden">
+        <section
+          className={`${previewSession ? "hidden" : "hidden lg:flex"} w-80 shrink-0 flex-col gap-4 overflow-y-auto custom-scrollbar print:hidden`}
+        >
           <div className="bg-[#11131a] rounded-2xl border border-white/5 shadow-2xl p-6">
             <h3 className="text-amber-500 font-bold mb-4 flex items-center gap-2">
               מפת תשובות עד כה
@@ -479,79 +509,46 @@ export default function CoachLiveSession({
             </div>
           )}
 
-          {/* Blocker / Goal Map — live sidebar */}
-          <div className="bg-[#11131a] rounded-2xl border border-white/5 shadow-2xl p-6">
-            <h3 className="text-amber-500 font-bold mb-4 text-sm tracking-widest uppercase flex items-center gap-2">
-              {journeyStage === 4 ? "🎯 מפת המטרה" : "🔄 מעגל החסם"}
-            </h3>
-            <div className="flex flex-col gap-2">
-              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-xs text-neutral-500 block mb-1">
-                  {journeyStage === 4
-                    ? "המטרה"
-                    : journeyStage === 3
-                      ? "הטריגר שהעיר את התגובה"
-                      : "מחשבה (פרשנות)"}
-                </span>
-                <span className="text-white text-sm font-medium break-words">
-                  {journeyStage === 4
-                    ? sessionState?.answers?.["s4_step_1_what_i_want"] || "—"
-                    : journeyStage === 3
-                      ? sessionState?.answers?.["s3_step_1_trigger"] ||
-                        sessionState?.trigger ||
-                        "—"
-                      : sessionState?.answers?.["step_6_thought"] ||
-                        sessionState?.answers?.["s2_step_3_interpretation"] ||
-                        sessionState?.trigger ||
-                        "—"}
-                </span>
+          <div className="bg-[#11131a] rounded-2xl border border-white/5 p-6">
+            <h3 className="text-amber-400 font-bold mb-4">המעגל במפגש הזה</h3>
+            <ol className="space-y-3">
+              {buildSessionSummary(sessionState || {}).loop.map((part) => (
+                <li key={part.id} className="rounded-xl bg-black/30 p-3">
+                  <p className="text-xs text-teal-200 mb-1">{part.label}</p>
+                  <p className="text-sm">{part.value || "נשאר פתוח לבירור"}</p>
+                </li>
+              ))}
+            </ol>
+            {journeyStage === 3 && (
+              <div className="mt-4 space-y-2 text-sm">
+                <p>
+                  מה ההגנה נותנת:{" "}
+                  {sessionState?.answers?.s3_step_2_secondary_gain ||
+                    "טרם נאמר"}
+                </p>
+                <p>
+                  הצורך שחשוב לשמור:{" "}
+                  {sessionState?.answers?.s3_step_3_need || "טרם נאמר"}
+                </p>
               </div>
-              <div className="text-amber-500 text-center text-lg">↓</div>
-              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-xs text-neutral-500 block mb-1">
-                  {journeyStage === 4
-                    ? "כוחות"
-                    : journeyStage === 3
-                      ? "מה ניסתה התגובה להשיג"
-                      : "רגש / נקודה רגישה"}
-                </span>
-                <span className="text-white text-sm font-medium break-words">
-                  {journeyStage === 4
-                    ? sessionState?.answers?.["s4_step_2_capability"] || "—"
-                    : journeyStage === 3
-                      ? sessionState?.answers?.["s3_step_2_secondary_gain"] ||
-                        "—"
-                      : sessionState?.answers?.["step_3_feeling"] ||
-                        sessionState?.answers?.["s2_step_4_sensitive_spot"] ||
-                        "—"}
-                </span>
+            )}
+            {journeyStage === 4 && (
+              <div className="mt-4 space-y-2 text-sm">
+                <p>
+                  המטרה:{" "}
+                  {sessionState?.answers?.s4_step_1_what_i_want || "בבירור"}
+                </p>
+                <p>
+                  הצעד: {sessionState?.answers?.s4_step_6_action || "בבירור"}
+                </p>
               </div>
-              <div className="text-amber-500 text-center text-lg">↓</div>
-              <div className="bg-black/40 p-3 rounded-xl border border-white/5">
-                <span className="text-xs text-neutral-500 block mb-1">
-                  {journeyStage === 4
-                    ? "חסם"
-                    : journeyStage === 3
-                      ? "הצורך במילים שלו"
-                      : "תגובה אוטומטית"}
-                </span>
-                <span className="text-white text-sm font-medium break-words">
-                  {journeyStage === 4
-                    ? sessionState?.answers?.["s4_step_4_secondary_gain"] || "—"
-                    : journeyStage === 3
-                      ? sessionState?.answers?.["s3_step_3_need"] || "—"
-                      : sessionState?.answers?.["step_5_urge"] ||
-                        sessionState?.answers?.["s2_step_5_reaction"] ||
-                        "—"}
-                </span>
-              </div>
-            </div>
+            )}
           </div>
         </section>
 
         {/* Center Panel: Live Flow */}
-        <section className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar print:overflow-visible">
-          <div className="bg-[#11131a] rounded-2xl p-6 border border-white/5 shadow-2xl flex items-center justify-between print:hidden">
+        <section className="min-w-0 flex-1 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar print:overflow-visible">
+          <div className="bg-[#11131a] rounded-2xl p-6 border border-white/5 shadow-2xl flex flex-wrap gap-4 items-center justify-between print:hidden">
             <div>
               <h2 className="text-xl font-bold mb-1 text-white">
                 שליטה וסנכרון סשן חי
@@ -560,8 +557,8 @@ export default function CoachLiveSession({
                 המסך שלך מסונכרן בזמן אמת למסך הנער.
               </p>
             </div>
-            <div className="flex items-center gap-2 bg-black/40 p-2 rounded-xl border border-white/5">
-              <div className="flex gap-4 items-center">
+            <div className="max-w-full min-w-0 flex items-center gap-2 bg-black/40 p-2 rounded-xl border border-white/5">
+              <div className="min-w-0 flex flex-wrap gap-4 items-center">
                 <button
                   onClick={onBack}
                   className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition border border-white/10"
@@ -569,7 +566,7 @@ export default function CoachLiveSession({
                 >
                   חזור לתיק
                 </button>
-                <div className="text-amber-500 font-mono text-sm tracking-wider">
+                <div className="min-w-0 break-all text-amber-500 font-mono text-sm tracking-wider">
                   {magicLink}
                 </div>
                 <button
@@ -606,7 +603,9 @@ export default function CoachLiveSession({
               <p>צור סשן כדי להתחיל מעקב</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-8 pb-20">
+            <div
+              className={`flex flex-col gap-8 ${sessionState?.participantPause || meditationActive ? "pb-64" : "pb-20"}`}
+            >
               {/* Pre-session panel: shown while trainee hasn't chosen a world yet */}
               {(sessionState?.phase ?? 0) <= 1 &&
                 sessionState?.previousAgreement && (
@@ -818,14 +817,46 @@ export default function CoachLiveSession({
                           <p className="text-sm text-teal-50 mb-2">
                             {chosenArchetype?.name || "אפשר להתבונן בלי דמות"}
                           </p>
-                          <p className="text-white whitespace-pre-wrap">
-                            {sessionState.trigger ||
-                              "ממתינים לאירוע שהמשתתף יבחר או ינסח."}
+                          <h3 className="font-bold text-xl text-white mb-3">
+                            מה קרה במציאות?
+                          </h3>
+                          <p className="text-sm text-teal-50 mb-4">
+                            אירוע אחד כפי שקרה. הדוגמאות רק עוזרות להתחיל.
                           </p>
-                          <p className="mt-3 text-sm text-teal-50">
-                            נבחר רגע אחד ונפריד בין מה שנאמר או נעשה לבין
-                            המשמעות שניתנה לו.
-                          </p>
+                          <div className="grid md:grid-cols-2 gap-3">
+                            {currentEventChoices.map((event) => (
+                              <div
+                                key={event}
+                                className={`rounded-xl p-3 border ${currentEvent === event ? "border-teal-200 bg-teal-200/20" : "border-white/20 bg-black/15"}`}
+                              >
+                                <p className="text-white">{event}</p>
+                                {currentEvent === event && (
+                                  <p className="text-xs text-teal-100 mt-2">
+                                    נבחר בידי המשתתף
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-4 rounded-xl border border-white/20 p-3">
+                            <p className="text-xs text-teal-100 mb-1">
+                              האירוע שנשלח
+                            </p>
+                            <p className="text-white whitespace-pre-wrap">
+                              {currentEvent ||
+                                "ממתינים לאירוע שהמשתתף יבחר או ינסח."}
+                            </p>
+                          </div>
+                          {sessionState.answers?.character_meaning && (
+                            <div className="mt-3 text-white">
+                              <p className="text-xs text-teal-100 mb-1">
+                                המשמעות במילים שלו
+                              </p>
+                              <p className="whitespace-pre-wrap">
+                                {sessionState.answers.character_meaning}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </section>
@@ -1036,6 +1067,31 @@ export default function CoachLiveSession({
                         <strong>מה לברר עכשיו: </strong>
                         {insight.nextFocus}
                       </p>
+                      {sessionState?.answers?.new_quality && (
+                        <p className="mt-4 text-teal-100">
+                          <strong>האיכות שנבחרה לכיוון החדש: </strong>
+                          {sessionState.answers.new_quality}
+                        </p>
+                      )}
+                    </section>
+                  )}
+                  {(currentStep?.id === "s2_step_3_interpretation" ||
+                    currentStep?.id === "s3_step_2b_reaction") && (
+                    <section className="rounded-xl border border-teal-200/30 bg-teal-300/5 p-4">
+                      <h3 className="font-bold text-teal-200 mb-2">
+                        השלמת המיפוי במסך המשתתף
+                      </h3>
+                      {currentStep.id === "s3_step_2b_reaction" && (
+                        <p>
+                          המשפט לפני התגובה:{" "}
+                          {sessionState?.answers?.loop_meaning ||
+                            "פתוח לבירור בשיחה"}
+                        </p>
+                      )}
+                      <p>
+                        ההרגשה שליוותה את הרגע:{" "}
+                        {sessionState?.answers?.loop_emotion || "טרם נבחרה"}
+                      </p>
                     </section>
                   )}
                   {/* Coach Clinical Deep Dive (Only visible if step is active) */}
@@ -1070,19 +1126,20 @@ export default function CoachLiveSession({
                                 <Ear className="w-4 h-4" /> שאלות להעמקה עכשיו
                               </h4>
                               <ul className="space-y-3">
-                                {currentStep.coachDeepeningQuestions.map(
-                                  (q, i) => (
-                                    <li
-                                      key={i}
-                                      className="text-white font-medium text-lg flex items-start gap-2"
-                                    >
-                                      <span className="text-amber-500 mt-1">
-                                        ›
-                                      </span>{" "}
-                                      {q}
-                                    </li>
-                                  ),
-                                )}
+                                {getCoachQuestions(
+                                  currentStep,
+                                  currentAnswer,
+                                ).map((q, i) => (
+                                  <li
+                                    key={i}
+                                    className="text-white font-medium text-lg flex items-start gap-2"
+                                  >
+                                    <span className="text-amber-500 mt-1">
+                                      ›
+                                    </span>{" "}
+                                    {q}
+                                  </li>
+                                ))}
                               </ul>
                             </div>
                           )}
@@ -1104,8 +1161,10 @@ export default function CoachLiveSession({
                                 <HeartPulse className="w-4 h-4" /> עוגן גופני
                               </h4>
                               <p className="text-neutral-300 text-base mb-6">
-                                שאל איפה בגוף הוא מרגיש את התשובה הזו. אם מתאים
-                                לו, אפשר גם להתבונן בתחושה בלי לשנות אותה.
+                                {currentStep.uiType === "meditation" ||
+                                currentStep.id === "step_4_somatic"
+                                  ? "חזרו לעוגן שנוח למשתתף: מגע בכיסא, קול או דבר שרואים בחדר. בדקו אם הקשב אליו עוזר להישאר נוכח; אין צורך לפרש את התחושה."
+                                  : "אין צורך להוסיף שאלה על הגוף בכל תחנה. אם קשה להישאר בשיחה, אפשר להציע הפוגה או לחזור למשאב שבחר המשתתף."}
                               </p>
 
                               {showResourceAlert && (

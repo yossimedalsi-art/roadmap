@@ -12,6 +12,9 @@ for (const [folder, name] of [
   ["data", "worlds"],
   ["lib", "journeyAnswers"],
   ["lib", "sessionSummary"],
+  ["lib", "summaryPrint"],
+  ["data", "journey"],
+  ["lib", "participantScreen"],
 ]) {
   const output = ts.transpileModule(
     readFileSync(
@@ -28,7 +31,7 @@ for (const [folder, name] of [
   writeFileSync(
     join(temporary, `${name}.mjs`),
     output.replace(
-      /from ["'](?:\.\.\/data\/|\.\/)(mechanisms|worlds|journeyAnswers)["']/g,
+      /from ["'](?:\.\.\/data\/|\.\/)(mechanisms|worlds|journeyAnswers|sessionSummary|journey)["']/g,
       'from "./$1.mjs"',
     ),
   );
@@ -37,67 +40,86 @@ after(() => rmSync(temporary, { recursive: true, force: true }));
 const { buildSessionSummary } = await import(
   pathToFileURL(join(temporary, "sessionSummary.mjs"))
 );
-const task = "לפני בקשה אחת השבוע אבדוק מה אני רוצה";
-const proposal = { homework_proposal: task, homework_proposal_id: "v1" };
-const approved = {
-  ...proposal,
-  homework_approved_text: task,
-  homework_approved_id: "v1",
-  homework_confirmation: "approved",
-};
+const { summaryPrintHtml } = await import(
+  pathToFileURL(join(temporary, "summaryPrint.mjs"))
+);
+const { resolveParticipantScreen, eventAnswerKey, eventChoices } = await import(
+  pathToFileURL(join(temporary, "participantScreen.mjs"))
+);
 
-test("coach proposal and legacy homework cannot become a participant-approved assignment", () => {
-  for (const answers of [
-    proposal,
-    { homework: task },
-    { ...proposal, homework_confirmation: "approved" },
-  ]) {
-    const summary = buildSessionSummary({ answers });
-    assert.equal(summary.homeworkApproved, false);
-    assert.equal(summary.homework, undefined);
-    assert.equal(summary.proposal, task);
-  }
-});
-test("approval refers to exact wording and revision, not just a yes flag", () => {
-  assert.equal(buildSessionSummary({ answers: approved }).homework, task);
-  for (const changes of [
-    { homework_proposal: "משימה חדשה" },
-    { homework_proposal_id: "v2" },
-    { homework_approved_text: "טקסט שונה" },
-    { homework_approved_id: "" },
-  ]) {
-    assert.equal(
-      buildSessionSummary({ answers: { ...approved, ...changes } })
-        .homeworkApproved,
-      false,
-    );
-  }
-  // Returning to the same text after an edit still needs a fresh participant choice.
-  assert.equal(
-    buildSessionSummary({
-      answers: { ...approved, homework_proposal_id: "v3" },
-    }).homework,
-    undefined,
+test("all stages produce an automatic task without an approval field", () => {
+  const tasks = [1, 2, 3, 4].map((journeyStage) =>
+    buildSessionSummary({ journeyStage, mechanismId: "perfectionism" }),
   );
+  assert.equal(new Set(tasks.map((summary) => summary.homework)).size, 4);
+  for (const summary of tasks) {
+    assert.ok(summary.homework.length > 70);
+    assert.ok(summary.reflection);
+  }
+  assert.match(tasks[0].homework, /אין צורך לשנות/);
+  assert.match(tasks[1].homework, /הסבר אפשרי נוסף/);
+  assert.match(tasks[2].practice.review, /עבודת העומק ממשיכים עם המנחה/);
 });
-test("participant may explicitly choose no task; later proposal does not silently keep that choice", () => {
-  const answers = {
-    ...proposal,
-    homework_confirmation: "none",
-    homework_approved_text: "",
-    homework_approved_id: "v1",
+test("different session choices produce different exercises in the same stage", () => {
+  const request = buildSessionSummary({
+    journeyStage: 2,
+    answers: { s2_step_8_new_action: "להגיד בקשה או גבול במילים שלי" },
+  });
+  const experiment = buildSessionSummary({
+    journeyStage: 2,
+    answers: { s2_step_8_new_action: "לעשות צעד לכיוון משהו שאני רוצה" },
+  });
+  assert.notEqual(request.homework, experiment.homework);
+  assert.match(request.homework, /אמור בקשה או גבול/);
+  assert.match(experiment.homework, /פעולה של חמש דקות/);
+  const time = buildSessionSummary({
+    journeyStage: 4,
+    answers: { s4_step_6_action: "זמן קצר שאקדיש לדבר שבחרתי" },
+  });
+  const help = buildSessionSummary({
+    journeyStage: 4,
+    answers: { s4_step_6_action: "בקשת עזרה או מידע שחסר לי" },
+  });
+  assert.notEqual(time.homework, help.homework);
+});
+test("integration includes the actual new quality and support, while skipped depth never becomes release", () => {
+  const session = {
+    journeyStage: 3,
+    resourceArchetype: "power_listen",
+    answers: {
+      meditation_permission: "מתאים לי להמשיך עם המנחה",
+      new_quality: "בחירה מתוך הרצון שלי",
+      s3_step_9_new_contract: "לתת יותר מקום לרצון שלי לצד הפחד",
+    },
   };
-  const declined = buildSessionSummary({ answers });
-  assert.equal(declined.noTask, true);
-  assert.equal(declined.homework, undefined);
-  assert.equal(declined.proposal, undefined);
-  assert.equal(
-    buildSessionSummary({ answers: { ...answers, homework_proposal_id: "v2" } })
-      .noTask,
-    false,
-  );
+  const summary = buildSessionSummary(session);
+  assert.match(summary.homework, /בחירה מתוך הרצון שלי/);
+  assert.match(summary.homework, /מה היית רוצה אם לא היית צריך להוכיח/);
+  assert.doesNotMatch(summary.reflection, /הדפוס סולק/);
+  const skipped = buildSessionSummary({
+    ...session,
+    answers: { ...session.answers, meditation_permission: "לא עכשיו" },
+  });
+  assert.match(skipped.practice.review, /עבודת העומק ממשיכים עם המנחה/);
+  assert.doesNotMatch(skipped.homework, /האיכות שבחרת/);
 });
-test("summary loop retains observed answers and never invents an uncaptured result or emotion", () => {
+test("manual adjustment replaces the automatic task without approval, old approval metadata does not block it", () => {
+  const text = "לפני בקשה אחת השבוע אבדוק מה אני רוצה";
+  const summary = buildSessionSummary({
+    answers: {
+      homework_proposal: text,
+      homework_proposal_id: "new",
+      homework_approved_id: "old",
+      homework_confirmation: "none",
+    },
+  });
+  assert.equal(summary.homework, text);
+  const reset = buildSessionSummary({
+    answers: { homework_proposal: "", homework: "" },
+  });
+  assert.match(reset.homework, /בשני רגעים השבוע/);
+});
+test("the core loop has exactly four parts; uncaptured feeling is not invented from a need", () => {
   const result = buildSessionSummary({
     journeyStage: 2,
     trigger: "חבר ביקש עזרה",
@@ -105,53 +127,125 @@ test("summary loop retains observed answers and never invents an uncaptured resu
       s2_step_3_interpretation: "חששתי שיכעס",
       s2_step_5_reaction: "אמרתי כן",
       s2_step_4_sensitive_spot: "לשמור על קשר",
-      session_takeaway: "מותר לי לבדוק גם מה אני רוצה",
+      loop_consequence: "אחרי",
+      loop_result_meaning: "אחר כך",
+      session_takeaway: "אפשר לבדוק גם מה אני רוצה",
     },
   });
-  assert.equal(
-    result.loop.find((part) => part.id === "event").value,
-    "חבר ביקש עזרה",
+  assert.deepEqual(
+    result.loop.map((part) => part.id),
+    ["event", "meaning", "emotion", "reaction"],
   );
+  assert.equal(result.loop[2].value, undefined);
+  assert.equal(result.takeaway, "אפשר לבדוק גם מה אני רוצה");
   assert.equal(
-    result.loop.find((part) => part.id === "meaning").value,
-    "חששתי שיכעס",
-  );
-  assert.equal(
-    result.loop.find((part) => part.id === "emotion").value,
+    buildSessionSummary({
+      journeyStage: 4,
+      answers: { s4_step_6_action: "להתחיל מחר" },
+    }).loop[3].value,
     undefined,
   );
-  assert.equal(
-    result.loop.find((part) => part.id === "reaction").value,
-    "אמרתי כן",
-  );
-  assert.equal(
-    result.loop.find((part) => part.id === "consequence").value,
-    undefined,
-  );
-  assert.equal(result.takeaway, "מותר לי לבדוק גם מה אני רוצה");
 });
-test("recorded consequence closes the actual loop while goals are not relabeled as past behavior", () => {
-  const result = buildSessionSummary({
-    journeyStage: 4,
-    trigger: "הציעו לי תפקיד",
+test("print document contains the entire summary and escapes participant text", () => {
+  const html = summaryPrintHtml({
+    journeyStage: 1,
+    mechanismId: "people-pleasing",
+    trigger: '<script>alert("x")</script>',
     answers: {
-      s4_step_1_what_i_want: "ליצור משהו",
-      s4_step_6_action: "להתחיל מחר",
-      loop_consequence: "החבר אמר שאפשר לחשוב",
-      loop_result_meaning: "אפשר לקחת זמן",
+      step_6_thought: "אולי לא יקבלו אותי",
+      step_3_feeling: "כעס או תסכול",
+      step_5_urge: "הסכמתי למרות שרציתי אחרת",
+      session_takeaway: "אפשר לבחור",
     },
   });
+  for (const value of [
+    "ריצוי",
+    "המעגל שביררנו",
+    "מה לקחנו להמשך",
+    "התרגול שלי לשבוע",
+    "אפשר לבחור",
+    "למפגש הבא",
+  ])
+    assert.ok(html.includes(value), value);
+  assert.ok(html.includes("&lt;script&gt;"));
+  assert.ok(!html.includes("<script>"));
+  assert.doesNotMatch(html, /overflow:\s*hidden|height:\s*100vh/);
+});
+test("actual phase overrides stale metadata for events and meditation", () => {
   assert.equal(
-    result.loop.find((part) => part.id === "reaction").value,
-    undefined,
+    resolveParticipantScreen({
+      journeyStage: 3,
+      phase: 2,
+      answers: { participant_screen: "question" },
+    }),
+    "event",
   );
   assert.equal(
-    result.loop.find((part) => part.id === "consequence").value,
-    "החבר אמר שאפשר לחשוב",
+    resolveParticipantScreen({
+      journeyStage: 3,
+      phase: 7,
+      answers: { participant_screen: "event" },
+    }),
+    "meditation",
   );
   assert.equal(
-    result.loop.find((part) => part.id === "resultMeaning").value,
-    "אפשר לקחת זמן",
+    resolveParticipantScreen({ status: "completed", phase: 7 }),
+    "summary",
   );
-  assert.equal(result.homework, undefined);
+  assert.equal(
+    resolveParticipantScreen({
+      phase: 0,
+      answers: { participant_screen: "world" },
+    }),
+    "world",
+  );
+  assert.equal(eventAnswerKey(3), "s3_step_1_trigger");
+  assert.deepEqual(eventChoices({}), []);
+  assert.ok(
+    eventChoices({
+      environment: "fairies",
+      archetype: "perfection_fairy",
+      isYouthMode: true,
+    }).length > 0,
+  );
+  assert.deepEqual(
+    eventChoices({
+      environment: "fairies",
+      archetype: "perfection_fairy",
+      isYouthMode: true,
+      mechanismId: "people-pleasing",
+    }),
+    eventChoices({
+      environment: "fairies",
+      archetype: "perfection_fairy",
+      isYouthMode: true,
+    }),
+  );
+});
+
+test("final observation choice does not turn an earlier action into compulsory practice", () => {
+  const session = {
+    journeyStage: 2,
+    answers: {
+      s2_step_8_new_action: "להגיד בקשה או גבול במילים שלי",
+      choice_moment: "בינתיים רוצה רק להתבונן",
+    },
+  };
+  assert.doesNotMatch(
+    buildSessionSummary(session).homework,
+    /אמור בקשה או גבול/,
+  );
+});
+test("personal actions and actual support survive task generation", () => {
+  for (const journeyStage of [2, 4]) {
+    const key =
+      journeyStage === 2 ? "s2_step_8_new_action" : "s4_step_6_action";
+    const summary = buildSessionSummary({
+      journeyStage,
+      resourceArchetype: "power_listen",
+      answers: { [key]: "לבקש עשר דקות לסיים את היצירה" },
+    });
+    assert.match(summary.homework, /לבקש עשר דקות לסיים את היצירה/);
+    assert.match(summary.homework, /הקשבה/);
+  }
 });

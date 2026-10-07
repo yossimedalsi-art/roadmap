@@ -26,7 +26,7 @@ for (const [file, name] of [
 }
 after(() => rmSync(directory, { recursive: true, force: true }));
 const data = await import(pathToFileURL(join(directory, "journey.mjs")));
-const { getCoachInsight } = await import(
+const { getCoachInsight, getCoachQuestions } = await import(
   pathToFileURL(join(directory, "coachInsight.mjs"))
 );
 const steps = [
@@ -143,4 +143,18 @@ test("visible progress cannot substitute for independent motive", () => {
   });
   assert.match(result.explanation, /גם פעולה שנראית כהתקדמות/);
   assert.match(result.explanation, /גם כאשר אחרים אינם משבחים/);
+});
+
+test("answered emotion prompts explore meaning and action, unknown answers do not force an explanation", () => {
+  const questions = getCoachQuestions(step("step_3_feeling"), "כעס או תסכול");
+  assert.match(questions[0], /גבול, רצון או ציפייה/);
+  assert.doesNotMatch(questions.join(" "), /איך אתה מתאר|עוד רגשות/);
+  assert.equal(
+    getCoachQuestions(step("step_3_feeling"), "קשה לי לזהות כרגע").length,
+    1,
+  );
+  assert.match(
+    getCoachQuestions(step("step_3_feeling"), "פחד או דאגה")[0],
+    /מה חששת שיקרה/,
+  );
 });

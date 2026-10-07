@@ -236,12 +236,19 @@ button:disabled {
     background: white !important;
     box-shadow: none !important;
     border-color: #cbd5e1 !important;
-    break-inside: avoid;
+    break-inside: auto;
   }
   .hc-participant section p,
   .hc-participant section span,
   .hc-participant section h1,
   .hc-participant section h2 {
     color: #111827 !important;
+  }
+  .session-takeaway li {
+    break-inside: avoid;
+  }
+  .session-takeaway h2,
+  .session-takeaway h3 {
+    break-after: avoid;
   }
 }

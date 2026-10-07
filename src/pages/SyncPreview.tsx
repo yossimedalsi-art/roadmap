@@ -52,6 +52,70 @@ export default function SyncPreview() {
       </div>
       <div className="hc-shell p-4 flex flex-wrap gap-3 items-center">
         <strong>בדיקת שני מסכים · סיפור בדיוני בזיכרון · ללא Firebase</strong>
+        {[1, 2, 3, 4].map((stage) => (
+          <button
+            key={stage}
+            className="hc-button-secondary"
+            onClick={() =>
+              setSession({
+                ...seed,
+                status: "completed",
+                journeyStage: stage,
+                phase: 13,
+                resourceArchetype: "power_listen",
+                trigger: "חבר ביקש ממני להצטרף למרות שרציתי לסיים יצירה",
+                answers: {
+                  participant_screen: "summary",
+                  step_6_thought: "אולי לא יקבלו אותי",
+                  step_3_feeling: "כעס או תסכול",
+                  step_5_urge: "הסכמתי למרות שרציתי אחרת",
+                  step_7_protection: "לשמור על קשר או קבלה",
+                  s2_step_3_interpretation: "מצפים ממני ולא כדאי לאכזב",
+                  s2_step_5_reaction: "הסכמתי או לקחתי על עצמי עוד",
+                  s2_step_8_new_action: "להגיד בקשה או גבול במילים שלי",
+                  meditation_permission: "מתאים לי להמשיך עם המנחה",
+                  s3_step_9_new_contract: "לתת יותר מקום לרצון שלי לצד הפחד",
+                  new_quality: "שייכות לצד מקום לרצון שלי",
+                  s4_step_1_what_i_want: "ללמוד או ליצור משהו שמעניין אותי",
+                  s4_step_6_action: "זמן קצר שאקדיש לדבר שבחרתי",
+                  session_takeaway: "אפשר לתת מקום לרצון שלי גם בתוך קשר",
+                },
+              })
+            }
+          >
+            סיכום · שלב {stage}
+          </button>
+        ))}
+        <button
+          className="hc-button-secondary"
+          onClick={() =>
+            setSession({
+              ...seed,
+              journeyStage: 3,
+              phase: 2,
+              environment: "fairies",
+              archetype: "perfection_fairy",
+              mechanismId: null,
+              trigger: null,
+              answers: { participant_screen: "question" },
+            })
+          }
+        >
+          סילוק · בחירת אירוע
+        </button>
+        <button
+          className="hc-button-secondary"
+          onClick={() =>
+            setSession({
+              ...seed,
+              journeyStage: 3,
+              phase: 7,
+              answers: { participant_screen: "event" },
+            })
+          }
+        >
+          סילוק · מדיטציה
+        </button>
         <button
           className="hc-button-secondary"
           onClick={() =>

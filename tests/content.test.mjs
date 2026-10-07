@@ -116,13 +116,7 @@ test("shared takeaway never identifies a person by character and retains actual 
     buildSessionSummary({ ...fixture, status: "active", answers: {} }).status,
     "choosing",
   );
-  assert.equal(
-    buildSessionSummary({
-      ...fixture,
-      answers: { homework_confirmation: "none", homework_approved_id: "" },
-    }).noTask,
-    true,
-  );
+  assert.ok(buildSessionSummary({ ...fixture, answers: {} }).homework);
   for (const pattern of catalog.mechanisms)
     assert.ok(
       weeklyExperiments[pattern.id]?.includes("השבוע") ||
