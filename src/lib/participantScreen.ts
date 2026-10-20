@@ -72,7 +72,15 @@ export function scenarioQuestionTitle(
 ) {
   const scenario = findScenario(mechanismId, trigger);
   if (!scenario) return fallback;
-  return stepId === "step_6_thought" || stepId === "s2_step_3_interpretation"
-    ? scenario.meaningQuestion
-    : fallback;
+  if (stepId === "step_6_thought" || stepId === "s2_step_3_interpretation")
+    return scenario.meaningQuestion;
+  if (
+    [
+      "step_9_resource_action",
+      "s2_step_8_new_action",
+      "s4_step_6_action",
+    ].includes(stepId)
+  )
+    return scenario.actionQuestion;
+  return fallback;
 }

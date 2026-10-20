@@ -22,6 +22,8 @@ export type Mechanism = {
     context: "school" | "friends" | "home" | "online" | "goals";
     meaningQuestion: string;
     meaningOptions: string[];
+    actionQuestion: string;
+    actionOptions: string[];
   }>;
 };
 export const patternMapSource = {
@@ -637,6 +639,15 @@ export const mechanisms: Mechanism[] = seeds.map(
           scenarioContent[id].prompts[index][1],
           scenarioContent[id].prompts[index][2],
         ],
+        actionQuestion: scenarioContent[id].prompts[index][3],
+        actionOptions: [
+          ...new Set([
+            scenarioContent[id].prompts[index][4],
+            ...scenarioContent[id].actions,
+          ]),
+        ]
+          .slice(0, 3)
+          .concat(["להתבונן לפני בחירת פעולה", "עדיין לא לבחור פעולה"]),
       }),
     ),
   }),

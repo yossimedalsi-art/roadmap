@@ -296,3 +296,34 @@ test("the interpretation follows the chosen trigger and pattern instead of a gen
   );
   assert.equal(catalog.findScenario(undefined, "סיפור במילים שלי"), undefined);
 });
+
+test("the second demo question and first concrete action also follow the selected trigger", () => {
+  const questions = new Set();
+  for (const mechanism of catalog.mechanisms) {
+    assert.equal(
+      new Set(mechanism.scenarios.map((s) => s.actionQuestion)).size,
+      4,
+      mechanism.id,
+    );
+    assert.equal(
+      new Set(mechanism.scenarios.map((s) => s.actionOptions[0])).size,
+      4,
+      mechanism.id,
+    );
+    for (const scenario of mechanism.scenarios) {
+      assert.ok(scenario.actionQuestion.endsWith("?"));
+      assert.ok(scenario.actionOptions[0].length > 10);
+      assert.equal(
+        new Set(scenario.actionOptions).size,
+        scenario.actionOptions.length,
+      );
+      assert.ok(scenario.actionOptions.includes("עדיין לא לבחור פעולה"));
+      questions.add(scenario.actionQuestion);
+    }
+  }
+  assert.equal(questions.size, 124);
+  const scenarios = catalog.findMechanism("perfectionism").scenarios;
+  assert.match(scenarios[0].actionQuestion, /טיוטה/);
+  assert.match(scenarios[2].actionQuestion, /צילום/);
+  assert.notEqual(scenarios[0].actionOptions[0], scenarios[2].actionOptions[0]);
+});

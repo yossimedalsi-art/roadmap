@@ -91,14 +91,14 @@ export default function DemoJourney() {
   return (
     <div className="hc-shell" dir="rtl">
       <header className="hc-site-header sticky top-0 z-30 bg-[#0b161b] border-b border-white/10">
-        <Link
-          to="/"
+        <a
+          href="https://www.heartcompass.co.il"
           className="flex items-center gap-3 text-amber-200"
           aria-label="מצפן הלב — דף הבית"
         >
           <HeartCompassLogo size={32} />
           <span className="text-white font-bold">מצפן הלב</span>
-        </Link>
+        </a>
         <div className="flex items-center gap-3">
           <span className="hc-badge">היכרות דרך סיפור</span>
           <button className="hc-link" onClick={() => setPaused(true)}>
@@ -142,7 +142,9 @@ export default function DemoJourney() {
                     : "מה קרה לאורי?",
                   scenario?.meaningQuestion ||
                     "איזו משמעות יכולה להיות לרגע הזה?",
-                  mechanism?.actionQuestion || "מה עוד אפשרי כאן?",
+                  scenario?.actionQuestion ||
+                    mechanism?.actionQuestion ||
+                    "מה עוד אפשרי כאן?",
                   "מה לקחתי מההיכרות?",
                 ][step]
               }
@@ -347,7 +349,11 @@ export default function DemoJourney() {
                   יכול להישאר נוכח בלי להחליט לבדו.
                 </p>
                 <div className="space-y-2">
-                  {(mechanism?.actionOptions || []).map((option) => (
+                  {(
+                    scenario?.actionOptions ||
+                    mechanism?.actionOptions ||
+                    []
+                  ).map((option) => (
                     <button
                       key={option}
                       aria-pressed={action === option}
@@ -424,9 +430,9 @@ export default function DemoJourney() {
                   >
                     <RotateCcw size={18} /> סיפור נוסף
                   </button>
-                  <Link className="hc-button" to="/">
+                  <a className="hc-button" href="https://www.heartcompass.co.il">
                     חזרה למצפן הלב <ArrowLeft size={18} />
-                  </Link>
+                  </a>
                 </div>
               </>
             )}
