@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { MotionConfig } from "framer-motion";
 import Home from "./pages/Home";
 import ToSGate from "./components/ToS";
@@ -70,9 +70,9 @@ function App() {
                       <h1 className="text-3xl font-bold mb-4">
                         העמוד הזה לא נמצא
                       </h1>
-                      <Link className="hc-button" to="/">
+                      <a className="hc-button" href="https://www.heartcompass.co.il">
                         חזרה למצפן הלב
-                      </Link>
+                      </a>
                     </div>
                   </div>
                 }

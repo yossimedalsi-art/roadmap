@@ -19,16 +19,14 @@ export default function Home() {
   return (
     <div className="hc-shell" dir="rtl">
       <header className="hc-site-header">
-        <Link
-          to="/"
-          aria-label="מצפן הלב — דף הבית"
+        <a href="https://www.heartcompass.co.il" aria-label="מצפן הלב — דף הבית"
           className="flex items-center gap-3 text-amber-200"
         >
           <HeartCompassLogo size={36} />
           <span className="font-bold text-white">
             מצפן הלב <span className="text-slate-400 font-normal">/ מ.ס.ע</span>
           </span>
-        </Link>
+        </a>
         <Link to="/coach" className="hc-link">
           <Headset size={17} /> מרחב המנחה
         </Link>
