@@ -8,6 +8,7 @@ import ts from "typescript";
 
 const temporary = mkdtempSync(join(tmpdir(), "msa-summary-"));
 for (const [folder, name] of [
+  ["data", "scenarioContent"],
   ["data", "mechanisms"],
   ["data", "worlds"],
   ["lib", "journeyAnswers"],
@@ -31,7 +32,7 @@ for (const [folder, name] of [
   writeFileSync(
     join(temporary, `${name}.mjs`),
     output.replace(
-      /from ["'](?:\.\.\/data\/|\.\/)(mechanisms|worlds|journeyAnswers|sessionSummary|journey)["']/g,
+      /from ["'](?:\.\.\/data\/|\.\/)(mechanisms|scenarioContent|worlds|journeyAnswers|sessionSummary|journey)["']/g,
       'from "./$1.mjs"',
     ),
   );
@@ -43,9 +44,12 @@ const { buildSessionSummary } = await import(
 const { summaryPrintHtml } = await import(
   pathToFileURL(join(temporary, "summaryPrint.mjs"))
 );
-const { resolveParticipantScreen, eventAnswerKey, eventChoices } = await import(
-  pathToFileURL(join(temporary, "participantScreen.mjs"))
-);
+const {
+  scenarioQuestionTitle,
+  resolveParticipantScreen,
+  eventAnswerKey,
+  eventChoices,
+} = await import(pathToFileURL(join(temporary, "participantScreen.mjs")));
 
 test("all stages produce an automatic task without an approval field", () => {
   const tasks = [1, 2, 3, 4].map((journeyStage) =>
@@ -248,4 +252,41 @@ test("personal actions and actual support survive task generation", () => {
     assert.match(summary.homework, /לבקש עשר דקות לסיים את היצירה/);
     assert.match(summary.homework, /הקשבה/);
   }
+});
+
+test("coach and participant can share the event-specific meaning title without overriding an unknown personal event", () => {
+  const fallback = "מה הבנת מהאירוע?";
+  const draft = scenarioQuestionTitle(
+    "step_6_thought",
+    fallback,
+    "perfectionism",
+    "התבקשתי להציג טיוטה",
+  );
+  const photo = scenarioQuestionTitle(
+    "s2_step_3_interpretation",
+    fallback,
+    "perfectionism",
+    "נפתחה אפשרות לשתף צילום שלי",
+  );
+  assert.match(draft, /טיוטה/);
+  assert.match(photo, /צילום/);
+  assert.notEqual(draft, photo);
+  assert.equal(
+    scenarioQuestionTitle(
+      "step_3_feeling",
+      "מה הרגשתי?",
+      "perfectionism",
+      "התבקשתי להציג טיוטה",
+    ),
+    "מה הרגשתי?",
+  );
+  assert.equal(
+    scenarioQuestionTitle(
+      "step_6_thought",
+      fallback,
+      "perfectionism",
+      "אירוע אישי אחר",
+    ),
+    fallback,
+  );
 });

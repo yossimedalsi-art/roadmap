@@ -1,3 +1,5 @@
+import { scenarioContent } from "./scenarioContent";
+
 export type Mechanism = {
   id: string;
   title: string;
@@ -12,10 +14,14 @@ export type Mechanism = {
   domain: "מול עצמי" | "מול אחרים";
   emotionGroup: string;
   manifestations?: string[];
+  actionQuestion: string;
+  actionOptions: string[];
   scenarios: Array<{
     id: string;
     title: string;
     context: "school" | "friends" | "home" | "online" | "goals";
+    meaningQuestion: string;
+    meaningOptions: string[];
   }>;
 };
 export const patternMapSource = {
@@ -606,24 +612,44 @@ export const mechanisms: Mechanism[] = seeds.map(
     manifestations:
       id === "drama" ? ["כעס", "ריחוק", "ניתוק", "אובר רגשות"] : undefined,
     description: descriptions[id],
+    actionQuestion: scenarioContent[id].actionQuestion,
+    actionOptions: [
+      ...scenarioContent[id].actions,
+      "להתבונן לפני בחירת פעולה",
+      "עדיין לא לבחור פעולה",
+    ],
     protectiveIntent,
     possibleCost,
     openingQuestion,
     questions: [
       openingQuestion,
-      "מה המשמעות של זה עבורך באירוע שבחרת?",
+      scenarioContent[id].actionQuestion,
       "מה חשוב לך לשמור, ומה תרצה שיהיה אפשר לבחור אחרת?",
       "איזה כוח, תמיכה או צעד מתאימים לך עכשיו?",
     ],
-    scenarios: events.map(([eventTitle, context], index) => ({
-      id: `${id}_${index + 1}`,
-      title: eventTitle,
-      context,
-    })),
+    scenarios: [...events, scenarioContent[id].additionalEvent].map(
+      ([eventTitle, context], index) => ({
+        id: `${id}_${index + 1}`,
+        title: eventTitle,
+        context,
+        meaningQuestion: scenarioContent[id].prompts[index][0],
+        meaningOptions: [
+          scenarioContent[id].prompts[index][1],
+          scenarioContent[id].prompts[index][2],
+        ],
+      }),
+    ),
   }),
 );
 export const findMechanism = (id: string | undefined | null) =>
   mechanisms.find((mechanism) => mechanism.id === id);
+export const findScenario = (
+  mechanismId: string | undefined | null,
+  event: string | undefined | null,
+) =>
+  findMechanism(mechanismId)?.scenarios.find(
+    (scenario) => scenario.title === event || scenario.id === event,
+  );
 export const getMechanismsForArchetype = (id: string | undefined | null) =>
   mechanisms.filter((mechanism) => mechanism.archetypeId === id);
 // Compatibility only. Selecting a character never establishes the first linked pattern.

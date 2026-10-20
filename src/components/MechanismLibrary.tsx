@@ -118,7 +118,10 @@ export default function MechanismLibrary({
         aria-live="polite"
         className="text-xs text-neutral-400 my-3"
       >
-        {results.length === 1 ? "כיוון אחד לבירור" : `${results.length} כיוונים לבירור`} · ההצעה אינה אבחון
+        {results.length === 1
+          ? "כיוון אחד לבירור"
+          : `${results.length} כיוונים לבירור`}{" "}
+        · ההצעה אינה אבחון
       </p>
       {results.length === 0 ? (
         <div className="rounded-xl border border-dashed border-white/20 p-6 text-neutral-300">
@@ -171,14 +174,19 @@ export default function MechanismLibrary({
                     <strong className="text-white">אירועים לפתיחת שיחה</strong>
                     <ul className="list-disc list-inside mt-1 space-y-1">
                       {mechanism.scenarios.map((s) => (
-                        <li key={s.id}>{s.title}</li>
+                        <li key={s.id}>
+                          <strong>{s.title}</strong>
+                          <p className="mt-1 text-teal-200">
+                            {s.meaningQuestion}
+                          </p>
+                        </li>
                       ))}
                     </ul>
                   </div>
                   <div>
                     <strong className="text-white">שאלות לבירור</strong>
                     <ul className="list-disc list-inside mt-1 space-y-1">
-                      {mechanism.questions.map((q) => (
+                      {mechanism.questions.slice(1).map((q) => (
                         <li key={q}>{q}</li>
                       ))}
                     </ul>

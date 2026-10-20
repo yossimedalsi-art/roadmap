@@ -19,6 +19,7 @@ import {
   resolveParticipantScreen,
   eventAnswerKey,
   eventChoices,
+  scenarioQuestionTitle,
 } from "../lib/participantScreen";
 import { getCoachInsight, getCoachQuestions } from "../lib/coachInsight";
 import { buildSessionSummary } from "../lib/sessionSummary";
@@ -212,7 +213,7 @@ export default function CoachLiveSession({
   const sessionCompleted = sessionState?.status === "completed";
   const awaitingChoice =
     !sessionCompleted && (sessionState?.phase ?? 0) > activePhases.length;
-  const stepTitle = currentStep
+  const baseStepTitle = currentStep
     ? (sessionState?.isYouthMode && currentStep.youthTraineeTitle
         ? currentStep.youthTraineeTitle
         : currentStep.traineeTitle
@@ -232,6 +233,14 @@ export default function CoachLiveSession({
           sessionState?.answers?.s3_step_2_secondary_gain ||
             "מה שההגנה מנסה להשיג",
         )
+    : "";
+  const stepTitle = currentStep
+    ? scenarioQuestionTitle(
+        currentStep.id,
+        baseStepTitle,
+        sessionState?.mechanismId,
+        currentEvent,
+      )
     : "";
   const insight = currentStep
     ? getCoachInsight({

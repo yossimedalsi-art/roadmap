@@ -4,7 +4,7 @@ import {
   stage3Phases,
   stage4Phases,
 } from "../data/journey";
-import { findMechanism } from "../data/mechanisms";
+import { findMechanism, findScenario } from "../data/mechanisms";
 import { worldsData } from "../data/worlds";
 
 type ScreenSession = {
@@ -60,4 +60,19 @@ export function eventChoices(session: ScreenSession) {
       ? character.youthTriggers || character.triggers
       : character.triggers
     : [];
+}
+
+// Both screens use the same event-bound wording. Unknown personal events keep an
+// open question instead of inheriting the first suggested scenario's meaning.
+export function scenarioQuestionTitle(
+  stepId: string,
+  fallback: string,
+  mechanismId?: string | null,
+  trigger?: string | null,
+) {
+  const scenario = findScenario(mechanismId, trigger);
+  if (!scenario) return fallback;
+  return stepId === "step_6_thought" || stepId === "s2_step_3_interpretation"
+    ? scenario.meaningQuestion
+    : fallback;
 }

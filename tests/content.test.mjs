@@ -37,7 +37,7 @@ test("unresolved answers cannot become a commitment, while self-chosen observati
 
 // Transpile the actual data modules, not duplicated implementations.
 const temporary = mkdtempSync(join(tmpdir(), "msa-content-"));
-for (const name of ["mechanisms", "worlds", "journey"]) {
+for (const name of ["scenarioContent", "mechanisms", "worlds", "journey"]) {
   const source = readFileSync(
     new URL(`../src/data/${name}.ts`, import.meta.url),
     "utf8",
@@ -50,7 +50,10 @@ for (const name of ["mechanisms", "worlds", "journey"]) {
   }).outputText;
   writeFileSync(
     join(temporary, `${name}.mjs`),
-    output.replace(/from ["']\.\/mechanisms["']/g, 'from "./mechanisms.mjs"'),
+    output.replace(
+      /from ["']\.\/(mechanisms|scenarioContent)["']/g,
+      'from "./$1.mjs"',
+    ),
   );
 }
 const catalog = await import(pathToFileURL(join(temporary, "mechanisms.mjs")));
@@ -243,4 +246,53 @@ test("journey IDs remain compatible with stored sessions and youth choice meanin
   assert.ok(ids.has("step_10_integration"));
   assert.ok(ids.has("s3_step_9_new_contract"));
   assert.ok(ids.has("s4_step_6_action"));
+});
+
+test("every canonical pattern has four stable events with distinct event-specific meaning prompts", () => {
+  const allQuestions = new Set();
+  assert.equal(catalog.mechanisms.length, 31);
+  for (const mechanism of catalog.mechanisms) {
+    assert.equal(mechanism.scenarios.length, 4, mechanism.title);
+    assert.deepEqual(
+      mechanism.scenarios.map((s) => s.id),
+      [1, 2, 3, 4].map((index) => `${mechanism.id}_${index}`),
+    );
+    assert.equal(new Set(mechanism.scenarios.map((s) => s.title)).size, 4);
+    assert.equal(
+      new Set(mechanism.scenarios.map((s) => s.meaningQuestion)).size,
+      4,
+    );
+    for (const scenario of mechanism.scenarios) {
+      assert.ok(scenario.meaningQuestion.endsWith("?"), scenario.id);
+      assert.ok(!allQuestions.has(scenario.meaningQuestion), scenario.id);
+      allQuestions.add(scenario.meaningQuestion);
+      assert.equal(scenario.meaningOptions.length, 2);
+      assert.notEqual(scenario.meaningOptions[0], scenario.meaningOptions[1]);
+      assert.equal(
+        catalog.findScenario(mechanism.id, scenario.title),
+        scenario,
+      );
+      assert.equal(catalog.findScenario(mechanism.id, scenario.id), scenario);
+    }
+    assert.ok(mechanism.actionQuestion.endsWith("?"));
+    assert.ok(mechanism.actionOptions.includes("עדיין לא לבחור פעולה"));
+  }
+  assert.equal(allQuestions.size, 124);
+});
+test("the interpretation follows the chosen trigger and pattern instead of a generic script", () => {
+  const perfection = catalog.findMechanism("perfectionism");
+  assert.match(perfection.scenarios[0].meaningQuestion, /טיוטה/);
+  assert.match(perfection.scenarios[2].meaningQuestion, /צילום/);
+  assert.notDeepEqual(
+    perfection.scenarios[0].meaningOptions,
+    perfection.scenarios[2].meaningOptions,
+  );
+  const pleasing = catalog.findMechanism("people-pleasing");
+  assert.match(pleasing.scenarios[3].meaningQuestion, /אסרב.*תוכנית.*חבר/);
+  assert.notDeepEqual(pleasing.actionOptions, perfection.actionOptions);
+  assert.equal(
+    catalog.findScenario("perfectionism", pleasing.scenarios[3].title),
+    undefined,
+  );
+  assert.equal(catalog.findScenario(undefined, "סיפור במילים שלי"), undefined);
 });

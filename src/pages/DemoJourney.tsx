@@ -8,7 +8,11 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { findMechanism, searchMechanisms } from "../data/mechanisms";
+import {
+  findMechanism,
+  findScenario,
+  searchMechanisms,
+} from "../data/mechanisms";
 import { goodPowersData, worldsData } from "../data/worlds";
 import HeartCompassLogo from "../components/HeartCompassLogo";
 import ParticipantDialog from "../components/ParticipantDialog";
@@ -20,13 +24,6 @@ const stepNames = [
   "משמעות",
   "אפשרות",
   "מה לקחתי",
-];
-const actionOptions = [
-  "לעצור לרגע ולהתבונן",
-  "לשאול שאלה במקום להניח",
-  "לנסות צעד קטן",
-  "לבקש תמיכה",
-  "עדיין לא לבחור פעולה",
 ];
 const motiveOptions = [
   "משהו שחשוב לאורי",
@@ -52,6 +49,7 @@ export default function DemoJourney() {
   const [paused, setPaused] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const mechanism = findMechanism(mechanismId);
+  const scenario = findScenario(mechanismId, event);
   const character = characterFor(mechanism?.archetypeId);
   const resource = goodPowersData.find((item) => item.id === resourceId);
   const results = searchMechanisms(query);
@@ -69,6 +67,21 @@ export default function DemoJourney() {
     setAction("");
     setMotive("");
     setPaused(false);
+  }
+  function chooseEvent(nextEvent: string) {
+    if (nextEvent !== event) {
+      setMeaning("");
+      setAction("");
+      setMotive("");
+    }
+    setEvent(nextEvent);
+  }
+  function chooseMeaning(nextMeaning: string) {
+    if (nextMeaning !== meaning) {
+      setAction("");
+      setMotive("");
+    }
+    setMeaning(nextMeaning);
   }
   const selected = (yes: boolean) =>
     "rounded-2xl border p-4 text-right transition " +
@@ -124,9 +137,12 @@ export default function DemoJourney() {
                 [
                   "מה יכול לתמוך בדרך?",
                   "איזה מחסום נבדוק בסיפור של אורי?",
-                  "מה קרה לאורי, לפני הפרשנות?",
-                  "איזו משמעות יכולה להיות לרגע הזה?",
-                  "מה עוד אפשרי כאן?",
+                  mechanism
+                    ? `איזה רגע נבדוק סביב ״${mechanism.title}״?`
+                    : "מה קרה לאורי?",
+                  scenario?.meaningQuestion ||
+                    "איזו משמעות יכולה להיות לרגע הזה?",
+                  mechanism?.actionQuestion || "מה עוד אפשרי כאן?",
                   "מה לקחתי מההיכרות?",
                 ][step]
               }
@@ -250,7 +266,7 @@ export default function DemoJourney() {
                         selected(event === scenario.title) + " block w-full"
                       }
                       key={scenario.id}
-                      onClick={() => setEvent(scenario.title)}
+                      onClick={() => chooseEvent(scenario.title)}
                       aria-pressed={event === scenario.title}
                     >
                       {scenario.title}
@@ -272,18 +288,16 @@ export default function DemoJourney() {
                   {event}
                 </blockquote>
                 <p className="text-slate-300 mb-5">
-                  האירוע הוא מה שקרה. המשמעות היא המחשבה שאורי נותן למה שקרה: מה
-                  זה אומר מבחינתו עליו או על המצב? אותה עובדה יכולה לקבל כמה
-                  משמעויות.
+                  נכנסים לרגע לנקודת המבט של אורי: מה הוא עשוי להבין מהאירוע
+                  הזה? הדפוס שבחרת הוא כיוון לבדיקה. אפשר לתת לאותו אירוע משמעות
+                  אחרת.
                 </p>
                 <fieldset className="space-y-3 mb-6">
                   <legend className="text-sm text-amber-200 mb-3">
-                    אפשר לבחור מחשבה אפשרית, או לנסח אחרת
+                    מחשבות אפשריות של אורי, בגוף ראשון · אפשר גם לנסח אחרת
                   </legend>
                   {[
-                    "אולי לא יהיה לי מקום כאן",
-                    "אולי מצפים ממני ואאכזב אותם",
-                    "זו הזדמנות לנסות משהו, גם אם עדיין לא ברור איך",
+                    ...(scenario?.meaningOptions || []),
                     "עדיין לא ברור מה אורי מבין מזה",
                   ].map((option) => (
                     <button
@@ -291,14 +305,14 @@ export default function DemoJourney() {
                       key={option}
                       aria-pressed={meaning === option}
                       className={selected(meaning === option) + " w-full"}
-                      onClick={() => setMeaning(option)}
+                      onClick={() => chooseMeaning(option)}
                     >
                       {option}
                     </button>
                   ))}
                 </fieldset>
                 <label htmlFor="demo-meaning" className="block text-sm mb-2">
-                  המשמעות במילים שלך
+                  מחשבה אפשרית של אורי במילים שלך
                 </label>
                 <textarea
                   id="demo-meaning"
@@ -306,7 +320,7 @@ export default function DemoJourney() {
                   value={meaning}
                   maxLength={500}
                   placeholder="אפשר לכתוב משפט, או להמשיך בלי תשובה."
-                  onChange={(e) => setMeaning(e.target.value)}
+                  onChange={(e) => chooseMeaning(e.target.value)}
                 />
                 <div className="flex flex-wrap gap-3 mt-6">
                   <button className="hc-button" onClick={() => setStep(4)}>
@@ -320,17 +334,28 @@ export default function DemoJourney() {
             )}
             {step === 4 && (
               <>
+                <blockquote className="hc-panel p-5 mb-5 text-slate-200">
+                  {event}
+                </blockquote>
+                {meaning.trim() && (
+                  <p className="text-amber-200 mb-4">
+                    המשמעות שבחרת לבדוק: ״{meaning}״
+                  </p>
+                )}
                 <p className="text-slate-300 mb-5">
                   מה היית מציע לאורי לנסות? אפשר גם לבחור להתבונן בלבד. השומר
                   יכול להישאר נוכח בלי להחליט לבדו.
                 </p>
                 <div className="space-y-2">
-                  {actionOptions.map((option) => (
+                  {(mechanism?.actionOptions || []).map((option) => (
                     <button
                       key={option}
                       aria-pressed={action === option}
                       className={selected(action === option) + " w-full"}
-                      onClick={() => setAction(option)}
+                      onClick={() => {
+                        if (option !== action) setMotive("");
+                        setAction(option);
+                      }}
                     >
                       {option}
                     </button>
@@ -338,7 +363,9 @@ export default function DemoJourney() {
                 </div>
                 <fieldset className="mt-7">
                   <legend className="text-sm mb-3 text-slate-200">
-                    מאיזה מקום עשויה לבוא ההצעה הזאת?
+                    {action
+                      ? `מה עשוי להניע את הבחירה של אורי ב״${action}״?`
+                      : "מה עשוי להניע את הצעד שאורי יבחר?"}
                   </legend>
                   <div className="flex flex-wrap gap-2">
                     {motiveOptions.map((option) => (

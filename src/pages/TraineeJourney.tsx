@@ -27,7 +27,11 @@ import {
   stage4Phases,
 } from "../data/journey";
 import { chosenAction } from "../lib/journeyAnswers";
-import { eventAnswerKey, eventChoices } from "../lib/participantScreen";
+import {
+  eventAnswerKey,
+  eventChoices,
+  scenarioQuestionTitle,
+} from "../lib/participantScreen";
 import { findMechanism } from "../data/mechanisms";
 import Backpack from "../components/Backpack";
 import JourneyMap from "../components/JourneyMap";
@@ -272,10 +276,15 @@ export default function TraineeJourney({
   const buttonClass =
     "inline-flex items-center justify-center gap-2 rounded-xl bg-teal-300 px-6 py-3 font-bold text-slate-950 transition hover:bg-teal-200 disabled:cursor-wait disabled:opacity-40";
   const title = step
-    ? replaceTitle(
-        session?.isYouthMode && step.youthTraineeTitle
-          ? step.youthTraineeTitle
-          : step.traineeTitle,
+    ? scenarioQuestionTitle(
+        step.id,
+        replaceTitle(
+          session?.isYouthMode && step.youthTraineeTitle
+            ? step.youthTraineeTitle
+            : step.traineeTitle,
+        ),
+        session?.mechanismId,
+        session?.trigger || answers[eventAnswerKey(stage)],
       )
     : "";
 
